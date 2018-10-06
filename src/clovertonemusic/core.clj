@@ -13,22 +13,18 @@
     (doall
      (csv/read-csv reader))))
 
-(defn get-charts
-  [charts-from-file]
-  (reduce (fn [final-charts chart]
-            (into final-charts chart))
-          [] charts-from-file))
-
+(defn create-zipmap
+  [[header-row & body-rows]]
+  (reduce
+   (fn [saved-rows next-row]
+     (conj saved-rows (zipmap (map keyword header-row) next-row)))
+   [] body-rows))
 
 (defn -main
   "<Description to be filled in>"
   [& args]
-  (def charts (get-charts (extract-from-csv "charts.csv")))
-  (def composers (get-charts (extract-from-csv "composers.csv")))
-  (def genres (get-charts (extract-from-csv "genres.csv")))
-  (def grades (get-charts (extract-from-csv "grades.csv")))
-
-  (println charts)
-  (println composers)
-  (println genres)
-  (println grades))
+  (def charts (create-zipmap (extract-from-csv "charts.csv")))
+  (def composers (create-zipmap (extract-from-csv "composers.csv")))
+  (def genres (create-zipmap (extract-from-csv "genres.csv")))
+  (def grades (create-zipmap (extract-from-csv "grades.csv")))
+)
