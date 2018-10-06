@@ -24,7 +24,8 @@
    [] body-rows))
 
 (defn -main
-  "<Description to be filled in>"
+  "At startup, the server creates a map called `catalogue` which consists of four tables
+  corresponding to charts, composers, genres, and keys"
   [& args]
   (def catalogue
     (reduce
