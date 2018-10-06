@@ -13,7 +13,8 @@
     (doall
      (csv/read-csv reader))))
 
-(defn create-zipmap
+(defn create-table
+  "Creates a 'table' from the given data implemented as a vector of zipmaps"
   [[header-row & body-rows]]
   (reduce
    (fn [saved-rows next-row]
@@ -23,8 +24,8 @@
 (defn -main
   "<Description to be filled in>"
   [& args]
-  (def charts (create-zipmap (extract-from-csv "charts.csv")))
-  (def composers (create-zipmap (extract-from-csv "composers.csv")))
-  (def genres (create-zipmap (extract-from-csv "genres.csv")))
-  (def grades (create-zipmap (extract-from-csv "grades.csv")))
+  (def charts (create-table (extract-from-csv "charts.csv")))
+  (def composers (create-table (extract-from-csv "composers.csv")))
+  (def genres (create-table (extract-from-csv "genres.csv")))
+  (def grades (create-table (extract-from-csv "grades.csv")))
 )
