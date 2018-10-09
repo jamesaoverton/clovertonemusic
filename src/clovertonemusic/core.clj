@@ -2,10 +2,47 @@
   (:gen-class))
 
 (require '[clojure.data.csv :as csv]
-         '[clojure.java.io :as io])
+         '[clojure.java.io :as io]
+         '[clojure.tools.logging :as log])
 
 (def csv-path "data/catalogue")
-
+(def catalogue-table-names ["composers" "genres" "grades" "charts"])
+(def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
+  {:composers {(keyword "Date Created")  "y/datetime/"
+               (keyword "Date Modified") "y/datetime/"
+               :Name                     "y/string/"
+               :Filename                 "y/string/"
+               :Notes                    "n/string/"}
+   :genres {(keyword "Date Created")     "y/datetime/"
+            (keyword "Date Modified")    "y/datetime/"
+            :Name                        "y/string/"
+            :Filename                    "y/string/"
+            :Notes                       "n/string/"}
+   :grades {(keyword "Date Created")     "y/datetime/"
+            (keyword "Date Modified")    "y/datetime/"
+            :Number                      "y/number/"
+            :Name                        "y/string/"
+            :Filename                    "y/string/"
+            :Notes                       "n/string/"}
+   :charts {(keyword "Date Created")     "y/datetime/"
+            (keyword "Date Modified")    "y/datetime/"
+            :Number                      "y/number/"
+            :Name                        "y/string/"
+            :Filename                    "y/string/"
+            :Notes                       "n/string/"
+            :Genre                       "y/string/genres-name"
+            :Composer                    "y/string/composers-name"
+            :Grade                       "y/number/grades-number"
+            :Category                    "y/string/"
+            :Price                       "y/money/"
+            :Recorded                    "n/number/"
+            :Featured                    "y/number/"
+            :Duration                    "n/time/"
+            :Meter                       "n/ratio/"
+            :Tempo                       "n/number/"
+            (keyword "Band Type")        "n/string/"
+            :Master                      "n/number/"
+            :Project                     "n/string/"}})
 
 (defn extract-from-csv
   [filename]
@@ -23,18 +60,39 @@
        (conj saved-rows (zipmap (map keyword header-row) next-row))))
    [] body-rows))
 
+(defn load-catalogue
+  "<Say something here>"
+  []
+  (reduce
+   (fn [result-map next-key]
+     (try
+       (log/info "Loading" next-key)
+       (assoc result-map
+              (keyword next-key)
+              (create-table (extract-from-csv (str next-key ".csv"))))
+       (catch Exception ex
+         (log/fatal (str "Error while parsing " next-key ".csv: " (.getMessage ex)))
+         (System/exit 1))))
+   {} catalogue-table-names))
+
+(defn validate-catalogue
+  "<Say something here>"
+  [catalogue]
+  ; this function should not use hard-coded values but at the top of this file we should
+  ; have a `data definition' map that defines the restrictions on each column
+  (loop [[curr-table & remaining-tables] (keys catalogue)]
+    (log/info "Validating" (name curr-table))
+    (loop [[curr-row & remaining-rows] (get catalogue curr-table)]
+      (log/info "Validating row" curr-row)
+      (println "This row has columns:" (keys curr-row))
+      (when (not (empty? remaining-rows))
+        (recur remaining-rows)))
+    (when (not (empty? remaining-tables))
+      (recur remaining-tables))))
+
 (defn -main
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
   [& args]
-  (def catalogue
-    (reduce
-     (fn [result-map next-key]
-       (try
-         (assoc result-map
-                (keyword next-key)
-                (create-table (extract-from-csv (str next-key ".csv"))))
-         (catch Exception ex
-           (println (str "Error while parsing " next-key ".csv: " (.getMessage ex)))
-           (System/exit 1))))
-     {} ["charts" "composers" "genres" "grades"])))
+  (def catalogue (load-catalogue))
+  (validate-catalogue catalogue))

@@ -4,7 +4,8 @@
   :license {:name "TBD"
             :url "TBD"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/data.csv "0.1.4"]]
+                 [org.clojure/data.csv "0.1.4"]
+                 [org.clojure/tools.logging "0.4.1"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
