@@ -82,7 +82,6 @@
   (let [[required datatype foreign-key] (str/split (get (get catalogue-table-constraints table) column) #"/")]
     (when (and (= required "y") (not (re-find #"\S+" contents)))
       (log/error "Required column:" column "of table" table "is empty"))
-      (do))
     (when (or
            (and (= datatype "datetime") (not (re-matches #"\s*((\d{2}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
            (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
