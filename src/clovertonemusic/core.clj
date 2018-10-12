@@ -3,7 +3,8 @@
 
 (require '[clojure.data.csv :as csv]
          '[clojure.java.io :as io]
-         '[clojure.tools.logging :as log])
+         '[clojure.tools.logging :as log]
+         '[clojure.string :as str])
 
 (def csv-path "data/catalogue")
 (def catalogue-table-names ["composers" "genres" "grades" "charts"])
@@ -75,6 +76,21 @@
          (System/exit 1))))
    {} catalogue-table-names))
 
+(defn validate-cell
+  "<Say something here>"
+  [[table column contents catalogue]]
+  (let [[required datatype foreign-key] (str/split (get (get catalogue-table-constraints table) column) #"/")]
+    (when (and (= required "y") (not (re-find #"\S+" contents)))
+      (log/error "Required column:" column "of table" table "is empty"))
+      (do))
+    (when (or
+           (and (= datatype "datetime") (not (re-matches #"\s*((\d{2}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
+           (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
+           (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
+           (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
+           (and (= datatype "number") (not (re-matches #"\s*\d*\s*" contents))))
+      (log/error (str "'" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))))
+
 (defn validate-catalogue
   "<Say something here>"
   [catalogue]
@@ -83,8 +99,10 @@
   (loop [[curr-table & remaining-tables] (keys catalogue)]
     (log/info "Validating" (name curr-table))
     (loop [[curr-row & remaining-rows] (get catalogue curr-table)]
-      (log/info "Validating row" curr-row)
-      (println "This row has columns:" (keys curr-row))
+      (loop [[curr-col & remaining-cols] (keys curr-row)]
+        (validate-cell [curr-table curr-col (get curr-row curr-col) catalogue])
+        (when (not (empty? remaining-cols))
+          (recur remaining-cols)))
       (when (not (empty? remaining-rows))
         (recur remaining-rows)))
     (when (not (empty? remaining-tables))
