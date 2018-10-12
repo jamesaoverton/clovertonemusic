@@ -31,9 +31,9 @@
             :Name                        "y/string/"
             :Filename                    "y/string/"
             :Notes                       "n/string/"
-            :Genre                       "y/string/genres-name"
-            :Composer                    "y/string/composers-name"
-            :Grade                       "y/number/grades-number"
+            :Genre                       "y/string/genres-Name"
+            :Composer                    "y/string/composers-Name"
+            :Grade                       "y/number/grades-Number"
             :Category                    "y/string/"
             :Price                       "y/money/"
             :Recorded                    "n/number/"
@@ -45,12 +45,6 @@
             :Master                      "n/number/"
             :Project                     "n/string/"}})
 
-(defn extract-from-csv
-  [filename]
-  (with-open [reader (io/reader (str csv-path "/" filename))]
-    (doall
-     (csv/read-csv reader))))
-
 (defn create-table
   "Creates a 'table' from the given data implemented as a vector of zipmaps"
   [[header-row & body-rows]]
@@ -61,8 +55,17 @@
        (conj saved-rows (zipmap (map keyword header-row) next-row))))
    [] body-rows))
 
+(defn extract-from-csv
+  "Reads the contents of the CSV file containing the catalogue data from disk using the
+  csv library and the read-csv function which returns a lazy sequence of vectors representing rows"
+  [filename]
+  (with-open [reader (io/reader (str csv-path "/" filename))]
+    (doall
+     (csv/read-csv reader))))
+
 (defn load-catalogue
-  "<Say something here>"
+  "For each table name (defined above), read the CSV file which contains that data, and add it
+  to a map that maps the table name to the data for that table."
   []
   (reduce
    (fn [result-map next-key]
@@ -77,24 +80,44 @@
    {} catalogue-table-names))
 
 (defn validate-cell
-  "<Say something here>"
+  "For each data cell belonging to a given column of a given table:
+   (1) Validate that it is not empty if it is a required field
+   (2) Validate that the contents conform to the column's datatype
+   (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied"
   [[table column contents catalogue]]
+  ; split up the string specifying the constraints associated with this column (defined above):
   (let [[required datatype foreign-key] (str/split (get (get catalogue-table-constraints table) column) #"/")]
+    ; If the column is required, make sure it is not empty:
     (when (and (= required "y") (not (re-find #"\S+" contents)))
       (log/error "Required column:" column "of table" table "is empty"))
+    ; Make sure the contents conform to the column's datatype:
     (when (or
-           (and (= datatype "datetime") (not (re-matches #"\s*((\d{2}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
+           (and (= datatype "datetime") (not (re-matches #"\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
            (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
            (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
            (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
            (and (= datatype "number") (not (re-matches #"\s*\d*\s*" contents))))
-      (log/error (str "'" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))))
+      (log/error (str "'" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))
+    ; Validate the foreign key if it exists:
+    (when (not (nil? foreign-key))
+      (let [[foreign-table foreign-column]
+            ; The foreign key constraint is of the form 'table-column', but it is a string so
+            ; we need to convert the column names to keywords after splitting:
+            (reduce (fn [result-vector next-string]
+                      (conj result-vector (keyword next-string)))
+                    [] (str/split foreign-key #"-"))]
+        ; Find all of the values in the foreign key table for this column, and then check to see if
+        ; the contents of this cell is one of those values:
+        (let [foreign-values (reduce
+                              (fn [result-vector next-row]
+                                (conj result-vector (get next-row foreign-column)))
+                              [] (get catalogue foreign-table))]
+          (when (not (some #(= contents %) foreign-values))
+            (log/error (str "'" contents "' not in " foreign-values))))))))
 
 (defn validate-catalogue
-  "<Say something here>"
+  "Validates all of the data in the catalogue, table by table, row by row, column by column"
   [catalogue]
-  ; this function should not use hard-coded values but at the top of this file we should
-  ; have a `data definition' map that defines the restrictions on each column
   (loop [[curr-table & remaining-tables] (keys catalogue)]
     (log/info "Validating" (name curr-table))
     (loop [[curr-row & remaining-rows] (get catalogue curr-table)]
