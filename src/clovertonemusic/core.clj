@@ -45,12 +45,18 @@
             :Master                      "n/number/"
             :Project                     "n/string/"}})
 
+(defn fail
+  "Logs a fatal error and then exits with a failure status"
+  [errorstr]
+  (log/fatal errorstr)
+  (System/exit 1))
+
 (defn create-table
   "Creates a 'table' from the given data implemented as a vector of zipmaps"
   [[header-row & body-rows]]
   (reduce
    (fn [saved-rows next-row]
-     (if (not= (count header-row) (count next-row))
+     (if-not (= (count header-row) (count next-row))
        (throw (Exception. "Number of fields in data row does not match the number of headers"))
        (conj saved-rows (zipmap (map keyword header-row) next-row))))
    [] body-rows))
@@ -71,12 +77,13 @@
    (fn [result-map next-key]
      (try
        (log/info "Loading" next-key)
-       (assoc result-map
-              (keyword next-key)
-              (create-table (extract-from-csv (str next-key ".csv"))))
+       (->> ".csv"
+            (str next-key)
+            (extract-from-csv)
+            (create-table)
+            (assoc result-map (keyword next-key)))
        (catch Exception ex
-         (log/fatal (str "Error while parsing " next-key ".csv: " (.getMessage ex)))
-         (System/exit 1))))
+         (fail (str "Error while parsing " next-key ".csv: " (.getMessage ex))))))
    {} catalogue-table-names))
 
 (defn validate-cell
@@ -84,12 +91,12 @@
    (1) Validate that it is not empty if it is a required field
    (2) Validate that the contents conform to the column's datatype
    (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied"
-  [[table column contents catalogue]]
+  [table column contents catalogue]
   ; split up the string specifying the constraints associated with this column (defined above):
   (let [[required datatype foreign-key] (str/split (get (get catalogue-table-constraints table) column) #"/")]
     ; If the column is required, make sure it is not empty:
     (when (and (= required "y") (not (re-find #"\S+" contents)))
-      (log/error "Required column:" column "of table" table "is empty"))
+      (fail (str "Required column: " column " of table " table " is empty")))
     ; Make sure the contents conform to the column's datatype:
     (when (or
            (and (= datatype "datetime") (not (re-matches #"\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
@@ -97,9 +104,9 @@
            (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
            (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
            (and (= datatype "number") (not (re-matches #"\s*\d*\s*" contents))))
-      (log/error (str "'" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))
+      (fail (str "'" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))
     ; Validate the foreign key if it exists:
-    (when (not (nil? foreign-key))
+    (when-not (nil? foreign-key)
       (let [[foreign-table foreign-column]
             ; The foreign key constraint is of the form 'table-column', but it is a string so
             ; we need to convert the column names to keywords after splitting:
@@ -112,27 +119,27 @@
                               (fn [result-vector next-row]
                                 (conj result-vector (get next-row foreign-column)))
                               [] (get catalogue foreign-table))]
-          (when (not (some #(= contents %) foreign-values))
-            (log/error (str "'" contents "' not in " foreign-values))))))))
+          (when-not (some #(= contents %) foreign-values)
+            (fail (str "'" contents "' not in " foreign-values))))))))
 
-(defn validate-catalogue
-  "Validates all of the data in the catalogue, table by table, row by row, column by column"
-  [catalogue]
-  (loop [[curr-table & remaining-tables] (keys catalogue)]
-    (log/info "Validating" (name curr-table))
-    (loop [[curr-row & remaining-rows] (get catalogue curr-table)]
-      (loop [[curr-col & remaining-cols] (keys curr-row)]
-        (validate-cell [curr-table curr-col (get curr-row curr-col) catalogue])
-        (when (not (empty? remaining-cols))
-          (recur remaining-cols)))
-      (when (not (empty? remaining-rows))
-        (recur remaining-rows)))
-    (when (not (empty? remaining-tables))
-      (recur remaining-tables))))
+(defn validate-table
+  "Validates the data in the given table, row by row, column by column, using the catalogue
+  to validate any foreign keys"
+  [table catalogue]
+  (log/info "Validating" (name table))
+  (loop [[curr-row & remaining-rows] (get catalogue table)]
+    (loop [[curr-col & remaining-cols] (keys curr-row)]
+      (validate-cell table curr-col (get curr-row curr-col) catalogue)
+      (when-not (empty? remaining-cols)
+        (recur remaining-cols)))
+    (when-not (empty? remaining-rows)
+      (recur remaining-rows))))
 
 (defn -main
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
   [& args]
+  ; First load the catalogue
   (def catalogue (load-catalogue))
-  (validate-catalogue catalogue))
+  ; Now validate all of the tables in the catalogue
+  (doall (for [table (keys catalogue)] (validate-table table catalogue))))
