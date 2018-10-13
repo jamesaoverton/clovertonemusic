@@ -102,7 +102,9 @@
       (fail (str "Required column: " column " of table " table " is empty")))
     ; Make sure the contents conform to the column's datatype:
     (when (or
-           (and (= datatype "datetime") (not (re-matches #"\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}){0,1}\s*" contents)))
+           (and (= datatype "datetime") (not (re-matches
+                                              #"\s*(\d{4}-\d{2}-\d{2}(T|\s){0,1}\d{2}(:\d{2}){1,2}){0,1}\s*"
+                                              contents)))
            (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
            (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
            (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
