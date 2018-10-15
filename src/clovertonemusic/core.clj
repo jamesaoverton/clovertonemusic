@@ -5,9 +5,12 @@
          '[clojure.java.io :as io]
          '[clojure.tools.logging :as log]
          '[clj-logging-config.log4j :as log-config]
+         '[org.httpkit.server :refer [run-server]]
          '[clojure.string :as str])
 
-(log-config/set-logger! :pattern "%d - %m%n")
+(log-config/set-logger!
+ :pattern "%d - %p %m%n"
+ :level :info)
 
 (def csv-path "data/catalogue")
 (def catalogue-table-names ["composers" "genres" "grades" "charts"])
@@ -48,11 +51,17 @@
             :Master                      "n/number/"
             :Project                     "n/string/"}})
 
+; If set to false, the fail function will only pretend to fail.
+; Eventually this should be removed. It is here as a convenience during these initial stages
+; of development.
+(def really-fail false)
+
 (defn fail
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
   (log/fatal errorstr)
-  (System/exit 1))
+  (when (= really-fail true)
+    (System/exit 1)))
 
 (defn create-table
   "Creates a 'table' from the given data implemented as a vector of zipmaps"
@@ -96,20 +105,23 @@
    (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied"
   [table rownum column contents catalogue]
   ; split up the string specifying the constraints associated with this column (defined above):
-  (let [[required datatype foreign-key] (str/split (get (get catalogue-table-constraints table) column) #"/")]
+  (let [[required datatype foreign-key]
+        (str/split (get (get catalogue-table-constraints table) column) #"/")]
     ; If the column is required, make sure it is not empty:
     (when (and (= required "y") (not (re-find #"\S+" contents)))
       (fail (str "At row " rownum ": Required column: " column " of table " table " is empty")))
     ; Make sure the contents conform to the column's datatype:
     (when (or
-           (and (= datatype "datetime") (not (re-matches
-                                              #"\s*(\d{4}-\d{2}-\d{2}(T|\s){0,1}\d{2}(:\d{2}){1,2}){0,1}\s*"
-                                              contents)))
+           (and (= datatype "datetime")
+                (not (re-matches
+                      #"\s*(\d{4}-\d{2}-\d{2}(T|\s){0,1}\d{2}(:\d{2}){1,2}){0,1}\s*"
+                      contents)))
            (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
            (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
            (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
            (and (= datatype "number") (not (re-matches #"\s*\d*\s*" contents))))
-      (fail (str "At row " rownum ": '" contents "' is not a valid " datatype " in column '" column "' of table '" table "'")))
+      (fail (str "At row " rownum ": '" contents "' is not a valid " datatype " in column '"
+                 column "' of table '" table "'")))
     ; Validate the foreign key if it exists:
     (when-not (nil? foreign-key)
       (let [[foreign-table foreign-column]
@@ -141,6 +153,15 @@
     (when-not (empty? remaining-rows)
         (recur remaining-rows (inc curr-rownum)))))
 
+(defn app
+  "The HTTP server application"
+  [request]
+  ; Simply respond with a 200 and some dummy text in the body
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body (str "Your request was: " request)})
+
+
 (defn -main
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
@@ -148,4 +169,7 @@
   ; First load the catalogue
   (def catalogue (load-catalogue))
   ; Now validate all of the tables in the catalogue
-  (doall (for [table (keys catalogue)] (validate-table table catalogue))))
+  (doall (for [table (keys catalogue)] (validate-table table catalogue)))
+  ; Start the http server
+  (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
+  (run-server app {:port 8080}))
