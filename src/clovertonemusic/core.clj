@@ -14,7 +14,7 @@
  :level :info)
 
 ;; Load all of the HTML pages:
-(load "index")
+(load "clj-html/index")
 (def html-index (get-html-index))
 
 (def csv-path "data/catalogue")
@@ -29,6 +29,7 @@
             (keyword "Date Modified")    "y/datetime/"
             :Name                        "y/string/"
             :Filename                    "y/string/"
+            (keyword "Parent Genre")     "n/string/"
             :Notes                       "n/string/"}
    :grades {(keyword "Date Created")     "y/datetime/"
             (keyword "Date Modified")    "y/datetime/"
@@ -107,7 +108,9 @@
   "For each data cell belonging to a given column of a given table:
    (1) Validate that it is not empty if it is a required field
    (2) Validate that the contents conform to the column's datatype
-   (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied"
+   (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied.
+       In the case of Genres, we don't fail on a foreign key failure but send back an indication
+       instead."
   [table rownum column contents catalogue]
   ;; split up the string specifying the constraints associated with this column (defined above):
   (let [[required datatype foreign-key]
@@ -121,6 +124,7 @@
                 (not (re-matches
                       #"\s*(\d{4}-\d{2}-\d{2}(T|\s){0,1}\d{2}(:\d{2}){1,2}){0,1}\s*"
                       contents)))
+           (and (= datatype "boolean") (not (re-matches #"(?i)\s*(true|false){0,1}\s*" contents)))
            (and (= datatype "time") (not (re-matches #"\s*(\d+s){0,1}\s*" contents)))
            (and (= datatype "money") (not (re-matches #"\s*(\$\d+(\.\d+){0,1}){0,1}\s*" contents)))
            (and (= datatype "ratio") (not (re-matches #"\s*(\d+/\d+){0,1}\s*" contents)))
@@ -142,21 +146,35 @@
                                 (conj result-vector (get next-row foreign-column)))
                               [] (get catalogue foreign-table))]
           (when-not (some #(= contents %) foreign-values)
-            (fail (str "At row " rownum ": '" contents "' not in " foreign-values))))))))
+            (let [msg (str "At row " rownum ": '" contents "' not in " foreign-values)]
+              ;; If the foreign key is a genre, then log a warning and return a map consisting
+              ;; of a single key to the calling function indicating that the genre is unknown.
+              (if (and (= table :charts) (= foreign-table :genres) (= foreign-column :Name))
+                (do
+                  (log/warn msg)
+                  {:genre-known false})
+                ;; For other foreign keys, just fail:
+                (fail msg)))))))))
+
+(defn validate-row
+  "Validates the data in the given row, cell by cell"
+  [table row rownum catalogue]
+  (reduce (fn [extra-fields col]
+            ;; validate-cell will possibly return extra fields, which we collect together into
+            ;; 'extra-fields' which gets passed back to the caller:
+            (merge extra-fields (validate-cell table rownum col (get row col) catalogue)))
+          {} (keys row)))
 
 (defn validate-table
-  "Validates the data in the given table, row by row, column by column, using the catalogue
-  to validate any foreign keys"
+  "Validates the data in the given table, row by row"
   [table catalogue]
   (log/info "Validating" (name table))
-  (loop [[curr-row & remaining-rows] (get catalogue table)
-         curr-rownum 1]
-    (loop [[curr-col & remaining-cols] (keys curr-row)]
-      (validate-cell table curr-rownum curr-col (get curr-row curr-col) catalogue)
-      (when-not (empty? remaining-cols)
-        (recur remaining-cols)))
-    (when-not (empty? remaining-rows)
-        (recur remaining-rows (inc curr-rownum)))))
+  (reduce (fn [new-table curr-row]
+            (let [rownum (inc (.indexOf (get catalogue table) curr-row))]
+              ;; validate-row will possibly return extra fields which we here merge into the
+              ;; original row, and then add the result to the new table of validated rows:
+              (conj new-table (merge curr-row (validate-row table curr-row rownum catalogue)))))
+          [] (get catalogue table)))
 
 (defn app
   "The HTTP server application"
@@ -172,10 +190,13 @@
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
   [& args]
-  ;; First load the catalogue
-  (def catalogue (load-catalogue))
-  ;; Now validate all of the tables in the catalogue
-  (doall (for [table (keys catalogue)] (validate-table table catalogue)))
+  ;; Load and validate the catalogue from the .csv files on disk:
+  (def catalogue
+    (let [raw-catalogue (load-catalogue)]
+      ;; Each key in the catalogue represents a 'table', i.e. a vector of 'rows' (hashmaps).
+      ;; Tables are validated one at a time:
+      (doall (map #(validate-table % raw-catalogue) (keys raw-catalogue)))))
+
   ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
   (run-server app {:port 8080}))
