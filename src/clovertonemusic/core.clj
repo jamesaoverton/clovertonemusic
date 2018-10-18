@@ -6,11 +6,16 @@
          '[clojure.tools.logging :as log]
          '[clj-logging-config.log4j :as log-config]
          '[org.httpkit.server :refer [run-server]]
+         '[hiccup.core :as page]
          '[clojure.string :as str])
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
+
+;; Load all of the HTML pages:
+(load "index")
+(def html-index (get-html-index))
 
 (def csv-path "data/catalogue")
 (def catalogue-table-names ["composers" "genres" "grades" "charts"])
@@ -51,9 +56,9 @@
             :Master                      "n/number/"
             :Project                     "n/string/"}})
 
-; If set to false, the fail function will only pretend to fail.
-; Eventually this should be removed. It is here as a convenience during these initial stages
-; of development.
+;; If set to false, the fail function will only pretend to fail.
+;; Eventually this should be removed. It is here as a convenience during these initial stages
+;; of development.
 (def really-fail false)
 
 (defn fail
@@ -104,13 +109,13 @@
    (2) Validate that the contents conform to the column's datatype
    (3) If the column has a foreign key, then check in the catalogue to see that it is satisfied"
   [table rownum column contents catalogue]
-  ; split up the string specifying the constraints associated with this column (defined above):
+  ;; split up the string specifying the constraints associated with this column (defined above):
   (let [[required datatype foreign-key]
         (str/split (get (get catalogue-table-constraints table) column) #"/")]
-    ; If the column is required, make sure it is not empty:
+    ;; If the column is required, make sure it is not empty:
     (when (and (= required "y") (not (re-find #"\S+" contents)))
       (fail (str "At row " rownum ": Required column: " column " of table " table " is empty")))
-    ; Make sure the contents conform to the column's datatype:
+    ;; Make sure the contents conform to the column's datatype:
     (when (or
            (and (= datatype "datetime")
                 (not (re-matches
@@ -122,16 +127,16 @@
            (and (= datatype "number") (not (re-matches #"\s*\d*\s*" contents))))
       (fail (str "At row " rownum ": '" contents "' is not a valid " datatype " in column '"
                  column "' of table '" table "'")))
-    ; Validate the foreign key if it exists:
+    ;; Validate the foreign key if it exists:
     (when-not (nil? foreign-key)
       (let [[foreign-table foreign-column]
-            ; The foreign key constraint is of the form 'table-column', but it is a string so
-            ; we need to convert the column names to keywords after splitting:
+            ;; The foreign key constraint is of the form 'table-column', but it is a string so
+            ;; we need to convert the column names to keywords after splitting:
             (reduce (fn [result-vector next-string]
                       (conj result-vector (keyword next-string)))
                     [] (str/split foreign-key #"-"))]
-        ; Find all of the values in the foreign key table for this column, and then check to see if
-        ; the contents of this cell is one of those values:
+        ;; Find all of the values in the foreign key table for this column, and then check to see if
+        ;; the contents of this cell is one of those values:
         (let [foreign-values (reduce
                               (fn [result-vector next-row]
                                 (conj result-vector (get next-row foreign-column)))
@@ -156,20 +161,21 @@
 (defn app
   "The HTTP server application"
   [request]
-  ; Simply respond with a 200 and some dummy text in the body
+  (log/info "Got request:" request)
+  ;; Simply respond with a 200 and some dummy text in the body
   {:status 200
    :headers {"Content-Type" "text/html"}
-   :body (str "Your request was: " request)})
+   :body (page/html html-index)})
 
 
 (defn -main
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
   [& args]
-  ; First load the catalogue
+  ;; First load the catalogue
   (def catalogue (load-catalogue))
-  ; Now validate all of the tables in the catalogue
+  ;; Now validate all of the tables in the catalogue
   (doall (for [table (keys catalogue)] (validate-table table catalogue)))
-  ; Start the http server
+  ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
   (run-server app {:port 8080}))

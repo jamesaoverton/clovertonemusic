@@ -7,6 +7,7 @@
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/tools.logging "0.4.1"]
                  [clj-logging-config "1.9.12"]
+                 [hiccup "1.0.5"]
                  [http-kit "2.2.0"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"
