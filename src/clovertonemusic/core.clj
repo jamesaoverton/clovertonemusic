@@ -157,7 +157,8 @@
                 (fail msg)))))))))
 
 (defn validate-row
-  "Validates the data in the given row, cell by cell"
+  "Validates the data in the given row, cell by cell. Returns the row plus possibly some extra
+  added fields"
   [table row rownum catalogue]
   (reduce (fn [extra-fields col]
             ;; validate-cell will possibly return extra fields, which we collect together into
@@ -166,15 +167,15 @@
           {} (keys row)))
 
 (defn validate-table
-  "Validates the data in the given table, row by row"
-  [table catalogue]
-  (log/info "Validating" (name table))
+  "Validates the data in the given table, row by row. Returns a validated version of the table."
+  [tblname catalogue]
+  (log/info "Validating" (name tblname))
   (reduce (fn [new-table curr-row]
-            (let [rownum (inc (.indexOf (get catalogue table) curr-row))]
+            (let [rownum (inc (.indexOf (get catalogue tblname) curr-row))]
               ;; validate-row will possibly return extra fields which we here merge into the
               ;; original row, and then add the result to the new table of validated rows:
-              (conj new-table (merge curr-row (validate-row table curr-row rownum catalogue)))))
-          [] (get catalogue table)))
+              (conj new-table (merge curr-row (validate-row tblname curr-row rownum catalogue)))))
+          [] (get catalogue tblname)))
 
 (defn app
   "The HTTP server application"
@@ -190,12 +191,15 @@
   "At startup, the server creates a map called `catalogue` which consists of four tables
   corresponding to charts, composers, genres, and keys"
   [& args]
-  ;; Load and validate the catalogue from the .csv files on disk:
+  ;; Load and validate the catalogue from the .csv files on disk. Everything is loaded 'as is' to
+  ;; begin with, and then validated table by table.
   (def catalogue
     (let [raw-catalogue (load-catalogue)]
       ;; Each key in the catalogue represents a 'table', i.e. a vector of 'rows' (hashmaps).
       ;; Tables are validated one at a time:
-      (doall (map #(validate-table % raw-catalogue) (keys raw-catalogue)))))
+      (reduce (fn [tables next-key]
+                (assoc tables next-key (validate-table next-key raw-catalogue)))
+              {} (keys raw-catalogue))))
 
   ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
