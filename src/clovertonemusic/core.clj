@@ -29,7 +29,7 @@
             (keyword "Date Modified")    "y/datetime/"
             :Name                        "y/string/"
             :Filename                    "y/string/"
-            (keyword "Parent Genre")     "n/string/"
+            :Parent-Genre                "n/string/"
             :Notes                       "n/string/"}
    :grades {(keyword "Date Created")     "y/datetime/"
             (keyword "Date Modified")    "y/datetime/"
@@ -177,6 +177,11 @@
               (conj new-table (merge curr-row (validate-row tblname curr-row rownum catalogue)))))
           [] (get catalogue tblname)))
 
+(defn print-charts
+  "Print out all of the charts in the catalogue which have the given genre"
+  [genre-name charts]
+  (println "Now I will print out everything in" genre-name))
+
 (defn app
   "The HTTP server application"
   [request]
@@ -185,7 +190,6 @@
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (page/html html-index)})
-
 
 (defn -main
   "At startup, the server creates a map called `catalogue` which consists of four tables
@@ -200,6 +204,30 @@
       (reduce (fn [tables next-key]
                 (assoc tables next-key (validate-table next-key raw-catalogue)))
               {} (keys raw-catalogue))))
+
+  ;; Create a tree structure showing each chart in the catalogue sorted by its genre:
+  (def tree
+    (reduce
+     (fn [tree curr-genre]
+       (let [parent (:Parent-Genre curr-genre)
+             child (:Name curr-genre)]
+         (if (re-find #"\S+" parent)
+           ;; if the current genre has a parent,
+           (if-not (contains? tree parent)
+             ;; then if it is not already in the tree, add the parent to the tree and associate
+             ;; the child with it:
+             (assoc tree parent (set [child]))
+             ;; if the parent is already in the tree, then add the child to its set of children:
+             (assoc tree parent (conj (get tree parent) child)))
+           ;; if the current genre has no parent, then add the child as a parent node to the tree:
+           (assoc tree child (set [])))))
+     {} (:genres catalogue)))
+
+  ;; Now traverse the tree, outputting all of the charts for the given genres:
+  (doseq [parent tree]
+    (print-charts (key parent) (:charts catalogue))
+    (doseq [child (get tree (key parent))]
+      (print-charts child (:charts catalogue))))
 
   ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
