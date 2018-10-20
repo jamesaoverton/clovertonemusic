@@ -180,7 +180,13 @@
 (defn print-charts
   "Print out all of the charts in the catalogue which have the given genre"
   [genre-name charts]
-  (println "Now I will print out everything in" genre-name))
+  (println "********** Charts in genre:" genre-name "**********")
+  (doseq [chart (sort-by :Genre charts)]
+    (if-not (= genre-name "Other")
+      (when (= genre-name (:Genre chart))
+        (println (:Name chart)))
+      (when (and (contains? chart :genre-known) (= false (:genre-known chart)))
+        (println (str (:Name chart) " (Genre: " (:Genre chart) ")"))))))
 
 (defn app
   "The HTTP server application"
