@@ -179,14 +179,19 @@
 
 (defn print-charts
   "Print out all of the charts in the catalogue which have the given genre"
-  [genre-name charts]
-  (println "********** Charts in genre:" genre-name "**********")
+  [genre-name charts & [parent-name]]
+  (print "Genre:" genre-name)
+  (if-not (nil? parent-name)
+    (println (str " (Parent genre: " parent-name ")"))
+    (println))
+  (println "---")
   (doseq [chart (sort-by :Genre charts)]
     (if-not (= genre-name "Other")
       (when (= genre-name (:Genre chart))
         (println (:Name chart)))
       (when (and (contains? chart :genre-known) (= false (:genre-known chart)))
-        (println (str (:Name chart) " (Genre: " (:Genre chart) ")"))))))
+        (println (str (:Name chart) " (Genre: " (:Genre chart) ")")))))
+  (println))
 
 (defn app
   "The HTTP server application"
@@ -233,7 +238,7 @@
   (doseq [parent tree]
     (print-charts (key parent) (:charts catalogue))
     (doseq [child (get tree (key parent))]
-      (print-charts child (:charts catalogue))))
+      (print-charts child (:charts catalogue) (key parent))))
 
   ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
