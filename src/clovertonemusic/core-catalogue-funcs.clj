@@ -128,7 +128,7 @@
               ;; of a single key to the calling function indicating that the genre is unknown.
               (if (and (= table :charts) (= foreign-table :genres) (= foreign-column :Name))
                 (do
-                  (log/warn msg)
+                  (log/debug msg)
                   {:genre-known false})
                 ;; For other foreign keys, just fail:
                 (fail msg)))))))))
