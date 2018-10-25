@@ -2,16 +2,16 @@
 
 ;; This file contains the HTML code used for pages in the root directory
 
-(def root-index-title "Home - Clovertone Music.")
+(def html-root-index-title "Home - Clovertone Music.")
 
-(def root-index-contents
+(def html-root-index-contents
   [:div#contents
    [:div#content.index
     [:h1.title "Home"]
     [:p
      "Welcome to Clovertone Music, we are a sheet music publisher specializing in the educational jazz band market. Our library is completely Canadian and features some of our countries top composers. Fill out your repertoire with Canadian content and feel good about supporting Canadian musicians!"]]])
 
-(def root-index-charts
+(def html-root-index-charts
   [:div#charts
    [:div#list
     [:div#2.chart.grade1
@@ -521,6 +521,6 @@
         [:td "4/4"]
         [:td "100"]]]]]]])
 
-(def root-index-users
+(def html-root-index-users
   [:div#users])
 

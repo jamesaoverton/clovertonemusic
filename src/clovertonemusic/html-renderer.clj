@@ -1,6 +1,7 @@
 (in-ns 'clovertonemusic.core)
 
 (load "root")
+(load "grades")
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -101,10 +102,14 @@
 
 (defn render-grades
   [request]
-  (str "<b>Rendering grades</b> " request))
+  (let [grade (:page (:params request))
+        grade-html (get html-grades grade)]
+    (when (some #(= grade %) (keys html-grades))
+      (render-html (:title grade-html) (:contents grade-html) (:charts grade-html) (:users grade-html)))))
 
 (defn render-root
   [request]
-  ;; Different cases for different pages (only the blank case done so far):
-  (if (nil? (:page (:params request)))
-    (render-html root-index-title root-index-contents root-index-charts root-index-users)))
+  (if (or
+       (nil? (:page (:params request)))
+       (= "index" (:page (:params request))))
+    (render-html html-root-index-title html-root-index-contents html-root-index-charts html-root-index-users)))

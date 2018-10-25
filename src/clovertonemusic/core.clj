@@ -33,18 +33,24 @@
             {} (keys raw-catalogue))))
 
 (defroutes all-routes
-  (GET "/about/:page.html" [page] render-about)
+  (GET "/about/:page" [page] render-about)
   (GET "/about/" [] render-about)
-  (GET "/charts/:page.html" [page] render-charts)
+
+  (GET "/charts/:page" [page] render-charts)
   (GET "/charts/" [] render-charts)
-  (GET "/composers/:page.html" [page] render-composers)
+
+  (GET "/composers/:page" [page] render-composers)
   (GET "/composers/" [] render-composers)
-  (GET "/genres/:page.html" [page] render-genres)
+
+  (GET "/genres/:page" [page] render-genres)
   (GET "/genres/" [] render-genres)
-  (GET "/grades/:page.html" [page] render-grades)
+
+  (GET "/grades/:page" [page] render-grades)
   (GET "/grades/" [] render-grades)
+
   (GET "/:page.html" [page] render-root)
   (GET "/" [] render-root)
+
   (route/resources "") ; this will grab anything in the public/ directory
   (route/not-found "<p>Page not found, sir!</p>")) ;; all other, return 404
 
