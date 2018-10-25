@@ -109,7 +109,9 @@
 
 (defn render-root
   [request]
-  (if (or
-       (nil? (:page (:params request)))
-       (= "index" (:page (:params request))))
-    (render-html html-root-index-title html-root-index-contents html-root-index-charts html-root-index-users)))
+  (let [rootpg (if (nil? (:page (:params request)))
+                 "index"
+                 (:page (:params request)))
+        rootpg-html (get html-root rootpg)]
+    (when (some #(= rootpg %) (keys html-root))
+      (render-html (:title rootpg-html) (:contents rootpg-html) (:charts rootpg-html) (:users rootpg-html)))))
