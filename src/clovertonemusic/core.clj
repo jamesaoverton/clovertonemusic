@@ -7,7 +7,7 @@
          '[clj-logging-config.log4j :as log-config]
          '[org.httpkit.server :refer [run-server]]
          '[hiccup.core :as page]
-         '[compojure.route :refer [files not-found resources]]
+         '[compojure.route :as route]
          '[compojure.handler :refer [site]]
          '[compojure.core :refer [defroutes GET POST PUT DELETE ANY context]]
          '[clojure.string :as str])
@@ -33,9 +33,20 @@
             {} (keys raw-catalogue))))
 
 (defroutes all-routes
-  (GET "/" [] show-html-index)
-  (resources "/")
-  (not-found "<p>Page not found, sir!</p>")) ;; all other, return 404
+  (GET "/about/:page.html" [page] render-about)
+  (GET "/about/" [] render-about)
+  (GET "/charts/:page.html" [page] render-charts)
+  (GET "/charts/" [] render-charts)
+  (GET "/composers/:page.html" [page] render-composers)
+  (GET "/composers/" [] render-composers)
+  (GET "/genres/:page.html" [page] render-genres)
+  (GET "/genres/" [] render-genres)
+  (GET "/grades/:page.html" [page] render-grades)
+  (GET "/grades/" [] render-grades)
+  (GET "/:page.html" [page] render-root)
+  (GET "/" [] render-root)
+  (route/resources "") ; this will grab anything in the public/ directory
+  (route/not-found "<p>Page not found, sir!</p>")) ;; all other, return 404
 
 (defn -main
   [& args]
