@@ -56,10 +56,6 @@
 
 (defn -main
   [& args]
-  ;; At startup, print the catalogue represented as a tree:
-  ;; TODO: MAKE THIS OPTIONAL WITH A COMMAND-LINE SWITCH
-  (print-tree catalogue)
-
   ;; Start the http server
   (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
   (run-server (site #'all-routes) {:port 8090}))
