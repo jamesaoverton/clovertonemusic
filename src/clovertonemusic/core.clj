@@ -57,5 +57,5 @@
 (defn -main
   [& args]
   ;; Start the http server
-  (log/info "Starting HTTP server on port 8080. Press Ctrl-C to exit.")
+  (log/info "Starting HTTP server on port 8090. Press Ctrl-C to exit.")
   (run-server (site #'all-routes) {:port 8090}))
