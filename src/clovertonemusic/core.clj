@@ -1,37 +1,34 @@
 (ns clovertonemusic.core
   (:gen-class))
 
-(require '[clojure.data.csv :as csv]
-         '[clojure.java.io :as io]
-         '[clojure.tools.logging :as log]
+;; Load all of the functions for creating and interacting with the catalogue:
+(load "catalogue")
+
+;; Load the clojure template for generating HTML code
+(load "html-renderer")
+
+(require '[clojure.tools.logging :as log]
          '[clj-logging-config.log4j :as log-config]
          '[org.httpkit.server :refer [run-server]]
-         '[hiccup.core :as page]
          '[compojure.route :as route]
          '[compojure.handler :refer [site]]
          '[compojure.core :refer [defroutes GET POST PUT DELETE ANY context]]
-         '[clojure.string :as str])
+         '[clojure.string :as str]
+         '[clovertonemusic.catalogue :as catalogue]
+         '[clovertonemusic.html-renderer :as renderer])
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
 
-;; Load all of the functions for creating and interacting with the catalogue:
-(load "catalogue-funcs")
-
-;; Load the clojure template for generating HTML code
-(load "html-renderer")
-
-(require '[clovertonemusic.html-renderer :as renderer])
-
 ;; Load and validate the catalogue from the .csv files on disk. Everything is loaded 'as is' to
 ;; begin with, and then validated table by table.
 (def catalogue
-  (let [raw-catalogue (load-catalogue)]
+  (let [raw-catalogue (catalogue/load-catalogue)]
     ;; Each key in the catalogue represents a 'table', i.e. a vector of 'rows' (hashmaps).
     ;; Tables are validated one at a time:
     (reduce (fn [tables next-key]
-              (assoc tables next-key (validate-table next-key raw-catalogue)))
+              (assoc tables next-key (catalogue/validate-table next-key raw-catalogue)))
             {} (keys raw-catalogue))))
 
 (defroutes all-routes
