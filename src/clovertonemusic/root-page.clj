@@ -2,16 +2,17 @@
 
 ;; This file contains the HTML code used for pages in the root directory
 
-(load "common-divs")
 (load "chart-divs")
 
-(require '[clovertonemusic.common-divs :as common-divs]
-         '[clovertonemusic.chart-divs :as chart-divs])
+(require '[clovertonemusic.chart-divs :as chart-divs])
 
 (def html-root
   {"index" {:title "Home - Clovertone Music."
-            :contents (common-divs/contents "Home"
-                                            "Welcome to Clovertone Music, we are a sheet music publisher specializing in the educational jazz band market. Our library is completely Canadian and features some of our countries top composers. Fill out your repertoire with Canadian content and feel good about supporting Canadian musicians!")
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "Home"]
+                        [:p
+                         "Welcome to Clovertone Music, we are a sheet music publisher specializing in the educational jazz band market. Our library is completely Canadian and features some of our countries top composers. Fill out your repertoire with Canadian content and feel good about supporting Canadian musicians!"]]]
             :charts [:div#charts
                      [:div#list
                       [:div#2.chart.grade1 chart-divs/o-canada]

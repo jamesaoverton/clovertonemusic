@@ -1,15 +1,16 @@
 (ns clovertonemusic.grades-page)
 
-(load "common-divs")
 (load "chart-divs")
 
-(require '[clovertonemusic.common-divs :as common-divs]
-         '[clovertonemusic.chart-divs :as chart-divs])
+(require '[clovertonemusic.chart-divs :as chart-divs])
 
 (def html-grades
   {"one" {:title "Grade One - Clovertone Music"
-          :contents (common-divs/contents "Grade One"
-                                          "Our grade 1 selections are for junior high school and advanced elementary school bands in their first years of playing.")
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title "Grade One"]
+                      [:p
+                       "Our grade 1 selections are for junior high school and advanced elementary school bands in their first years of playing."]]]
           :charts [:div#charts
                    [:div#listw
                     [:div#2.chart.grade1 chart-divs/o-canada]
@@ -34,8 +35,11 @@
                     [:div#84.chart.grade1 chart-divs/blue-heron]]]
           :users [:div#users]}
    "two" {:title "Grade Two - Clovertone Music"
-          :contents (common-divs/contents "Grade Two"
-                                          "These grade 2 charts are aimed at intermediate bands or good junior bands.")
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title "Grade Two"]
+                      [:p
+                       "These grade 2 charts are aimed at intermediate bands or good junior bands."]]]
           :charts [:div#charts
                    [:div#list
                     [:div#7.chart.grade2 chart-divs/detective-story]
@@ -65,8 +69,11 @@
                     [:div#108.chart.grade2 chart-divs/the-long-way-home]]]
           :users [:div#users]}
    "three" {:title "Grade Three - Clovertone Music"
-            :contents (common-divs/contents "Grade Three"
-                                            "Here you will find senior band charts for players with a few years of experience.")
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "Grade Three"]
+                        [:p
+                         "Here you will find senior band charts for players with a few years of experience."]]]
             :charts [:div#charts
                      [:div#list
                       [:div#3.chart.grade3 chart-divs/the-pursuit]
@@ -99,8 +106,11 @@
                       [:div#105.chart.grade3 chart-divs/last-resorts]
                       [:div#106.chart.grade3 chart-divs/mad-man-mambo]]]}
    "four" {:title "Grade Four - Clovertone Music"
-           :contents (common-divs/contents "Grade Four"
-                                           "This is where you will find all of our advanced material written at professional level directed towards university bands or strong arts focused high schools.")
+           :contents [:div#contents
+                      [:div#content.index
+                       [:h1.title "Grade Four"]
+                       [:p
+                        "This is where you will find all of our advanced material written at professional level directed towards university bands or strong arts focused high schools. "]]]
            :charts [:div#charts
                     [:div#list
                      [:div#16.chart.grade4 chart-divs/two-dave-k]

@@ -1,15 +1,16 @@
 (ns clovertonemusic.genres-page)
 
-(load "common-divs")
 (load "chart-divs")
 
-(require '[clovertonemusic.common-divs :as common-divs]
-         '[clovertonemusic.chart-divs :as chart-divs])
+(require '[clovertonemusic.chart-divs :as chart-divs])
 
 (def html-genres
   {"latin" {:title "Latin - Clovertone Music"
-            :contents (common-divs/contents "Latin"
-                                            "This genre includes salsa, bossa nova, and samba. All these feels are a fun way to spice up your program and challege your rhythm section.")
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "Latin"]
+                        [:p
+                         "This genre includes salsa, bossa nova, and samba. All these feels are a fun way to spice up your program and challege your rhythm section."]]]
             :charts [:div#charts
                      [:div#list
                       [:div#14.chart.grade3 chart-divs/yun-gia]
@@ -28,8 +29,11 @@
                       [:div#106.chart.grade3 chart-divs/mad-man-mambo]]]
             :users [:div#users]}
    "swing" {:title "Swing - Clovertone Music"
-            :contents (common-divs/contents "Swing"
-                                            "We have all tempos of swing from slow shuffles to burners. This is what jazz bands were created to play.")
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "Swing"]
+                        [:p
+                         "We have all tempos of swing from slow shuffles to burners. This is what jazz bands were created to play."]]]
             :charts [:div#charts
                      [:div#list
                       [:div#2.chart.grade1 chart-divs/o-canada]
@@ -71,8 +75,11 @@
                       [:div#107.chart.grade2 chart-divs/roscos-big-hit]]]
             :users [:div#users]}
    "ballad" {:title "Ballad - Clovertone Music"
-            :contents (common-divs/contents "Ballad"
-                                            "In this genre you'll find rock ballads, swing ballads, 3/4 ballads and ballads for dancing. Find something for your festival repertoire here. ")
+             :contents [:div#contents
+                        [:div#content.index
+                         [:h1.title "Ballad"]
+                         [:p
+                          "In this genre you'll find rock ballads, swing ballads, 3/4 ballads and ballads for dancing. Find something for your festival repertoire here. "]]]
             :charts [:div#charts
                      [:div#list
                       [:div#6.chart.grade1 chart-divs/sakura-lullaby]
@@ -92,45 +99,51 @@
                       [:div#117.chart.grade4 chart-divs/ambleside-reprise]]]
             :users [:div#users]}
    "rock" {:title "Funk/Rock - Clovertone Music"
-            :contents (common-divs/contents "Funk/Rock"
-                                            "Have fun with our wide selection of funk and rock tunes. A lot of crowd pleasers can be found here.")
-            :charts [:div#charts
-                     [:div#list
-                      [:div#8.chart.grade3 chart-divs/the-dirrty-dog]
-                      [:div#11.chart.grade1 chart-divs/game-on]
-                      [:div#23.chart.grade4 chart-divs/the-path]
-                      [:div#26.chart.grade4 chart-divs/first-x-free]
-                      [:div#35.chart.grade1 chart-divs/all-your-base]
-                      [:div#38.chart.grade4 chart-divs/funk-out]
-                      [:div#49.chart.grade2 chart-divs/cloud-song]
-                      [:div#55.chart.grade3 chart-divs/lost-stories]
-                      [:div#58.chart.grade3 chart-divs/the-wiggle]
-                      [:div#60.chart.grade1 chart-divs/gentlemen]
-                      [:div#61.chart.grade1 chart-divs/la-cattura]
-                      [:div#68.chart.grade2 chart-divs/go-go-blues]
-                      [:div#75.chart.grade1 chart-divs/la-squadra-da-milano]
-                      [:div#76.chart.grade1 chart-divs/stone-cold-strut]
-                      [:div#85.chart.grade3 chart-divs/hamunaptra]
-                      [:div#88.chart.grade2 chart-divs/brown-and-tan]
-                      [:div#95.chart.grade2 chart-divs/no-trespassing]
-                      [:div#98.chart.grade4 chart-divs/river]
-                      [:div#99.chart.grade4 chart-divs/julia]
-                      [:div#100.chart.grade4 chart-divs/thinking-in-circles]
-                      [:div#102.chart.grade3 chart-divs/life-race]
-                      [:div#103.chart.grade3 chart-divs/junk]
-                      [:div#105.chart.grade3 chart-divs/last-resorts]
-                      [:div#110.chart.grade4 chart-divs/intransitory]
-                      [:div#111.chart.grade4 chart-divs/twilight-fall]
-                      [:div#112.chart.grade4 chart-divs/smooth]
-                      [:div#113.chart.grade4 chart-divs/spirits]
-                      [:div#114.chart.grade4 chart-divs/arrival-of-the-pegasus]
-                      [:div#115.chart.grade4 chart-divs/foot-in-mouth]
-                      [:div#118.chart.grade4 chart-divs/something-simple]
-                      [:div#119.chart.grade4 chart-divs/a-cool-breeze]]]
-            :users [:div#users]}
+           :contents [:div#contents
+                      [:div#content.index
+                       [:h1.title "Funk/Rock"]
+                       [:p
+                        "Have fun with our wide selection of funk and rock tunes. A lot of crowd pleasers can be found here."]]]
+           :charts [:div#charts
+                    [:div#list
+                     [:div#8.chart.grade3 chart-divs/the-dirrty-dog]
+                     [:div#11.chart.grade1 chart-divs/game-on]
+                     [:div#23.chart.grade4 chart-divs/the-path]
+                     [:div#26.chart.grade4 chart-divs/first-x-free]
+                     [:div#35.chart.grade1 chart-divs/all-your-base]
+                     [:div#38.chart.grade4 chart-divs/funk-out]
+                     [:div#49.chart.grade2 chart-divs/cloud-song]
+                     [:div#55.chart.grade3 chart-divs/lost-stories]
+                     [:div#58.chart.grade3 chart-divs/the-wiggle]
+                     [:div#60.chart.grade1 chart-divs/gentlemen]
+                     [:div#61.chart.grade1 chart-divs/la-cattura]
+                     [:div#68.chart.grade2 chart-divs/go-go-blues]
+                     [:div#75.chart.grade1 chart-divs/la-squadra-da-milano]
+                     [:div#76.chart.grade1 chart-divs/stone-cold-strut]
+                     [:div#85.chart.grade3 chart-divs/hamunaptra]
+                     [:div#88.chart.grade2 chart-divs/brown-and-tan]
+                     [:div#95.chart.grade2 chart-divs/no-trespassing]
+                     [:div#98.chart.grade4 chart-divs/river]
+                     [:div#99.chart.grade4 chart-divs/julia]
+                     [:div#100.chart.grade4 chart-divs/thinking-in-circles]
+                     [:div#102.chart.grade3 chart-divs/life-race]
+                     [:div#103.chart.grade3 chart-divs/junk]
+                     [:div#105.chart.grade3 chart-divs/last-resorts]
+                     [:div#110.chart.grade4 chart-divs/intransitory]
+                     [:div#111.chart.grade4 chart-divs/twilight-fall]
+                     [:div#112.chart.grade4 chart-divs/smooth]
+                     [:div#113.chart.grade4 chart-divs/spirits]
+                     [:div#114.chart.grade4 chart-divs/arrival-of-the-pegasus]
+                     [:div#115.chart.grade4 chart-divs/foot-in-mouth]
+                     [:div#118.chart.grade4 chart-divs/something-simple]
+                     [:div#119.chart.grade4 chart-divs/a-cool-breeze]]]
+           :users [:div#users]}
    "other" {:title "Other - Clovertone Music"
-            :contents (common-divs/contents "Other"
-                                            "We proudly carry feels not normally associated with jazz band. Look here to find world rhythms like reggae, afro beat, 12/8 feel, and odd meter feels.")
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "Other"]
+                        [:p
+                         "We proudly carry feels not normally associated with jazz band. Look here to find world rhythms like reggae, afro beat, 12/8 feel, and odd meter feels."]]]
             :charts [:div#charts
                      [:div#list
                       [:div#5.chart.grade1 chart-divs/tango]

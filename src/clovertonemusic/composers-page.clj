@@ -5,7 +5,13 @@
 (require '[clovertonemusic.chart-divs :as chart-divs])
 
 (def html-composers
-  {"alison-au" {:title "Allison Au - Clovertone Music"
+  {"index" {:title ""
+            :contents []
+            :charts [:div#charts
+                     [:div#list
+                      ]]
+            :users [:div#users]}
+   "alison-au" {:title "Allison Au - Clovertone Music"
                 :contents []
                 :charts [:div#charts
                          [:div#list
