@@ -2,10 +2,12 @@
 
 (load "root-page")
 (load "grades-page")
+(load "genres-page")
 
 (require '[hiccup.core :as page]
          '[clovertonemusic.root-page :as root-page]
-         '[clovertonemusic.grades-page :as grades-page])
+         '[clovertonemusic.grades-page :as grades-page]
+         '[clovertonemusic.genres-page :as genres-page])
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -102,7 +104,10 @@
 
 (defn render-genres
   [request]
-  (str "<b>Rendering genres</b> " request))
+  (let [genre (:page (:params request))
+        genre-html (get genres-page/html-genres genre)]
+    (when (some #(= genre %) (keys genres-page/html-genres))
+      (render-html (:title genre-html) (:contents genre-html) (:charts genre-html) (:users genre-html)))))
 
 (defn render-grades
   [request]
