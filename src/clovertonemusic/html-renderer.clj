@@ -1,6 +1,6 @@
 (ns clovertonemusic.html-renderer)
 
-(load "root")
+(load "root-page")
 (load "grades-page")
 
 (require '[hiccup.core :as page]
