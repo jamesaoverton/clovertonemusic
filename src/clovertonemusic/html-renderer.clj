@@ -1,7 +1,11 @@
-(in-ns 'clovertonemusic.core)
+(ns clovertonemusic.html-renderer)
 
 (load "root")
-(load "grades")
+(load "grades-page")
+
+(require '[hiccup.core :as page]
+         '[clovertonemusic.root-page :as root-page]
+         '[clovertonemusic.grades-page :as grades-page])
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -103,8 +107,8 @@
 (defn render-grades
   [request]
   (let [grade (:page (:params request))
-        grade-html (get html-grades grade)]
-    (when (some #(= grade %) (keys html-grades))
+        grade-html (get grades-page/html-grades grade)]
+    (when (some #(= grade %) (keys grades-page/html-grades))
       (render-html (:title grade-html) (:contents grade-html) (:charts grade-html) (:users grade-html)))))
 
 (defn render-root
@@ -112,6 +116,6 @@
   (let [rootpg (if (nil? (:page (:params request)))
                  "index"
                  (:page (:params request)))
-        rootpg-html (get html-root rootpg)]
-    (when (some #(= rootpg %) (keys html-root))
+        rootpg-html (get root-page/html-root rootpg)]
+    (when (some #(= rootpg %) (keys root-page/html-root))
       (render-html (:title rootpg-html) (:contents rootpg-html) (:charts rootpg-html) (:users rootpg-html)))))

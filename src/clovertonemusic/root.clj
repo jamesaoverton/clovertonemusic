@@ -1,4 +1,4 @@
-(in-ns 'clovertonemusic.core)
+(ns clovertonemusic.root-page)
 
 ;; This file contains the HTML code used for pages in the root directory
 
