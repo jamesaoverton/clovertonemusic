@@ -3,59 +3,59 @@
 (require '[clojure.string :as str])
 
 (defn chart
-  [grade-name chart-path chart-name composer-path composer-name price
-   genre audio-path preview-path purchase-email customized-email chart-notes
-   chart-details]
+  [number grade-number grade-name chart-path chart-name composer-path composer-name price
+   genre audio-path preview-path purchase-email customized-email chart-notes chart-details]
   (let [split-price (str/split (second (re-find #"\$(\S+)" "$1.00")) #"\.")]
-    {:head [:div.head
-            [:h2.title [:a {:href chart-path} chart-name]]
-            [:h3.name
-             [:a
-              {:href composer-path}
-              (str "By " composer-name "\n")]]]
-     :body [:div.body
-            [:div.image
-             [:div.genre-image.swing]
-             [:div.genre genre]
-             [:div.grade grade-name]]
-            [:a.purchase
-             {:href
-              (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order" purchase-email)}]
-            [:div.blank]
-            [:div.price
-             [:span.dollar-sign "$"]
-             [:span.dollars (first split-price)]
-             [:span.cents (second split-price)]]
-            [:ul.actions
-             [:li
-              [:a#audio2.audio
-               {:href audio-path}
-               "▶   Listen\n"]]
-             [:li
-              [:a
-               {:href preview-path, :target "_blank"}
-               "Preview\n"]]
-             [:li
-              [:a
-               {:href
-                (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20a%20customized%20version%20of%20the%20chart"
-                     customized-email
-                     "Here's%20some%20information%20about%20our%20band%2C%20including%20our%20instrumentation%2C%20who%20we%20would%20like%20to%20feature%2C%20and%20the%20difficult%20level%20that%20we%20can%20handle%3A%0D%0A%0D%0A%0D%0A%0D%0AI%20prefer%20to%20be%20contacted%0D%0A-%20by%20email%20at%20this%20address%0D%0A-%20by%20phone%3A%20my%20number%20is%20XXX-XXX-XXXX%2C%20and%20I%20am%20available%20between%20the%20hours%20of%20%0D%0A%0D%0A")}
-               "Customize\n"]]]
-            chart-notes]
-     :details [:table.details
-               [:thead
-                [:tr
-                 [:td "Band"]
-                 [:td "Genre"]
-                 [:td "Composer"]
-                 [:td "Duration"]
-                 [:td "Meter"]
-                 [:td "Tempo"]]]
-               chart-details]}))
+    [(keyword (str "div#" number ".chart.grade" grade-number))
+     [:div.head
+      [:h2.title [:a {:href chart-path} chart-name]]
+      [:h3.name
+       [:a
+        {:href composer-path}
+        (str "By " composer-name "\n")]]]
+     [:div.body
+      [:div.image
+       [:div.genre-image.swing]
+       [:div.genre genre]
+       [:div.grade grade-name]]
+      [:a.purchase
+       {:href
+        (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order" purchase-email)}]
+      [:div.blank]
+      [:div.price
+       [:span.dollar-sign "$"]
+       [:span.dollars (first split-price)]
+       [:span.cents (second split-price)]]
+      [:ul.actions
+       [:li
+        [:a#audio2.audio
+         {:href audio-path}
+         "▶   Listen\n"]]
+       [:li
+        [:a
+         {:href preview-path, :target "_blank"}
+         "Preview\n"]]
+       [:li
+        [:a
+         {:href
+          (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20a%20customized%20version%20of%20the%20chart"
+               customized-email
+               "Here's%20some%20information%20about%20our%20band%2C%20including%20our%20instrumentation%2C%20who%20we%20would%20like%20to%20feature%2C%20and%20the%20difficult%20level%20that%20we%20can%20handle%3A%0D%0A%0D%0A%0D%0A%0D%0AI%20prefer%20to%20be%20contacted%0D%0A-%20by%20email%20at%20this%20address%0D%0A-%20by%20phone%3A%20my%20number%20is%20XXX-XXX-XXXX%2C%20and%20I%20am%20available%20between%20the%20hours%20of%20%0D%0A%0D%0A")}
+         "Customize\n"]]]
+      chart-notes]
+     [:table.details
+      [:thead
+       [:tr
+        [:td "Band"]
+        [:td "Genre"]
+        [:td "Composer"]
+        [:td "Duration"]
+        [:td "Meter"]
+        [:td "Tempo"]]]
+      chart-details]]))
 
 (def o-canada
-  (chart "Grade 1" "/charts/o-canada" "O Canada" "/composers/christian-overton"
+  (chart 2 1 "Grade 1" "/charts/o-canada" "O Canada" "/composers/christian-overton"
          "Christian Overton" "$1.00" "swing" "/audio/o-canada.mp3"
          "/previews/o-canada.preview.pdf" "%20%22O%20Canada%22.%0D%0A"
          "%20%22O%20Canada%22.%0D%0A%0D%0A"
@@ -76,7 +76,7 @@
            [:td "180"]]]))
 
 (def sock-hop-be-bop
-  (chart "Grade 1" "/charts/sock-hop-be-bop" "Sock Hop Be-Bop" "/composers/christian-overton"
+  (chart 4 1 "Grade 1" "/charts/sock-hop-be-bop" "Sock Hop Be-Bop" "/composers/christian-overton"
          "Christian Overton" "$40.00" "swing" "/audio/sock-hop-be-bop.mp3"
          "/previews/sock-hop-be-bop.preview.pdf" "%20%22Sock%20Hop%20Be-Bop%22.%0D%0A"
          "%20%22Sock%20Hop%20Be-Bop%22.%0D%0A%0D%0A"
@@ -100,7 +100,7 @@
            [:td "120"]]]))
 
 (def tango
-  (chart "Grade 1" "/charts/tango" "Tango!" "/composers/christian-overton"
+  (chart 5 1 "Grade 1" "/charts/tango" "Tango!" "/composers/christian-overton"
          "Christian Overton" "$40.00" "other" "/audio/tango.mp3"
          "/previews/tango.preview.pdf" "%20the%20chart%20%22Tango!%22.%0D%0A"
          "%20%22Tango!%22.%0D%0A%0D%0A"
@@ -125,7 +125,7 @@
            [:td "100"]]]))
 
 (def sakura-lullaby
-  (chart "Grade 1" "/charts/sakura-lullaby" "Sakura Lullaby" "/composers/christian-overton"
+  (chart 6 1 "Grade 1" "/charts/sakura-lullaby" "Sakura Lullaby" "/composers/christian-overton"
          "Christian Overton" "$40.00" "ballad" "/audio/sakura-lullaby.mp3"
          "/previews/sakura-lullaby.preview.pdf" "%20%22Sakura%20Lullaby%22.%0D%0A"
          "%20%22Sakura%20Lullaby%22.%0D%0A%0D%0A"
@@ -149,7 +149,7 @@
            [:td "90"]]]))
 
 (def game-on
-  (chart "Grade 1" "/charts/game-on" "Game On!" "/composers/andy-ballantyne"
+  (chart 11 1 "Grade 1" "/charts/game-on" "Game On!" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$40.00" "rock" "/audio/game-on.mp3"
          "/previews/game-on.preview.pdf" "%20%22Game%20On!%22.%0D%0A"
          "%20%22Game%20On!%22.%0D%0A%0D%0A"
@@ -173,7 +173,7 @@
            [:td "112"]]]))
 
 (def at-long-last
-  (chart "Grade 1" "/charts/at-long-last" "At Long Last" "/composers/christian-overton"
+  (chart 27 1 "Grade 1" "/charts/at-long-last" "At Long Last" "/composers/christian-overton"
          "Christian Overton" "$40.00" "latin" "/audio/at-long-last.mp3"
          "/previews/at-long-last.preview.pdf" "%20%22At%20Long%20Last%22.%0D%0A"
          "%20%22At%20Long%20Last%22.%0D%0A%0D%0A"
@@ -198,7 +198,7 @@
            [:td "120"]]]))
 
 (def hotel-mambo
-  (chart "Grade 1" "/charts/hotel-mambo" "Hotel Mambo" "/composers/christian-overton"
+  (chart 29 1 "Grade 1" "/charts/hotel-mambo" "Hotel Mambo" "/composers/christian-overton"
          "Christian Overton" "$40.00" "latin" "/audio/hotel-mambo.mp3"
          "/previews/hotel-mambo.preview.pdf" "%20%22Hotel%20Mambo%22.%0D%0A"
          "%20%22Hotel%20Mambo%22.%0D%0A%0D%0A"
@@ -223,7 +223,7 @@
            [:td "180"]]]))
 
 (def petes-chune
-  (chart "Grade 1" "/charts/petes-chune" "Pete's Chune" "/composers/christian-overton"
+  (chart 30 1 "Grade 1" "/charts/petes-chune" "Pete's Chune" "/composers/christian-overton"
          "Christian Overton" "$40.00" "other" "/audio/petes-chune.mp3"
          "/previews/petes-chune.preview.pdf" "%20%22Pete's%20Chune%22.%0D%0A"
          "%20%22Pete's%20Chune%22.%0D%0A%0D%0A"
@@ -243,7 +243,7 @@
            [:td "160"]]]))
 
 (def train-track
-  (chart "Grade 1" "/charts/train-track" "Train Track" "/composers/christian-overton"
+  (chart 32 1 "Grade 1" "/charts/train-track" "Train Track" "/composers/christian-overton"
          "Christian Overton" "$40.00" "swing" "/audio/train-track.mp3"
          "/previews/train-track.preview.pdf" "%20%22Train%20Track%22.%0D%0A"
          "%20%22Train%20Track%22.%0D%0A%0D%0A"
@@ -268,7 +268,7 @@
            [:td "132"]]]))
 
 (def all-your-base
-  (chart "Grade 1" "/charts/all-your-base" "All Your Base" "/composers/erik-patterson"
+  (chart 35 1 "Grade 1" "/charts/all-your-base" "All Your Base" "/composers/erik-patterson"
          "Erik Patterson" "$40.00" "rock" "/audio/all-your-base.mp3"
          "/previews/all-your-base.preview.pdf" "%20%22All%20Your%20Base%22.%0D%0A"
          "%20%22All%20Your%20Base%22.%0D%0A%0D%0A"
@@ -286,7 +286,7 @@
            [:td "110"]]]))
 
 (def shuswap-shuffle
-  (chart "Grade 1" "/charts/shuswap-shuffle" "Shuswap Shuffle" "/composers/andy-ballantyne"
+  (chart 36 1 "Grade 1" "/charts/shuswap-shuffle" "Shuswap Shuffle" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$40.00" "swing" "/audio/shuswap-shuffle.mp3"
          "/previews/shuswap-shuffle.preview.pdf" "%20%22Shuswap%20Shuffle%22.%0D%0A"
          "%20%22Shuswap%20Shuffle%22.%0D%0A%0D%0A"
@@ -306,7 +306,7 @@
            [:td "100"]]]))
 
 (def red-river-mud-pie
-  (chart "Grade 1" "/charts/red-river-mud-pie" "Red River Mud Pie" "/composers/andy-ballantyne"
+  (chart 37 1 "Grade 1" "/charts/red-river-mud-pie" "Red River Mud Pie" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$40.00" "swing" "/audio/red-river-mud-pie.mp3"
          "/previews/red-river-mud-pie.preview.pdf" "%20%22Red%20River%20Mud%20Pie%22.%0D%0A"
          "%20%22Red%20River%20Mud%20Pie%22.%0D%0A%0D%0A"
@@ -326,7 +326,7 @@
            [:td "124"]]]))
 
 (def gentlemen
-  (chart "Grade 1" "/charts/gentlemen" "Gentlemen" "/composers/erik-patterson"
+  (chart 60 1 "Grade 1" "/charts/gentlemen" "Gentlemen" "/composers/erik-patterson"
          "Erik Patterson" "$40.00" "rock" "/audio/gentlemen.mp3"
          "/previews/gentlemen.preview.pdf" "%20%22Gentlemen%22.%0D%0A"
          "%20%22Gentlemen%22.%0D%0A%0D%0A"
@@ -348,7 +348,7 @@
            [:td "100"]]]))
 
 (def la-cattura
-  (chart "Grade 1" "/charts/la-cattura" "La Cattura Di Salvatore Veloce" "/composers/erik-patterson"
+  (chart 61 1 "Grade 1" "/charts/la-cattura" "La Cattura Di Salvatore Veloce" "/composers/erik-patterson"
          "Erik Patterson" "$40.00" "rock" "/audio/la-cattura.mp3"
          "/previews/la-cattura.preview.pdf" "%20%22La%20Cattura%20Di%20Salvatore%20Veloce%22.%0D%0A"
          "%20%22La%20Cattura%20Di%20Salvatore%20Veloce%22.%0D%0A%0D%0A"
@@ -371,7 +371,7 @@
            [:td "100"]]]))
 
 (def cowboy-countdown
-  (chart "Grade 1" "/charts/cowboy-countdown" "Cowboy Countdown" "/composers/christian-overton"
+  (chart 65 1 "Grade 1" "/charts/cowboy-countdown" "Cowboy Countdown" "/composers/christian-overton"
          "Christian Overton" "$40.00" "swing" "/audio/cowboy-countdown.mp3"
          "/previews/cowboy-countdown.preview.pdf" "%20%22Cowboy%20Countdown%22.%0D%0A"
          "%20%22Cowboy%20Countdown%22.%0D%0A%0D%0A"
@@ -396,7 +396,7 @@
            [:td "120"]]]))
 
 (def la-squadra-da-milano
-  (chart "Grade 1" "/charts/la-squadra-da-milano" "La Squadra Da Milano" "/composers/erik-patterson"
+  (chart 75 1 "Grade 1" "/charts/la-squadra-da-milano" "La Squadra Da Milano" "/composers/erik-patterson"
          "Erik Patterson" "$40.00" "rock" "/audio/la-squadra-da-milano.mp3"
          "/previews/la-squadra-da-milano.preview.pdf" "%20%22La%20Squadra%20Da%20Milano%22.%0D%0A"
          "%20%22La%20Squadra%20Da%20Milano%22.%0D%0A%0D%0A"
@@ -414,7 +414,7 @@
            [:td "120"]]]))
 
 (def stone-cold-strut
-  (chart "Grade 1" "/charts/stone-cold-strut" "Stone Cold Strut" "/composers/erik-patterson"
+  (chart 76 1 "Grade 1" "/charts/stone-cold-strut" "Stone Cold Strut" "/composers/erik-patterson"
          "Erik Patterson" "$40.00" "rock" "/audio/stone-cold-strut.mp3"
          "/previews/stone-cold-strut.preview.pdf" "%20%22Stone%20Cold%20Strut%22.%0D%0A"
          "%20%22Stone%20Cold%20Strut%22.%0D%0A%0D%0A"
@@ -432,7 +432,7 @@
            [:td "120"]]]))
 
 (def branta
-  (chart "Grade 1" "/charts/branta" "Branta" "/composers/tom-richards"
+  (chart 78 1 "Grade 1" "/charts/branta" "Branta" "/composers/tom-richards"
          "Tom Richards" "$40.00" "latin" "/audio/branta.mp3"
          "/previews/branta.preview.pdf" "%20%22Branta%22.%0D%0A"
          "%20%22Branta%22.%0D%0A%0D%0A"
@@ -449,7 +449,7 @@
            [:td "140"]]]))
 
 (def moatfield-shuffle
-  (chart "Grade 1" "/charts/moatfield-shuffle" "Moatfield Shuffle" "/composers/tom-richards"
+  (chart 79 1 "Grade 1" "/charts/moatfield-shuffle" "Moatfield Shuffle" "/composers/tom-richards"
          "Tom Richards" "$40.00" "swing" "/audio/moatfield-shuffle.mp3"
          "/previews/moatfield-shuffle.preview.pdf" "%20%22Moatfield%20Shuffle%22.%0D%0A"
          "%20%22Moatfield%20Shuffle%22.%0D%0A%0D%0A"
@@ -466,7 +466,7 @@
            [:td "110"]]]))
 
 (def blue-heron
-  (chart "Grade 1" "/charts/blue-heron" "Blue Heron" "/composers/christian-overton"
+  (chart 84 1 "Grade 1" "/charts/blue-heron" "Blue Heron" "/composers/christian-overton"
          "Christian Overton" "$40.00" "swing" "/audio/blue-heron.mp3"
          "/previews/blue-heron.preview.pdf" "%20%22Blue%20Heron%22.%0D%0A"
          "%20%22Blue%20Heron%22.%0D%0A%0D%0A"
@@ -486,7 +486,7 @@
            [:td "120"]]]))
 
 (def detective-story
-  (chart "Grade 2" "/charts/detective-story" "Detective Story" "/composers/christian-overton"
+  (chart 7 2 "Grade 2" "/charts/detective-story" "Detective Story" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/detective-story.mp3"
          "/previews/detective-story.preview.pdf" "%20%22Detective%20Story%22.%0D%0A"
          "%20%22Detective%20Story%22.%0D%0A%0D%0A"
@@ -511,7 +511,7 @@
            [:td "100"]]]))
 
 (def that-look
-  (chart "Grade 2" "/charts/that-look" "That Look" "/composers/christian-overton"
+  (chart 9 2 "Grade 2" "/charts/that-look" "That Look" "/composers/christian-overton"
          "Christian Overton" "$50.00" "ballad" "/audio/that-look.mp3"
          "/previews/that-look.preview.pdf" "%20%22That%20Look%22.%0D%0A"
          "%20%22That%20Look%22.%0D%0A%0D%0A"
@@ -535,7 +535,7 @@
            [:td "60"]]]))
 
 (def atlantic-crossing
-  (chart "Grade 2" "/charts/atlantic-crossing" "Atlantic Crossing" "/composers/christian-overton"
+  (chart 10 2 "Grade 2" "/charts/atlantic-crossing" "Atlantic Crossing" "/composers/christian-overton"
          "Christian Overton" "$50.00" "other" "/audio/atlantic-crossing.mp3"
          "/previews/atlantic-crossing.preview.pdf" "%20%22Atlantic%20Crossing%22.%0D%0A"
          "%20%22Atlantic%20Crossing%22.%0D%0A%0D%0A"
@@ -560,7 +560,7 @@
            [:td "100"]]]))
 
 (def electros-next-plot-jr
-  (chart "Grade 2" "/charts/electros-next-plot-jr" "Electro's Next Plot (Jr.)" "/composers/christian-overton"
+  (chart 15 2 "Grade 2" "/charts/electros-next-plot-jr" "Electro's Next Plot (Jr.)" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/electros-next-plot-jr.mp3"
          "/previews/electros-next-plot-jr.preview.pdf" "%20%22Electro's%20Next%20Plot%20(Jr.)%22.%0D%0A"
          "%20%22Electro's%20Next%20Plot%20(Jr.)%22.%0D%0A%0D%0A"
@@ -585,7 +585,7 @@
            [:td "72"]]]))
 
 (def a-kingdoms-last-hope-jr
-  (chart "Grade 2" "/charts/a-kingdoms-last-hope-jr" "A Kingdom's Last Hope Jr." "/composers/christian-overton"
+  (chart 31 2 "Grade 2" "/charts/a-kingdoms-last-hope-jr" "A Kingdom's Last Hope Jr." "/composers/christian-overton"
          "Christian Overton" "$50.00" "other" "/audio/a-kingdoms-last-hope-jr.mp3"
          "/previews/a-kingdoms-last-hope-jr.preview.pdf" "%20%22A%20Kingdom's%20Last%20Hope%20Jr.%22.%0D%0A"
          "%20%22A%20Kingdom's%20Last%20Hope%20Jr.%22.%0D%0A%0D%0A"
@@ -605,7 +605,7 @@
            [:td "120"]]]))
 
 (def cloud-song
-  (chart "Grade 2" "/charts/cloud-song" "Cloud Song" "/composers/christian-overton"
+  (chart 49 2 "Grade 2" "/charts/cloud-song" "Cloud Song" "/composers/christian-overton"
          "Christian Overton" "$50.00" "rock" "/audio/cloud-song.mp3"
          "/previews/cloud-song.preview.pdf" "%20%22Cloud%20Song%22.%0D%0A"
          "%20%22Cloud%20Song%22.%0D%0A%0D%0A"
@@ -629,7 +629,7 @@
            [:td "120"]]]))
 
 (def let-me-be
-  (chart "Grade 2" "/charts/let-me-be" "Let Me Be the Sugar in Your Tea" "/composers/christian-overton"
+  (chart 52 2 "Grade 2" "/charts/let-me-be" "Let Me Be the Sugar in Your Tea" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/let-me-be.mp3"
          "/previews/let-me-be.preview.pdf" "%20%22Let%20Me%20Be%20the%20Sugar%20in%20Your%20Tea%22.%0D%0A"
          "%20%22Let%20Me%20Be%20the%20Sugar%20in%20Your%20Tea%22.%0D%0A%0D%0A"
@@ -654,7 +654,7 @@
            [:td "96"]]]))
 
 (def lifted
-  (chart "Grade 2" "/charts/lifted" "Lifted" "/composers/christian-overton"
+  (chart 54 2 "Grade 2" "/charts/lifted" "Lifted" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/lifted.mp3"
          "/previews/lifted.preview.pdf" "%20%22Lifted%22.%0D%0A"
          "%20%22Lifted%22.%0D%0A%0D%0A"
@@ -679,7 +679,7 @@
            [:td "140"]]]))
 
 (def a-long-kept-secret
-  (chart "Grade 2" "/charts/a-long-kept-secret" "A Long Kept Secret" "/composers/christian-overton"
+  (chart 64 2 "Grade 2" "/charts/a-long-kept-secret" "A Long Kept Secret" "/composers/christian-overton"
          "Christian Overton" "$50.00" "ballad" "/audio/a-long-kept-secret.mp3"
          "/previews/a-long-kept-secret.preview.pdf" "%20%22A%20Long%20Kept%20Secret%22.%0D%0A"
          "%20%22A%20Long%20Kept%20Secret%22.%0D%0A%0D%0A"
@@ -704,7 +704,7 @@
            [:td "90"]]]))
 
 (def crusin-at-30000
-  (chart "Grade 2" "/charts/crusin-at-30000" "Crusin' at 30000" "/composers/christian-overton"
+  (chart 66 2 "Grade 2" "/charts/crusin-at-30000" "Crusin' at 30000" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/crusin-at-30000.mp3"
          "/previews/crusin-at-30000.preview.pdf" "%20%22Crusin'%20at%2030000%22.%0D%0A"
          "%20%22Crusin'%20at%2030000%22.%0D%0A%0D%0A"
@@ -728,7 +728,7 @@
            [:td "200"]]]))
 
 (def the-gene-machine
-  (chart "Grade 2" "/charts/the-gene-machine" "The Gene Machine" "/composers/christian-overton"
+  (chart 67 2 "Grade 2" "/charts/the-gene-machine" "The Gene Machine" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/the-gene-machine.mp3"
          "/previews/the-gene-machine.preview.pdf" "%20%22The%20Gene%20Machine%22.%0D%0A"
          "%20%22The%20Gene%20Machine%22.%0D%0A%0D%0A"
@@ -752,7 +752,7 @@
            [:td "180"]]]))
 
 (def go-go-blues
-  (chart "Grade 2" "/charts/go-go-blues" "Go Go Blues" "/composers/christian-overton"
+  (chart 68 2 "Grade 2" "/charts/go-go-blues" "Go Go Blues" "/composers/christian-overton"
          "Christian Overton" "$50.00" "rock" "/audio/go-go-blues.mp3"
          "/previews/go-go-blues.preview.pdf" "%20%22Go%20Go%20Blues%22.%0D%0A"
          "%20%22Go%20Go%20Blues%22.%0D%0A%0D%0A"
@@ -777,7 +777,7 @@
            [:td "120"]]]))
 
 (def en-su-camino
-  (chart "Grade 2" "/charts/en-su-camino" "En Su Camino" "/composers/greg-crowe"
+  (chart 71 2 "Grade 2" "/charts/en-su-camino" "En Su Camino" "/composers/greg-crowe"
          "Greg Crowe" "$50.00" "latin" "/audio/en-su-camino.mp3"
          "/previews/en-su-camino.preview.pdf" "%20%22En%20Su%20Camino%22.%0D%0A"
          "%20%22En%20Su%20Camino%22.%0D%0A%0D%0A"
@@ -794,7 +794,7 @@
            [:td "110"]]]))
 
 (def sometimes-i-feel
-  (chart "Grade 2" "/charts/sometimes-i-feel" "Sometimes I Feel Like a Muppet" "/composers/chris-hunt"
+  (chart 72 2 "Grade 2" "/charts/sometimes-i-feel" "Sometimes I Feel Like a Muppet" "/composers/chris-hunt"
          "Chris Hunt" "$50.00" "swing" "/audio/sometimes-i-feel.mp3"
          "/previews/sometimes-i-feel.preview.pdf" "%20%22Sometimes%20I%20Feel%20Like%20a%20Muppet%22.%0D%0A"
          "%20%22Sometimes%20I%20Feel%20Like%20a%20Muppet%22.%0D%0A%0D%0A"
@@ -811,7 +811,7 @@
            [:td "110"]]]))
 
 (def friday-night-special
-  (chart "Grade 2" "/charts/friday-night-special" "Friday Night Special" "/composers/christian-overton"
+  (chart 73 2 "Grade 2" "/charts/friday-night-special" "Friday Night Special" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/friday-night-special.mp3"
          "/previews/friday-night-special.preview.pdf" "%20%22Friday%20Night%20Special%22.%0D%0A"
          "%20%22Friday%20Night%20Special%22.%0D%0A%0D%0A"
@@ -831,7 +831,7 @@
            [:td "180"]]]))
 
 (def god-rest-ye
-  (chart "Grade 2" "/charts/god-rest-ye" "God Rest Ye Merry Gentlemen" "/composers/christian-overton"
+  (chart 74 1 "Grade 2" "/charts/god-rest-ye" "God Rest Ye Merry Gentlemen" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/god-rest-ye.mp3"
          "/previews/god-rest-ye.preview.pdf" "%20%22God%20Rest%20Ye%20Merry%20Gentlemen%22.%0D%0A"
          "%20%22God%20Rest%20Ye%20Merry%20Gentlemen%22.%0D%0A%0D%0A"
@@ -851,7 +851,7 @@
            [:td "140"]]]))
 
 (def the-first-noel
-  (chart "Grade 2" "/charts/the-first-noel" "The First Noel" "/composers/christian-overton"
+  (chart 86 2 "Grade 2" "/charts/the-first-noel" "The First Noel" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/the-first-noel.mp3"
          "/previews/the-first-noel.preview.pdf" "%20%22The%20First%20Noel%22.%0D%0A"
          "%20%22The%20First%20Noel%22.%0D%0A%0D%0A"
@@ -871,7 +871,7 @@
            [:td "100"]]]))
 
 (def what-once-was
-  (chart "Grade 2" "/charts/what-once-was" "What Once Was" "/composers/christian-overton"
+  (chart 87 2 "Grade 2" "/charts/what-once-was" "What Once Was" "/composers/christian-overton"
          "Christian Overton" "$50.00" "ballad" "/audio/what-once-was.mp3"
          "/previews/what-once-was.preview.pdf" "%20%22What%20Once%20Was%22.%0D%0A"
          "%20%22What%20Once%20Was%22.%0D%0A%0D%0A"
@@ -891,7 +891,7 @@
            [:td "70"]]]))
 
 (def brown-and-tan
-  (chart "Grade 2" "/charts/brown-and-tan" "Brown and Tan" "/composers/brad-harrison"
+  (chart 88 2 "Grade 2" "/charts/brown-and-tan" "Brown and Tan" "/composers/brad-harrison"
          "Brad Harrison" "$50.00" "rock" "/audio/brown-and-tan.mp3"
          "/previews/brown-and-tan.preview.pdf" "%20%22Brown%20and%20Tan%22.%0D%0A"
          "%20%22Brown%20and%20Tan%22.%0D%0A%0D%0A"
@@ -909,7 +909,7 @@
            [:td "150"]]]))
 
 (def livvy-dear
-  (chart "Grade 2" "/charts/livvy-dear" "Livvy Dear" "/composers/greg-crowe"
+  (chart 90 2 "Grade 2" "/charts/livvy-dear" "Livvy Dear" "/composers/greg-crowe"
          "Greg Crowe" "$50.00" "swing" "/audio/livvy-dear.mp3"
          "/previews/livvy-dear.preview.pdf" "%20%22Livvy%20Dear%22.%0D%0A"
          "%20%22Livvy%20Dear%22.%0D%0A%0D%0A"
@@ -926,7 +926,7 @@
            [:td "132"]]]))
 
 (def summer-on-my-mind
-  (chart "Grade 2" "/charts/summer-on-my-mind" "Summer on my Mind" "/composers/tom-richards"
+  (chart 92 2 "Grade 2" "/charts/summer-on-my-mind" "Summer on my Mind" "/composers/tom-richards"
          "Tom Richards" "$50.00" "swing" "/audio/summer-on-my-mind.mp3"
          "/previews/summer-on-my-mind.preview.pdf" "%20%22Summer%20on%20my%20Mind%22.%0D%0A"
          "%20%22Summer%20on%20my%20Mind%22.%0D%0A%0D%0A"
@@ -943,7 +943,7 @@
            [:td "128"]]]))
 
 (def good-king-w
-  (chart "Grade 2" "/charts/good-king-w" "Good King Wenceslas" "/composers/christian-overton"
+  (chart 93 2 "Grade 2" "/charts/good-king-w" "Good King Wenceslas" "/composers/christian-overton"
          "Christian Overton" "$50.00" "swing" "/audio/good-king-w.mp3"
          "/previews/good-king-w.preview.pdf" "%20%22Good%20King%20Wenceslas%22.%0D%0A"
          "%20%22Good%20King%20Wenceslas%22.%0D%0A%0D%0A"
@@ -963,7 +963,7 @@
            [:td "160"]]]))
 
 (def no-trespassing
-  (chart "Grade 2" "/charts/no-trespassing" "No Trespassing" "/composers/christian-overton"
+  (chart 95 2 "Grade 2" "/charts/no-trespassing" "No Trespassing" "/composers/christian-overton"
          "Christian Overton" "$50.00" "rock" "/audio/no-trespassing.mp3"
          "/previews/no-trespassing.preview.pdf" "%20%22No%20Trespassing%22.%0D%0A"
          "%20%22No%20Trespassing%22.%0D%0A%0D%0A"
@@ -983,7 +983,7 @@
            [:td "100"]]]))
 
 (def roscos-big-hit
-  (chart "Grade 2" "/charts/roscos-big-hit" "Rosco's Big Hit" "/composers/tom-richards"
+  (chart 107 2 "Grade 2" "/charts/roscos-big-hit" "Rosco's Big Hit" "/composers/tom-richards"
          "Tom Richards" "$50.00" "swing" "/audio/roscos-big-hit.mp3"
          "/previews/roscos-big-hit.preview.pdf" "%20%22Rosco's%20Big%20Hit%22.%0D%0A"
          "%20%22Rosco's%20Big%20Hit%22.%0D%0A%0D%0A"
@@ -1000,7 +1000,7 @@
            [:td "176"]]]))
 
 (def the-long-way-home
-  (chart "Grade 2" "/charts/the-long-way-home" "The Long Way Home" "/composers/brad-harrison"
+  (chart 108 2 "Grade 2" "/charts/the-long-way-home" "The Long Way Home" "/composers/brad-harrison"
          "Brad Harrison" "$50.00" "ballad" "/audio/the-long-way-home.mp3"
          "/previews/the-long-way-home.preview.pdf" "%20%22The%20Long%20Way%20Home%22.%0D%0A"
          "%20%22The%20Long%20Way%20Home%22.%0D%0A%0D%0A"
@@ -1018,7 +1018,7 @@
            [:td "100"]]]))
 
 (def the-pursuit
-  (chart "Grade 3" "/charts/the-pursuit" "The Pursuit" "/composers/christian-overton"
+  (chart 3 3 "Grade 3" "/charts/the-pursuit" "The Pursuit" "/composers/christian-overton"
          "Christian Overton" "$60.00" "swing" "/audio/the-pursuit.mp3"
          "/previews/the-pursuit.preview.pdf" "%20%22The%20Pursuit%22.%0D%0A"
          "%20%22The%20Pursuit%22.%0D%0A%0D%0A"
@@ -1044,7 +1044,7 @@
            [:td "112"]]]))
 
 (def the-dirrty-dog
-  (chart "Grade 3" "/charts/the-dirrty-dog" "The Dirrty Dog" "/composers/chris-hunt"
+  (chart 8 3 "Grade 3" "/charts/the-dirrty-dog" "The Dirrty Dog" "/composers/chris-hunt"
          "Chris Hunt" "$60.00" "rock" "/audio/the-dirrty-dog.mp3"
          "/previews/the-dirrty-dog.preview.pdf" "%20%22The%20Dirrty%20Dog%22.%0D%0A"
          "%20%22The%20Dirrty%20Dog%22.%0D%0A%0D%0A"
@@ -1066,7 +1066,7 @@
            [:td "160"]]]))
 
 (def on-the-ending-earth
-  (chart "Grade 3" "/charts/on-the-ending-earth" "On The Ending Earth" "/composers/erik-patterson"
+  (chart 12 3 "Grade 3" "/charts/on-the-ending-earth" "On The Ending Earth" "/composers/erik-patterson"
          "Erik Patterson" "$60.00" "ballad" "/audio/on-the-ending-earth.mp3"
          "/previews/on-the-ending-earth.preview.pdf" "%20%22On%20The%20Ending%20Earth%22.%0D%0A"
          "%20%22On%20The%20Ending%20Earth%22.%0D%0A%0D%0A"
@@ -1088,7 +1088,7 @@
            [:td "70"]]]))
 
 (def four-more-to-go
-  (chart "Grade 3" "/charts/four-more-to-go" "Four More to Go" "/composers/allison-au"
+  (chart 13 3 "Grade 3" "/charts/four-more-to-go" "Four More to Go" "/composers/allison-au"
          "Allison Au" "$60.00" "swing" "/audio/four-more-to-go.mp3"
          "/previews/four-more-to-go.preview.pdf" "%20%22Four%20More%20to%20Go%22.%0D%0A"
          "%20%22Four%20More%20to%20Go%22.%0D%0A%0D%0A"
@@ -1107,7 +1107,7 @@
            [:td "185"]]]))
 
 (def yun-gia
-  (chart "Grade 3" "/charts/yun-gia" "Yun Gia" "/composers/christian-overton"
+  (chart 14 3 "Grade 3" "/charts/yun-gia" "Yun Gia" "/composers/christian-overton"
          "Christian Overton" "$60.00" "latin" "/audio/yun-gia.mp3"
          "/previews/yun-gia.preview.pdf" "%20%22Yun%20Gia%22.%0D%0A"
          "%20%22Yun%20Gia%22.%0D%0A%0D%0A"
@@ -1132,7 +1132,7 @@
            [:td "180"]]]))
 
 (def the-green-blues
-  (chart "Grade 3" "/charts/the-green-blues" "The Green Blues" "/composers/christian-overton"
+  (chart 33 3 "Grade 3" "/charts/the-green-blues" "The Green Blues" "/composers/christian-overton"
          "Christian Overton" "$70.00" "swing" "/audio/the-green-blues.mp3"
          "/previews/the-green-blues.preview.pdf" "%20%22The%20Green%20Blues%22.%0D%0A"
          "%20%22The%20Green%20Blues%22.%0D%0A%0D%0A"
@@ -1157,7 +1157,7 @@
            [:td "160"]]]))
 
 (def arcadian-autumn
-  (chart "Grade 3" "/charts/arcadian-autumn" "Arcadian Autumn" "/composers/christian-overton"
+  (chart 34 3 "Grade 3" "/charts/arcadian-autumn" "Arcadian Autumn" "/composers/christian-overton"
          "Christian Overton" "$60.00" "swing" "/audio/arcadian-autumn.mp3"
          "/previews/arcadian-autumn.preview.pdf" "%20%22Arcadian%20Autumn%22.%0D%0A"
          "%20%22Arcadian%20Autumn%22.%0D%0A%0D%0A"
@@ -1177,7 +1177,7 @@
            [:td "120"]]]))
 
 (def sol-fiesta
-  (chart "Grade 3" "/charts/sol-fiesta" "Sol Fiesta" "/composers/maria-kundakcioglu"
+  (chart 39 3 "Grade 3" "/charts/sol-fiesta" "Sol Fiesta" "/composers/maria-kundakcioglu"
          "Maria Kundakcioglu" "$60.00" "latin" "/audio/sol-fiesta.mp3"
          "/previews/sol-fiesta.preview.pdf" "%20%22Sol%20Fiesta%22.%0D%0A"
          "%20%22Sol%20Fiesta%22.%0D%0A%0D%0A"
@@ -1204,7 +1204,7 @@
            [:td "100"]]]))
 
 (def tumbadora
-  (chart "Grade 3" "/charts/tumbadora" "Tumbadora" "/composers/maria-kundakcioglu"
+  (chart 40 3 "Grade 3" "/charts/tumbadora" "Tumbadora" "/composers/maria-kundakcioglu"
          "Maria Kundakcioglu" "$60.00" "latin" "/audio/tumbadora.mp3"
          "/previews/tumbadora.preview.pdf" "%20%22Tumbadora%22.%0D%0A"
          "%20%22Tumbadora%22.%0D%0A%0D%0A"
@@ -1230,7 +1230,7 @@
            [:td "120"]]]))
 
 (def silent-night
-  (chart "Grade 3" "/charts/silent-night" "Silent Night" "/composers/christian-overton"
+  (chart 46 3 "Grade 3" "/charts/silent-night" "Silent Night" "/composers/christian-overton"
          "Christian Overton" "$60.00" "ballad" "/audio/silent-night.mp3"
          "/previews/silent-night.preview.pdf" "%20%22Silent%20Night%22.%0D%0A"
          "%20%22Silent%20Night%22.%0D%0A%0D%0A"
@@ -1255,7 +1255,7 @@
            [:td "90"]]]))
 
 (def joy-to-the-world
-  (chart "Grade 3" "/charts/joy-to-the-world" "Joy to the World" "/composers/christian-overton"
+  (chart 47 3 "Grade 3" "/charts/joy-to-the-world" "Joy to the World" "/composers/christian-overton"
          "Christian Overton" "$60.00" "latin" "/audio/joy-to-the-world.mp3"
          "/previews/joy-to-the-world.preview.pdf" "%20%22Joy%20to%20the%20World%22.%0D%0A"
          "%20%22Joy%20to%20the%20World%22.%0D%0A%0D%0A"
@@ -1280,7 +1280,7 @@
            [:td "100"]]]))
 
 (def canal-street-walk
-  (chart "Grade 3" "/charts/canal-street-walk" "Canal Street Walk" "/composers/christian-overton"
+  (chart 48 3 "Grade 3" "/charts/canal-street-walk" "Canal Street Walk" "/composers/christian-overton"
          "Christian Overton" "$60.00" "swing" "/audio/canal-street-walk.mp3"
          "/previews/canal-street-walk.preview.pdf" "%20%22Canal%20Street%20Walk%22.%0D%0A"
          "%20%22Canal%20Street%20Walk%22.%0D%0A%0D%0A"
@@ -1305,7 +1305,7 @@
            [:td "180"]]]))
 
 (def the-dancehall-shake
-  (chart "Grade 3" "/charts/the-dancehall-shake" "The Dancehall Shake" "/composers/christian-overton"
+  (chart 50 3 "Grade 3" "/charts/the-dancehall-shake" "The Dancehall Shake" "/composers/christian-overton"
          "Christian Overton" "$60.00" "other" "/audio/the-dancehall-shake.mp3"
          "/previews/the-dancehall-shake.preview.pdf" "%20%22The%20Dancehall%20Shake%22.%0D%0A"
          "%20%22The%20Dancehall%20Shake%22.%0D%0A%0D%0A"
@@ -1329,7 +1329,7 @@
            [:td "100"]]]))
 
 (def femis-flight
-  (chart "Grade 3" "/charts/femis-flight" "Femi's Flight" "/composers/christian-overton"
+  (chart 51 3 "Grade 3" "/charts/femis-flight" "Femi's Flight" "/composers/christian-overton"
          "Christian Overton" "$60.00" "other" "/audio/femis-flight.mp3"
          "/previews/femis-flight.preview.pdf" "%20%22Femi's%20Flight%22.%0D%0A"
          "%20%22Femi's%20Flight%22.%0D%0A%0D%0A"
@@ -1353,7 +1353,7 @@
            [:td "120"]]]))
 
 (def lost-stories
-  (chart "Grade 3" "/charts/lost-stories" "Lost Stories" "/composers/christian-overton"
+  (chart 55 3 "Grade 3" "/charts/lost-stories" "Lost Stories" "/composers/christian-overton"
          "Christian Overton" "$60.00" "rock" "/audio/lost-stories.mp3"
          "/previews/lost-stories.preview.pdf" "%20%22Lost%20Stories%22.%0D%0A"
          "%20%22Lost%20Stories%22.%0D%0A%0D%0A"
@@ -1378,7 +1378,7 @@
            [:td "140"]]]))
 
 (def dark-matter
-  (chart "Grade 3" "/charts/dark-matter" "Dark Matter" "/composers/andy-ballantyne"
+  (chart 56 3 "Grade 3" "/charts/dark-matter" "Dark Matter" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$60.00" "ballad" "/audio/dark-matter.mp3"
          "/previews/dark-matter.preview.pdf" "%20%22Dark%20Matter%22.%0D%0A"
          "%20%22Dark%20Matter%22.%0D%0A%0D%0A"
@@ -1404,7 +1404,7 @@
            [:td "76"]]]))
 
 (def the-wiggle
-  (chart "Grade 3" "/charts/the-wiggle" "The Wiggle" "/composers/josh-grossman"
+  (chart 58 3 "Grade 3" "/charts/the-wiggle" "The Wiggle" "/composers/josh-grossman"
          "Josh Grossman" "$60.00" "rock" "/audio/the-wiggle.mp3"
          "/previews/the-wiggle.preview.pdf" "%20%22The%20Wiggle%22.%0D%0A"
          "%20%22The%20Wiggle%22.%0D%0A%0D%0A"
@@ -1427,7 +1427,7 @@
            [:td "100"]]]))
 
 (def the-test
-  (chart "Grade 3" "/charts/the-test" "The Test" "/composers/christian-overton"
+  (chart 69 3 "Grade 3" "/charts/the-test" "The Test" "/composers/christian-overton"
          "Christian Overton" "$60.00" "other" "/audio/the-test.mp3"
          "/previews/the-test.preview.pdf" "%20%22The%20Test%22.%0D%0A"
          "%20%22The%20Test%22.%0D%0A%0D%0A"
@@ -1452,7 +1452,7 @@
            [:td "120"]]]))
 
 (def el-castor-loco
-  (chart "Grade 3" "/charts/el-castor-loco" "El Castor Loco" "/composers/andy-ballantyne"
+  (chart 70 3 "Grade 3" "/charts/el-castor-loco" "El Castor Loco" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$60.00" "latin" "/audio/el-castor-loco.mp3"
          "/previews/el-castor-loco.preview.pdf" "%20%22El%20Castor%20Loco%22.%0D%0A"
          "%20%22El%20Castor%20Loco%22.%0D%0A%0D%0A"
@@ -1472,7 +1472,7 @@
            [:td "180"]]]))
 
 (def the-phantom
-  (chart "Grade 3" "/charts/the-phantom" "The Phantom" "/composers/jason-logue"
+  (chart 77 3 "Grade 3" "/charts/the-phantom" "The Phantom" "/composers/jason-logue"
          "Jason Logue" "$60.00" "swing" "/audio/the-phantom.mp3"
          "/previews/the-phantom.preview.pdf" "%20%22The%20Phantom%22.%0D%0A"
          "%20%22The%20Phantom%22.%0D%0A%0D%0A"
@@ -1489,7 +1489,7 @@
            [:td "140"]]]))
 
 (def don-carlos-dream
-  (chart "Grade 3" "/charts/don-carlos-dream" "Don Carlos' Dream" "/composers/ewan-divitt"
+  (chart 83 3 "Grade 3" "/charts/don-carlos-dream" "Don Carlos' Dream" "/composers/ewan-divitt"
          "Ewan Divitt" "$60.00" "other" "/audio/don-carlos-dream.mp3"
          "/previews/don-carlos-dream.preview.pdf" "%20%22Don%20Carlos'%20Dream%22.%0D%0A"
          "%20%22Don%20Carlos'%20Dream%22.%0D%0A%0D%0A"
@@ -1506,7 +1506,7 @@
            [:td "172"]]]))
 
 (def hamunaptra
-  (chart "Grade 3" "/charts/hamunaptra" "Hamunaptra" "/composers/christian-overton"
+  (chart 85 3 "Grade 3" "/charts/hamunaptra" "Hamunaptra" "/composers/christian-overton"
          "Christian Overton" "$60.00" "rock" "/audio/hamunaptra.mp3"
          "/previews/hamunaptra.preview.pdf" "%20%22Hamunaptra%22.%0D%0A"
          "%20%22Hamunaptra%22.%0D%0A%0D%0A"
@@ -1526,7 +1526,7 @@
            [:td "180"]]]))
 
 (def introduccion
-  (chart "Grade 3" "/charts/introduccion" "Introduccion" "/composers/christian-overton"
+  (chart 94 3 "Grade 3" "/charts/introduccion" "Introduccion" "/composers/christian-overton"
          "Christian Overton" "$60.00" "latin" "/audio/introduccion.mp3"
          "/previews/introduccion.preview.pdf" "%20%22Introduccion%22.%0D%0A"
          "%20%22Introduccion%22.%0D%0A%0D%0A"
@@ -1546,7 +1546,7 @@
            [:td "104"]]]))
 
 (def midnight-clear
-  (chart "Grade 3" "/charts/midnight-clear" "It Came Upon a Midnight Clear" "/composers/christian-overton"
+  (chart 101 3 "Grade 3" "/charts/midnight-clear" "It Came Upon a Midnight Clear" "/composers/christian-overton"
          "Christian Overton" "$60.00" "swing" "/audio/midnight-clear.mp3"
          "/previews/midnight-clear.preview.pdf" "%20%22It%20Came%20Upon%20a%20Midnight%20Clear%22.%0D%0A"
          "%20%22It%20Came%20Upon%20a%20Midnight%20Clear%22.%0D%0A%0D%0A"
@@ -1566,7 +1566,7 @@
            [:td "120"]]]))
 
 (def life-race
-  (chart "Grade 3" "/charts/life-race" "Life Race" "/composers/christian-overton"
+  (chart 102 3 "Grade 3" "/charts/life-race" "Life Race" "/composers/christian-overton"
          "Christian Overton" "$60.00" "rock" "/audio/life-race.mp3"
          "/previews/life-race.preview.pdf" "%20%22Life%20Race%22.%0D%0A"
          "%20%22Life%20Race%22.%0D%0A%0D%0A"
@@ -1586,7 +1586,7 @@
            [:td "180"]]]))
 
 (def junk
-  (chart "Grade 3" "/charts/junk" "Junk" "/composers/liam-gallagher"
+  (chart 103 3 "Grade 3" "/charts/junk" "Junk" "/composers/liam-gallagher"
          "Liam Gallagher" "$60.00" "rock" "/audio/junk.mp3"
          "/previews/junk.preview.pdf" "%20%22Junk%22.%0D%0A"
          "%20%22Junk%22.%0D%0A%0D%0A"
@@ -1604,7 +1604,7 @@
            [:td "160"]]]))
 
 (def la-maquina
-  (chart "Grade 3" "/charts/la-maquina" "La Maquina" "/composers/greg-crowe"
+  (chart 104 3 "Grade 3" "/charts/la-maquina" "La Maquina" "/composers/greg-crowe"
          "Greg Crowe" "$60.00" "latin" "/audio/la-maquina.mp3"
          "/previews/la-maquina.preview.pdf" "%20%22La%20Maquina%22.%0D%0A"
          "%20%22La%20Maquina%22.%0D%0A%0D%0A"
@@ -1621,7 +1621,7 @@
            [:td "112"]]]))
 
 (def last-resorts
-  (chart "Grade 3" "/charts/last-resorts" "Last Resorts" "/composers/chelsea-mcbride"
+  (chart 105 3 "Grade 3" "/charts/last-resorts" "Last Resorts" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$60.00" "rock" "/audio/last-resorts.mp3"
          "/previews/last-resorts.preview.pdf" "%20%22Last%20Resorts%22.%0D%0A"
          "%20%22Last%20Resorts%22.%0D%0A%0D%0A"
@@ -1641,7 +1641,7 @@
            [:td "100"]]]))
 
 (def mad-man-mambo
-  (chart "Grade 3" "/charts/mad-man-mambo" "Mad Man Mambo" "/composers/jason-logue"
+  (chart 106 3 "Grade 3" "/charts/mad-man-mambo" "Mad Man Mambo" "/composers/jason-logue"
          "Jason Logue" "$60.00" "latin" "/audio/mad-man-mambo.mp3"
          "/previews/mad-man-mambo.preview.pdf" "%20%22Mad%20Man%20Mambo%22.%0D%0A"
          "%20%22Mad%20Man%20Mambo%22.%0D%0A%0D%0A"
@@ -1658,7 +1658,7 @@
            [:td "200"]]]))
 
 (def two-dave-k
-  (chart "Grade 4" "/charts/2-dave-k" "2 Dave K" "/composers/christian-overton"
+  (chart 16 4 "Grade 4" "/charts/2-dave-k" "2 Dave K" "/composers/christian-overton"
          "Christian Overton" "$70.00" "swing" "/audio/2-dave-k.mp3"
          "/previews/2-dave-k.preview.pdf" "%20%222%20Dave%20K%22.%0D%0A"
          "%20%222%20Dave%20K%22.%0D%0A%0D%0A"
@@ -1678,7 +1678,7 @@
            [:td "220"]]]))
 
 (def a-kingdoms-last-hope
-  (chart "Grade 4" "/charts/a-kingdoms-last-hope" "A Kingdom's Last Hope" "/composers/christian-overton"
+  (chart 17 4 "Grade 4" "/charts/a-kingdoms-last-hope" "A Kingdom's Last Hope" "/composers/christian-overton"
          "Christian Overton" "$70.00" "other" "/audio/a-kingdoms-last-hope.mp3"
          "/previews/a-kingdoms-last-hope.preview.pdf" "%20%22A%20Kingdom's%20Last%20Hope%22.%0D%0A"
          "%20%22A%20Kingdom's%20Last%20Hope%22.%0D%0A%0D%0A"
@@ -1703,7 +1703,7 @@
            [:td "120"]]]))
 
 (def ten-41-am
-  (chart "Grade 4" "/charts/10-41-am" "10:41AM" "/composers/christian-overton"
+  (chart 18 4 "Grade 4" "/charts/10-41-am" "10:41AM" "/composers/christian-overton"
          "Christian Overton" "$70.00" "swing" "/audio/10-41-am.mp3"
          "/previews/10-41-am.preview.pdf" "%20%2210%3A41AM%22.%0D%0A"
          "%20%2210%3A41AM%22.%0D%0A%0D%0A"
@@ -1723,7 +1723,7 @@
            [:td "180"]]]))
 
 (def wood-and-shadow
-  (chart "Grade 4" "/charts/wood-and-shadow" "Wood & Shadow" "/composers/christian-overton"
+  (chart 19 4 "Grade 4" "/charts/wood-and-shadow" "Wood & Shadow" "/composers/christian-overton"
          "Christian Overton" "$70.00" "ballad" "/audio/wood-and-shadow.mp3"
          "/previews/wood-and-shadow.preview.pdf" "%20%22Wood%20%26%20Shadow%22.%0D%0A"
          "%20%22Wood%20%26%20Shadow%22.%0D%0A%0D%0A"
@@ -1747,7 +1747,7 @@
            [:td "88"]]]))
 
 (def electros-next-plot
-  (chart "Grade 4" "/charts/electros-next-plot" "Electro's Next Plot " "/composers/christian-overton"
+  (chart 20 4 "Grade 4" "/charts/electros-next-plot" "Electro's Next Plot " "/composers/christian-overton"
          "Christian Overton" "$70.00" "swing" "/audio/electros-next-plot.mp3"
          "/previews/electros-next-plot.preview.pdf" "%20%22Electro's%20Next%20Plot%20%22.%0D%0A"
          "%20%22Electro's%20Next%20Plot%20%22.%0D%0A%0D%0A"
@@ -1767,7 +1767,7 @@
            [:td "60"]]]))
 
 (def chazz
-  (chart "Grade 4" "/charts/chazz" "Chazz" "/composers/josh-grossman"
+  (chart 21 4 "Grade 4" "/charts/chazz" "Chazz" "/composers/josh-grossman"
          "Josh Grossman" "$70.00" "latin" "/audio/chazz.mp3"
          "/previews/chazz.preview.pdf" "%20%22Chazz%22.%0D%0A"
          "%20%22Chazz%22.%0D%0A%0D%0A"
@@ -1789,7 +1789,7 @@
            [:td "100"]]]))
 
 (def amazing-grace
-  (chart "Grade 4" "/charts/amazing-grace" "Amazing Grace" "/composers/josh-grossman"
+  (chart 22 4 "Grade 4" "/charts/amazing-grace" "Amazing Grace" "/composers/josh-grossman"
          "Josh Grossman" "$70.00" "swing" "/audio/amazing-grace.mp3"
          "/previews/amazing-grace.preview.pdf" "%20%22Amazing%20Grace%22.%0D%0A"
          "%20%22Amazing%20Grace%22.%0D%0A%0D%0A"
@@ -1807,7 +1807,7 @@
            [:td "84"]]]))
 
 (def the-path
-  (chart "Grade 4" "/charts/the-path" "The Path" "/composers/josh-grossman"
+  (chart 23 4 "Grade 4" "/charts/the-path" "The Path" "/composers/josh-grossman"
          "Josh Grossman" "$70.00" "rock" "/audio/the-path.mp3"
          "/previews/the-path.preview.pdf" "%20%22The%20Path%22.%0D%0A"
          "%20%22The%20Path%22.%0D%0A%0D%0A"
@@ -1825,7 +1825,7 @@
            [:td "90"]]]))
 
 (def the-phone-dont-ring-jack
-  (chart "Grade 4" "/charts/the-phone-dont-ring-jack" "The Phone Don't Ring Jack" "/composers/andy-ballantyne"
+  (chart 25 4 "Grade 4" "/charts/the-phone-dont-ring-jack" "The Phone Don't Ring Jack" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$70.00" "swing" "/audio/the-phone-dont-ring-jack.mp3"
          "/previews/the-phone-dont-ring-jack.preview.pdf" "%20%22The%20Phone%20Don't%20Ring%20Jack%22.%0D%0A"
          "%20%22The%20Phone%20Don't%20Ring%20Jack%22.%0D%0A%0D%0A"
@@ -1845,7 +1845,7 @@
            [:td "72"]]]))
 
 (def first-x-free
-  (chart "Grade 4" "/charts/first-x-free" "First X Free" "/composers/chris-hunt"
+  (chart 26 4 "Grade 4" "/charts/first-x-free" "First X Free" "/composers/chris-hunt"
          "Chris Hunt" "$70.00" "rock" "/audio/first-x-free.mp3"
          "/previews/first-x-free.preview.pdf" "%20%22First%20X%20Free%22.%0D%0A"
          "%20%22First%20X%20Free%22.%0D%0A%0D%0A"
@@ -1866,7 +1866,7 @@
            [:td "160"]]]))
 
 (def funk-out
-  (chart "Grade 4" "/charts/funk-out" "Funk Out" "/composers/michael-kundakcioglu"
+  (chart 38 4 "Grade 4" "/charts/funk-out" "Funk Out" "/composers/michael-kundakcioglu"
          "Michael Kundakcioglu" "$70.00" "rock" "/audio/funk-out.mp3"
          "/previews/funk-out.preview.pdf" "%20%22Funk%20Out%22.%0D%0A"
          "%20%22Funk%20Out%22.%0D%0A%0D%0A"
@@ -1891,7 +1891,7 @@
            [:td "120"]]]))
 
 (def vista
-  (chart "Grade 4" "/charts/vista" "Vista" "/composers/andy-ballantyne"
+  (chart 41 4 "Grade 4" "/charts/vista" "Vista" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$70.00" "other" "/audio/vista.mp3"
          "/previews/vista.preview.pdf" "%20%22Vista%22.%0D%0A"
          "%20%22Vista%22.%0D%0A%0D%0A"
@@ -1915,7 +1915,7 @@
            [:td "86"]]]))
 
 (def the-fifth-beatle
-  (chart "Grade 4" "/charts/the-fifth-beatle" "The Fifth Beatle" "/composers/andy-ballantyne"
+  (chart 57 4 "Grade 4" "/charts/the-fifth-beatle" "The Fifth Beatle" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$70.00" "other" "/audio/the-fifth-beatle.mp3"
          "/previews/the-fifth-beatle.preview.pdf" "%20%22The%20Fifth%20Beatle%22.%0D%0A"
          "%20%22The%20Fifth%20Beatle%22.%0D%0A%0D%0A"
@@ -1937,7 +1937,7 @@
            [:td "120"]]]))
 
 (def this-buts-for-you
-  (chart "Grade 4" "/charts/this-buts-for-you" "This But's for You!" "/composers/terry-promane"
+  (chart 62 4 "Grade 4" "/charts/this-buts-for-you" "This But's for You!" "/composers/terry-promane"
          "Terry Promane" "$70.00" "swing" "/audio/this-buts-for-you.mp3"
          "/previews/this-buts-for-you.preview.pdf" "%20%22This%20But's%20for%20You!%22.%0D%0A"
          "%20%22This%20But's%20for%20You!%22.%0D%0A%0D%0A"
@@ -1960,7 +1960,7 @@
            [:td "160"]]]))
 
 (def surface-tension
-  (chart "Grade 4" "/charts/surface-tension" "Surface Tension" "/composers/jim-lewis"
+  (chart 63 4 "Grade 4" "/charts/surface-tension" "Surface Tension" "/composers/jim-lewis"
          "Jim Lewis" "$70.00" "swing" "/audio/surface-tension.mp3"
          "/previews/surface-tension.preview.pdf" "%20%22Surface%20Tension%22.%0D%0A"
          "%20%22Surface%20Tension%22.%0D%0A%0D%0A"
@@ -1981,7 +1981,7 @@
            [:td "160"]]]))
 
 (def santiago-nights
-  (chart "Grade 4" "/charts/santiago-nights" "Santiago Nights" "/composers/jason-logue"
+  (chart 80 4 "Grade 4" "/charts/santiago-nights" "Santiago Nights" "/composers/jason-logue"
          "Jason Logue" "$70.00" "latin" "/audio/santiago-nights.mp3"
          "/previews/santiago-nights.preview.pdf" "%20%22Santiago%20Nights%22.%0D%0A"
          "%20%22Santiago%20Nights%22.%0D%0A%0D%0A"
@@ -1998,7 +1998,7 @@
            [:td "160"]]]))
 
 (def epitaph
-  (chart "Grade 4" "/charts/epitaph" "Epitaph" "/composers/andy-ballantyne"
+  (chart 81 4 "Grade 4" "/charts/epitaph" "Epitaph" "/composers/andy-ballantyne"
          "Andy Ballantyne" "$70.00" "ballad" "/audio/epitaph.mp3"
          "/previews/epitaph.preview.pdf" "%20%22Epitaph%22.%0D%0A"
          "%20%22Epitaph%22.%0D%0A%0D%0A"
@@ -2018,7 +2018,7 @@
            [:td "90"]]]))
 
 (def song-for-l
-  (chart "Grade 4" "/charts/song-for-l" "Song For L" "/composers/brad-cheeseman"
+  (chart 91 4 "Grade 4" "/charts/song-for-l" "Song For L" "/composers/brad-cheeseman"
          "Brad Cheeseman" "$70.00" "swing" "/audio/song-for-l.mp3"
          "/previews/song-for-l.preview.pdf" "%20%22Song%20For%20L%22.%0D%0A"
          "%20%22Song%20For%20L%22.%0D%0A%0D%0A"
@@ -2036,7 +2036,7 @@
            [:td "192"]]]))
 
 (def state-of-mind
-  (chart "Grade 4" "/charts/state-of-mind" "State of Mind" "/composers/chelsea-mcbride"
+  (chart 96 4 "Grade 4" "/charts/state-of-mind" "State of Mind" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "ballad" "/audio/state-of-mind.mp3"
          "/previews/state-of-mind.preview.pdf" "%20%22State%20of%20Mind%22.%0D%0A"
          "%20%22State%20of%20Mind%22.%0D%0A%0D%0A"
@@ -2056,7 +2056,7 @@
            [:td "80"]]]))
 
 (def state-of-mind-reprise
-  (chart "Grade 4" "/charts/state-of-mind-reprise" "State of Mind Reprise" "/composers/chelsea-mcbride"
+  (chart 97 4 "Grade 4" "/charts/state-of-mind-reprise" "State of Mind Reprise" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "ballad" "/audio/state-of-mind-reprise.mp3"
          "/previews/state-of-mind-reprise.preview.pdf" "%20%22State%20of%20Mind%20Reprise%22.%0D%0A"
          "%20%22State%20of%20Mind%20Reprise%22.%0D%0A%0D%0A"
@@ -2076,7 +2076,7 @@
            [:td "80"]]]))
 
 (def river
-  (chart "Grade 4" "/charts/river" "River" "/composers/chelsea-mcbride"
+  (chart 98 4 "Grade 4" "/charts/river" "River" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/river.mp3"
          "/previews/river.preview.pdf" "%20%22River%22.%0D%0A"
          "%20%22River%22.%0D%0A%0D%0A"
@@ -2096,7 +2096,7 @@
            [:td "160"]]]))
 
 (def julia
-  (chart "Grade 4" "/charts/julia" "Julia" "/composers/chelsea-mcbride"
+  (chart 99 4 "Grade 4" "/charts/julia" "Julia" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/julia.mp3"
          "/previews/julia.preview.pdf" "%20%22Julia%22.%0D%0A"
          "%20%22Julia%22.%0D%0A%0D%0A"
@@ -2116,7 +2116,7 @@
            [:td "120"]]]))
 
 (def thinking-in-circles
-  (chart "Grade 4" "/charts/thinking-in-circles" "Thinking In Circles" "/composers/chelsea-mcbride"
+  (chart 100 4 "Grade 4" "/charts/thinking-in-circles" "Thinking In Circles" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/thinking-in-circles.mp3"
          "/previews/thinking-in-circles.preview.pdf" "%20%22Thinking%20In%20Circles%22.%0D%0A"
          "%20%22Thinking%20In%20Circles%22.%0D%0A%0D%0A"
@@ -2136,7 +2136,7 @@
            [:td "132"]]]))
 
 (def ambleside
-  (chart "Grade 4" "/charts/ambleside" "Ambleside" "/composers/chelsea-mcbride"
+  (chart 109 4 "Grade 4" "/charts/ambleside" "Ambleside" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "ballad" "/audio/ambleside.mp3"
          "/previews/ambleside.preview.pdf" "%20%22Ambleside%22.%0D%0A"
          "%20%22Ambleside%22.%0D%0A%0D%0A"
@@ -2156,7 +2156,7 @@
            [:td "75"]]]))
 
 (def intransitory
-  (chart "Grade 4" "/charts/intransitory" "Intransitory" "/composers/chelsea-mcbride"
+  (chart 110 4 "Grade 4" "/charts/intransitory" "Intransitory" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/intransitory.mp3"
          "/previews/intransitory.preview.pdf" "%20%22Intransitory%22.%0D%0A"
          "%20%22Intransitory%22.%0D%0A%0D%0A"
@@ -2176,7 +2176,7 @@
            [:td "177"]]]))
 
 (def twilight-fall
-  (chart "Grade 4" "/charts/twilight-fall" "The Twilight Fall" "/composers/chelsea-mcbride"
+  (chart 111 4 "Grade 4" "/charts/twilight-fall" "The Twilight Fall" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/twilight-fall.mp3"
          "/previews/twilight-fall.preview.pdf" "%20%22The%20Twilight%20Fall%22.%0D%0A"
          "%20%22The%20Twilight%20Fall%22.%0D%0A%0D%0A"
@@ -2196,7 +2196,7 @@
            [:td "65"]]]))
 
 (def smooth
-  (chart "Grade 4" "/charts/smooth" "Smooth" "/composers/chelsea-mcbride"
+  (chart 112 4 "Grade 4" "/charts/smooth" "Smooth" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/smooth.mp3"
          "/previews/smooth.preview.pdf" "%20%22Smooth%22.%0D%0A"
          "%20%22Smooth%22.%0D%0A%0D%0A"
@@ -2216,7 +2216,7 @@
            [:td "72"]]]))
 
 (def spirits
-  (chart "Grade 4" "/charts/spirits" "Spirits" "/composers/chelsea-mcbride"
+  (chart 113 4 "Grade 4" "/charts/spirits" "Spirits" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/spirits.mp3"
          "/previews/spirits.preview.pdf" "%20%22Spirits%22.%0D%0A"
          "%20%22Spirits%22.%0D%0A%0D%0A"
@@ -2236,7 +2236,7 @@
            [:td "70"]]]))
 
 (def arrival-of-the-pegasus
-  (chart "Grade 4" "/charts/arrival-of-the-pegasus" "Arrival of the Pegasus" "/composers/chelsea-mcbride"
+  (chart 114 4 "Grade 4" "/charts/arrival-of-the-pegasus" "Arrival of the Pegasus" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/arrival-of-the-pegasus.mp3"
          "/previews/arrival-of-the-pegasus.preview.pdf" "%20%22Arrival%20of%20the%20Pegasus%22.%0D%0A"
          "%20%22Arrival%20of%20the%20Pegasus%22.%0D%0A%0D%0A"
@@ -2256,7 +2256,7 @@
            [:td "175"]]]))
 
 (def foot-in-mouth
-  (chart "Grade 4" "/charts/foot-in-mouth" "Foot in Mouth" "/composers/chelsea-mcbride"
+  (chart 115 4 "Grade 4" "/charts/foot-in-mouth" "Foot in Mouth" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/foot-in-mouth.mp3"
          "/previews/foot-in-mouth.preview.pdf" "%20%22Foot%20in%20Mouth%22.%0D%0A"
          "%20%22Foot%20in%20Mouth%22.%0D%0A%0D%0A"
@@ -2276,7 +2276,7 @@
            [:td "70"]]]))
 
 (def in-dreams
-  (chart "Grade 4" "/charts/in-dreams" "In Dreams" "/composers/chelsea-mcbride"
+  (chart 116 4 "Grade 4" "/charts/in-dreams" "In Dreams" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "ballad" "/audio/in-dreams.mp3"
          "/previews/in-dreams.preview.pdf" "%20%22In%20Dreams%22.%0D%0A"
          "%20%22In%20Dreams%22.%0D%0A%0D%0A"
@@ -2296,7 +2296,7 @@
            [:td "80"]]]))
 
 (def ambleside-reprise
-  (chart "Grade 4" "/charts/ambleside-reprise" "Ambleside (Reprise)" "/composers/chelsea-mcbride"
+  (chart 117 4 "Grade 4" "/charts/ambleside-reprise" "Ambleside (Reprise)" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "ballad" "/audio/ambleside-reprise.mp3"
          "/previews/ambleside-reprise.preview.pdf" "%20%22Ambleside%20(Reprise)%22.%0D%0A"
          "%20%22Ambleside%20(Reprise)%22.%0D%0A%0D%0A"
@@ -2316,7 +2316,7 @@
            [:td "75"]]]))
 
 (def something-simple
-  (chart "Grade 4" "/charts/something-simple" "Something Simple" "/composers/chelsea-mcbride"
+  (chart 118 4 "Grade 4" "/charts/something-simple" "Something Simple" "/composers/chelsea-mcbride"
          "Chelsea McBride" "$70.00" "rock" "/audio/something-simple.mp3"
          "/previews/something-simple.preview.pdf" "%20%22Something%20Simple%22.%0D%0A"
          "%20%22Something%20Simple%22.%0D%0A%0D%0A"
@@ -2336,7 +2336,7 @@
            [:td "185"]]]))
 
 (def a-cool-breeze
-  (chart "Grade 4" "/charts/a-cool-breeze" "A Cool Breeze" "/composers/terry-promane"
+  (chart 119 4 "Grade 4" "/charts/a-cool-breeze" "A Cool Breeze" "/composers/terry-promane"
          "Terry Promane" "$70.00" "rock" "/audio/a-cool-breeze.mp3"
          "/previews/a-cool-breeze.preview.pdf" "%20%22A%20Cool%20Breeze%22.%0D%0A"
          "%20%22A%20Cool%20Breeze%22.%0D%0A%0D%0A"
