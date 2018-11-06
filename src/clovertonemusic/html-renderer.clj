@@ -3,11 +3,13 @@
 (load "root-page")
 (load "grades-page")
 (load "genres-page")
+(load "composers-page")
 
 (require '[hiccup.core :as page]
          '[clovertonemusic.root-page :as root-page]
          '[clovertonemusic.grades-page :as grades-page]
-         '[clovertonemusic.genres-page :as genres-page])
+         '[clovertonemusic.genres-page :as genres-page]
+         '[clovertonemusic.composers-page :as composers-page])
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -100,7 +102,10 @@
 
 (defn render-composers
   [request]
-  (str "<b>Rendering composers</b> " request))
+  (let [composer (:page (:params request))
+        composer-html (get composers-page/html-composers composer)]
+    (when (some #(= composer %) (keys composers-page/html-composers))
+      (render-html (:title composer-html) (:contents composer-html) (:charts composer-html) (:users composer-html)))))
 
 (defn render-genres
   [request]
