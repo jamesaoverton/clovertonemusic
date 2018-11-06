@@ -87,14 +87,7 @@
               [:ul
                [:li [:a {:href "/about/privacy-policy"} "Privacy Policy\n"]]
                [:li "© 2017 Clovertone Music"]]]]
-            [:script
-             {:src "/application.js",
-              :type "text/javascript",
-              :charset "utf-8"}]
-            [:script
-             {:type "text/javascript",
-              :charset "utf-8"}
-             "if(!window.console){window.console = {}; window.console.log=function(){};}\nvar jQuery  = require(\"jqueryify\");\nvar exports = this;\njQuery(function(){\n  var App = require(\"index\");\n  exports.app = new App({el: $(\"#page\")});      \n});\n"]]])})
+            ]])})
 
 (defn render-about
   [request]
