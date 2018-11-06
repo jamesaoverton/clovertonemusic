@@ -1,4 +1,4 @@
-(ns clovertonemusic.composers-page)
+(ns clovertonemusic.composers-pages)
 
 (load "chart-divs")
 

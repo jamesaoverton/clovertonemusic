@@ -1,4 +1,4 @@
-(ns clovertonemusic.grades-page)
+(ns clovertonemusic.grades-pages)
 
 (load "chart-divs")
 
