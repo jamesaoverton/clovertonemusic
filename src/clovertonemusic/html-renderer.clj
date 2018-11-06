@@ -1,12 +1,14 @@
 (ns clovertonemusic.html-renderer)
 
 (load "root-pages")
+(load "about-pages")
 (load "grades-pages")
 (load "genres-pages")
 (load "composers-pages")
 
 (require '[hiccup.core :as page]
          '[clovertonemusic.root-pages :as root-pages]
+         '[clovertonemusic.about-pages :as about-pages]
          '[clovertonemusic.grades-pages :as grades-pages]
          '[clovertonemusic.genres-pages :as genres-pages]
          '[clovertonemusic.composers-pages :as composers-pages])
@@ -94,7 +96,10 @@
 
 (defn render-about
   [request]
-  (str "<b>Rendering about</b> " request))
+  (let [about-page (:page (:params request))
+        about-html (get about-pages/html-about about-page)]
+    (when (some #(= about-page %) (keys about-pages/html-about))
+      (render-html (:title about-html) (:contents about-html) (:charts about-html) (:users about-html)))))
 
 (defn render-charts
   [request]
