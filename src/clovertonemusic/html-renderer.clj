@@ -5,13 +5,15 @@
 (load "grades-pages")
 (load "genres-pages")
 (load "composers-pages")
+(load "charts-pages")
 
 (require '[hiccup.core :as page]
          '[clovertonemusic.root-pages :as root-pages]
          '[clovertonemusic.about-pages :as about-pages]
          '[clovertonemusic.grades-pages :as grades-pages]
          '[clovertonemusic.genres-pages :as genres-pages]
-         '[clovertonemusic.composers-pages :as composers-pages])
+         '[clovertonemusic.composers-pages :as composers-pages]
+         '[clovertonemusic.charts-pages :as charts-pages])
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -54,7 +56,7 @@
              [:div#audio-box]
              [:div#catalogue-box.box.left
               [:h2 "Catalogue"]
-              [:ul [:li [:a.all {:href "/charts"} "All Charts"]]]]
+              [:ul [:li [:a.all {:href "/charts/"} "All Charts"]]]]
              [:div#grades-box.box.left
               [:h3 "Level"]
               [:ul
@@ -103,7 +105,10 @@
 
 (defn render-charts
   [request]
-  (str "<b>Rendering charts</b> " request))
+  (let [chart (or (:page (:params request)) "index")
+        chart-html (get charts-pages/html-charts chart)]
+    (when (some #(= chart %) (keys charts-pages/html-charts))
+      (render-html (:title chart-html) (:contents chart-html) (:charts chart-html) (:users chart-html)))))
 
 (defn render-composers
   [request]
