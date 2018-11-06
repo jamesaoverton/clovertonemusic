@@ -44,7 +44,7 @@
                [:li [:a {:href "/about/customization"} "Customization"]]
                [:li [:a {:href "/about/clinics"} "Clinics"]]
                [:li [:a {:href "/about/commissions"} "Commissions"]]
-               [:li [:a {:href "/composers"} "Composers"]]
+               [:li [:a {:href "/composers/"} "Composers"]]
                [:li [:a {:href "/about/faq"} "FAQ"]]]]
              [:div#search-box.box.left [:input#search {:type "text", :value "Search"}]]
              ;; The contents, charts, and users parameters passed to this function go here:
@@ -102,7 +102,7 @@
 
 (defn render-composers
   [request]
-  (let [composer (:page (:params request))
+  (let [composer (or (:page (:params request)) "index")
         composer-html (get composers-page/html-composers composer)]
     (when (some #(= composer %) (keys composers-page/html-composers))
       (render-html (:title composer-html) (:contents composer-html) (:charts composer-html) (:users composer-html)))))
