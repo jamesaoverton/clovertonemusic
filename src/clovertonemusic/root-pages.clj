@@ -13,12 +13,16 @@
                        [:div#content.index
                         [:h1.title "Home"]
                         [:p
-                         "Welcome to Clovertone Music, we are a sheet music publisher specializing in the educational jazz band market. Our library is completely Canadian and features some of our countries top composers. Fill out your repertoire with Canadian content and feel good about supporting Canadian musicians!"]]]
+                         (str "Welcome to Clovertone Music, we are a sheet music publisher specializing "
+                              "in the educational jazz band market. Our library is completely Canadian "
+                              "and features some of our countries top composers. Fill out your repertoire "
+                              "with Canadian content and feel good about supporting Canadian musicians!")]]]
             :charts [:div#charts
-                     (let [featured-charts (reduce (fn [saved-charts next-chart]
-                                                     (if-not (= (:Featured next-chart) "0")
-                                                       (conj saved-charts (chart-divs/chart-to-html next-chart))
-                                                       saved-charts))
-                                                   [:div#list] (sort-by :Featured (:charts catalogue/catalogue)))]
+                     (let [featured-charts
+                           (reduce (fn [saved-charts next-chart]
+                                     (if-not (= (:Featured next-chart) "0")
+                                       (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                       saved-charts))
+                                   [:div#list] (sort-by :Featured (:charts catalogue/catalogue)))]
                        featured-charts)]
             :users [:div#users]}})
