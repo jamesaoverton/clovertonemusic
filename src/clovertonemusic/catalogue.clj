@@ -153,3 +153,13 @@
               (validate-row tblname curr-row rownum catalogue)
               (conj new-table curr-row)))
           [] (get catalogue tblname)))
+
+;; Load and validate the catalogue from the .csv files on disk. Everything is loaded 'as is' to
+;; begin with, and then validated table by table.
+(def catalogue
+  (let [raw-catalogue (load-catalogue)]
+    ;; Each key in the catalogue represents a 'table', i.e. a vector of 'rows' (hashmaps).
+    ;; Tables are validated one at a time:
+    (reduce (fn [tables next-key]
+              (assoc tables next-key (validate-table next-key raw-catalogue)))
+            {} (keys raw-catalogue))))

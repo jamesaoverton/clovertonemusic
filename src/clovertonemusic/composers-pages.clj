@@ -2,7 +2,8 @@
 
 (load "chart-divs")
 
-(require '[clovertonemusic.chart-divs :as chart-divs])
+(require '[clovertonemusic.chart-divs :as chart-divs]
+         '[clovertonemusic.catalogue :as catalogue])
 
 (def html-composers
   {"allison-au" {:title "Allison Au - Clovertone Music"
@@ -17,10 +18,14 @@
                             [:p
                              "A member of SOCAN, Allison currently lives in Toronto where she divides her time as a freelance performer and composer/arranger."]
                             [:div.clear]]]
-                :charts [:div#charts
-                         [:div#list
-                          chart-divs/four-more-to-go]]
-                :users [:div#users]}
+                 :charts [:div#charts
+                          (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                           (if (= (:Composer next-chart) "Allison Au")
+                                                             (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                             saved-charts))
+                                                         [:div#list] (:charts catalogue/catalogue))]
+                            composers-charts)]
+                 :users [:div#users]}
    "andy-ballantyne" {:title "Andy Ballantyne - Clovertone Music"
                       :contents [:div#contents
                                  [:div#content
@@ -42,16 +47,12 @@
                                    "Andy has been on the faculty at Humber College since 2002 teaching theory, composition and arranging, as well as coaching ensembles and giving private instruction on saxophone."]
                                   [:div.clear]]]
                       :charts [:div#charts
-                               [:div#list
-                                chart-divs/game-on
-                                chart-divs/the-phone-dont-ring-jack
-                                chart-divs/shuswap-shuffle
-                                chart-divs/red-river-mud-pie
-                                chart-divs/vista
-                                chart-divs/dark-matter
-                                chart-divs/the-fifth-beatle
-                                chart-divs/el-castor-loco
-                                chart-divs/epitaph]]
+                               (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                                (if (= (:Composer next-chart) "Andy Ballantyne")
+                                                                  (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                  saved-charts))
+                                                              [:div#list] (:charts catalogue/catalogue))]
+                                 composers-charts)]
                       :users [:div#users]}
    "brad-cheeseman" {:title "Brad Cheeseman - Clovertone Music"
                      :contents [:div#contents
@@ -62,8 +63,12 @@
                                   "Brad Cheeseman is a bassist, composer, arranger and educator that has been performing in the Greater Toronto and Hamilton Area for over a decade. He leads the award-winning Brad Cheeseman Group, which features his original contemporary jazz compositions, was a finalist in the Toronto Jazz Orchestra’s 2014 Call for Scores, and has shared the stage with many great Canadian jazz musicians, including Bruce Cassidy, Terry Clarke, Adrean Farrugia, John Macleod, Mike Malone, Reg Schwager and Nancy Walker. Brad holds a Masters degree in music composition from York University, and is an Honours graduate of both Mohawk College and Humber College’s music programs."]
                                  [:div.clear]]]
                      :charts [:div#charts
-                              [:div#list
-                               chart-divs/song-for-l]]
+                              (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                               (if (= (:Composer next-chart) "Brad Cheeseman")
+                                                                 (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                 saved-charts))
+                                                             [:div#list] (:charts catalogue/catalogue))]
+                                composers-charts)]
                      :users [:div#users]}
    "brad-harrison" {:title "Brad Harrison - Clovertone Music"
                     :contents [:div#contents
@@ -80,9 +85,12 @@
                                  "Brad currently runs the Private Lesson Program at St. Michael’s College School where he also keeps his own studio of trumpet students."]
                                 [:div.clear]]]
                     :charts [:div#charts
-                             [:div#list
-                              chart-divs/brown-and-tan
-                              chart-divs/the-long-way-home]]
+                             (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                              (if (= (:Composer next-chart) "Brad Harrison")
+                                                                (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                saved-charts))
+                                                            [:div#list] (:charts catalogue/catalogue))]
+                               composers-charts)]
                     :users [:div#users]}
    "chelsea-mcbride" {:title "Chelsea McBride - Clovertone Music"
                       :contents [:div#contents
@@ -93,23 +101,12 @@
                                    "Driven by an endless need for expressing herself creatively, young composer and multi-instrumentalist Chelsea McBride has burst onto the Toronto jazz scene. Still only 24, McBride has performed at the TD Toronto Jazz Festival, Beaches Jazz Festival and the Rex Hotel. She’s also worked alongside many local jazz artists including Brownman Ali and William Carn and studied with acclaimed musicians David Occhipinti, Darcy James Argue and Mike Allen.\nBorn and raised in Vancouver B.C., Chelsea was surrounded and fascinated by music. She started playing piano at the age of 3, and saxophone throughout elementary school. By the end of high school she had already performed in competitions at provincial and national levels. In 2014, she graduated from the Humber Bachelor of Music program in Toronto, ON and was the first recipient of the Toronto Arts Foundation’s Emerging Jazz Artist award. Whether it’s her big band (Chelsea McBride’s Socialist Night School), her pop-fusion band (Chelsea and the Cityscape), her jazz trio (Chelsea McBride Group), or her video game cover band (Koopa Troop), Chelsea is a diverse musician who refuses to stay in one creative box. Aside from her own projects, she also regularly performs with other local acts including the Brad Cheeseman Group, Skirt Check, Soul Finger and Elton Joan. Chelsea can be heard around Toronto playing several shows per month. She has released two EPs with Chelsea and the Cityscape and one EP with Socialist Night School. "]
                                   [:div.clear]]]
                       :charts [:div#charts
-                               [:div#list
-                                chart-divs/state-of-mind
-                                chart-divs/state-of-mind-reprise
-                                chart-divs/river
-                                chart-divs/julia
-                                chart-divs/thinking-in-circles
-                                chart-divs/last-resorts
-                                chart-divs/ambleside
-                                chart-divs/intransitory
-                                chart-divs/twilight-fall
-                                chart-divs/smooth
-                                chart-divs/spirits
-                                chart-divs/arrival-of-the-pegasus
-                                chart-divs/foot-in-mouth
-                                chart-divs/in-dreams
-                                chart-divs/ambleside-reprise
-                                chart-divs/something-simple]]
+                               (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                                (if (= (:Composer next-chart) "Chelsea McBride")
+                                                                  (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                  saved-charts))
+                                                              [:div#list] (:charts catalogue/catalogue))]
+                                 composers-charts)]
                       :users [:div#users]}
    "chris-hunt" {:title "Chris Hunt - Clovertone Music"
                  :contents [:div#contents
@@ -124,10 +121,12 @@
                               "In May of 2004, he released The Chris Hunt Tentet’s first full-length album, First X’s Free. His quintet, Big Lots, released a limited edition EP in 2005. In spring of 2006 The Tentet recorded the Dirrty Dog live at the Rex Hotel."]
                              [:div.clear]]]
                  :charts [:div#charts
-                          [:div#list
-                           chart-divs/the-dirrty-dog
-                           chart-divs/first-x-free
-                           chart-divs/sometimes-i-feel]]
+                          (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                           (if (= (:Composer next-chart) "Chris Hunt")
+                                                             (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                             saved-charts))
+                                                         [:div#list] (:charts catalogue/catalogue))]
+                            composers-charts)]
                  :users [:div#users]}
    "christian-overton" {:title "Christian Overton - Clovertone Music"
                         :contents [:div#contents
@@ -140,55 +139,12 @@
                                      "Leaving his Sudbury home, Christian accepted a scholarship for jazz performance at Humber College in Toronto where he excelled both in the classroom and on the college performance circuit. He studied with some of the nation’s top jazz musicians including Pat LaBarbera, John Macleod, and Alistair Kay. Christian expanded his instrumental skills into bass trombone doubling and his musical proficiency as a contemporary jazz arranger/composer for combo and big band. On the stage, his dynamic performance abilities were obvious, playing a variety of styles from jazz to Latin to R&B. Christian was also featured on seven college-produced records as a member of the prestigious Humber Studio Jazz ensemble. Now living in Toronto, Christian’s career is gaining such momentum that it’s hard to keep up! He performs in a variety of ensembles regularly including the nine-piece funk band King Sunshine, The Toronto Jazz Orchestra, and most recently, The Art of Jazz Orchestra in addition to various other pit orchestras and jobbing bands. Christian is also the featured composer and musical director for The Composers Collective Big Band, a seventeen-piece ensemble performing high-energy, contemporary works that smash the traditions of the Toronto jazz scene. Christian can also be heard on television, writing material for various productions such as School of Chef and Sun TV’s, King Kaboom."]
                                     [:div.clear]]]
                         :charts [:div#charts
-                                 [:div#list
-                                  chart-divs/o-canada
-                                  chart-divs/the-pursuit
-                                  chart-divs/sock-hop-be-bop
-                                  chart-divs/tango
-                                  chart-divs/sakura-lullaby
-                                  chart-divs/detective-story
-                                  chart-divs/that-look
-                                  chart-divs/atlantic-crossing
-                                  chart-divs/yun-gia
-                                  chart-divs/electros-next-plot-jr
-                                  chart-divs/two-dave-k
-                                  chart-divs/a-kingdoms-last-hope
-                                  chart-divs/ten-41-am
-                                  chart-divs/wood-and-shadow
-                                  chart-divs/electros-next-plot
-                                  chart-divs/at-long-last
-                                  chart-divs/hotel-mambo
-                                  chart-divs/petes-chune
-                                  chart-divs/a-kingdoms-last-hope-jr
-                                  chart-divs/train-track
-                                  chart-divs/the-green-blues
-                                  chart-divs/arcadian-autumn
-                                  chart-divs/silent-night
-                                  chart-divs/joy-to-the-world
-                                  chart-divs/canal-street-walk
-                                  chart-divs/cloud-song
-                                  chart-divs/the-dancehall-shake
-                                  chart-divs/femis-flight
-                                  chart-divs/let-me-be
-                                  chart-divs/lifted
-                                  chart-divs/lost-stories
-                                  chart-divs/a-long-kept-secret
-                                  chart-divs/cowboy-countdown
-                                  chart-divs/crusin-at-30000
-                                  chart-divs/the-gene-machine
-                                  chart-divs/go-go-blues
-                                  chart-divs/the-test
-                                  chart-divs/friday-night-special
-                                  chart-divs/god-rest-ye
-                                  chart-divs/blue-heron
-                                  chart-divs/hamunaptra
-                                  chart-divs/the-first-noel
-                                  chart-divs/what-once-was
-                                  chart-divs/good-king-w
-                                  chart-divs/introduccion
-                                  chart-divs/no-trespassing
-                                  chart-divs/midnight-clear
-                                  chart-divs/life-race]]
+                                 (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                                  (if (= (:Composer next-chart) "Christian Overton")
+                                                                    (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                    saved-charts))
+                                                                [:div#list] (:charts catalogue/catalogue))]
+                                   composers-charts)]
                         :users [:div#users]}
    "erik-patterson" {:title "Erik Patterson - Clovertone Music"
                      :contents [:div#contents
@@ -201,13 +157,12 @@
                                   "Erik is a graduate of the Humber College music program, with a bachelor of music."]
                                  [:div.clear]]]
                      :charts [:div#charts
-                              [:div#list
-                               chart-divs/on-the-ending-earth
-                               chart-divs/all-your-base
-                               chart-divs/gentlemen
-                               chart-divs/la-cattura
-                               chart-divs/la-squadra-da-milano
-                               chart-divs/stone-cold-strut]]
+                              (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                               (if (= (:Composer next-chart) "Erik Patterson")
+                                                                 (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                 saved-charts))
+                                                             [:div#list] (:charts catalogue/catalogue))]
+                                composers-charts)]
                      :users [:div#users]}
    "ewan-divitt" {:title "Ewan Divitt - Clovertone Music"
                   :contents [:div#contents
@@ -218,8 +173,12 @@
                                "Ewan Divitt is a trumpet player, composer, arranger, and brass instrument repair technician.\nHe is a graduate of Etobicoke School of the Arts and Humber College.\nWhile at Humber College, Ewan received the Harknett Musical Services award for excellence in brass, as well as the Duke Ellington Society Award for excellence in composition and arranging.\nWhile at Humber, Ewan had the privilege of performing with Michael and Randy Brecker, Bill Holman, Dave Holland, as well as spending a semester doing weekly composition and ensemble training with Rob McConnell. Ewan studied trumpet with Scott Harrison, Brian O'Kane, and Steve Crowe. He has also studied arranging with Andy Ballantyne, and John MacLeod.\nEwan is an in-demand trumpet player in Toronto, and has recorded on many albums, and demos, music videos, played live on the radio, international live television, as well as toured with musical acts all over Ontario and Quebec.\nEwan also leads his own big band that features many of the finest up and coming players in Toronto. The band plays original compositions and arrangements by Ewan and other members of the band.\nYou can listen to tracks from the bands live performances at www.ewandivitt.com"]
                               [:div.clear]]]
                   :charts [:div#charts
-                           [:div#list
-                            chart-divs/don-carlos-dream]]
+                           (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                            (if (= (:Composer next-chart) "Ewan Divitt")
+                                                              (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                              saved-charts))
+                                                          [:div#list] (:charts catalogue/catalogue))]
+                             composers-charts)]
                   :users [:div#users]}
    "greg-crowe" {:title "Greg Crowe - Clovertone Music"
                  :contents [:div#contents
@@ -230,10 +189,12 @@
                               "Brass specialist Greg Crowe is a music educator at Glenlawn Collegiate Institute in Winnipeg where he teaches Band, Jazz Band, Choir, Musical Theatre and Technical Music Production. He holds bachelor degrees in Music and Education from the University of Manitoba. In addition to writing for jazz band, Greg has also composed several works for Choir and Vocal Jazz groups which have been performed/premiered by different ensembles in Winnipeg. From 2007-09, Greg partnered with Toronto musician Mitch 'King Kong' Girio and Winnipeg actor/playwright Cory Wojcik to write LondonTown - a dynamic ska musical that spoke to the realities of life in Northern Manitoba. The work premiered in 2009 at the Carol Shields Festival of New Works. Greg has also served as director of the Winnipeg New Horizons Band from 2008-2013 and is an active performer with his band, The Scarlet Union. Greg lives in southern Winnipeg with his wonderful wife Erin and his two beautiful children Benjamin and Olivia."]
                              [:div.clear]]]
                  :charts [:div#charts
-                          [:div#list
-                           chart-divs/en-su-camino
-                           chart-divs/livvy-dear
-                           chart-divs/la-maquina]]
+                          (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                           (if (= (:Composer next-chart) "Greg Crowe")
+                                                             (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                             saved-charts))
+                                                         [:div#list] (:charts catalogue/catalogue))]
+                            composers-charts)]
                  :users [:div#users]}
    "jason-logue" {:title "Jason Logue - Clovertone Music"
                   :contents [:div#contents
@@ -252,10 +213,12 @@
                                "Jason is currently on the Faculty at Mohawk College in Hamilton, Ontario and The Universtiy of Toronto."]
                               [:div.clear]]]
                   :charts [:div#charts
-                           [:div#list
-                            chart-divs/the-phantom
-                            chart-divs/santiago-nights
-                            chart-divs/mad-man-mambo]]
+                           (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                            (if (= (:Composer next-chart) "Jason Logue")
+                                                              (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                              saved-charts))
+                                                          [:div#list] (:charts catalogue/catalogue))]
+                             composers-charts)]
                   :users [:div#users]}
    "jim-lewis" {:title "Jim Lewis - Clovertone Music"
                 :contents [:div#contents
@@ -266,8 +229,12 @@
                              "Jim Lewis is a freelance trumpet player, improviser, composer/arranger and educator. He is a member of the Paul Read Orchestra, Frank Lozano Group, Christine Duncan’s Element Choir, Frogmouth, and his own improvising Trio. He can be heard in clubs in the Toronto area, Ottawa, and Montreal as a sideman and with his own projects from duo to sextet. Jim has been featured on CBC’s Jazzbeat, and Radio-Canada, and has played Jazz Festivals and toured across Canada, the United States, and Europe with many of Canada’s most creative jazz musicians. He has written commissioned works for the Humber College Community Music School, the Jazz Mechanics Big Band, and Trinity College Jazz Band. Jim’s composition ‘Don’t Cry’ was featured in Jazziz Magazine (October 2006)\nJim is a graduate of Humber College, the University of Toronto (Faculty of Education), and completed a Masters Degree in Performance (Concentration in Jazz) at the University of Louisville, where he studied trumpet performance with Dr. Michael Tunnell, composition and arranging with John LaBarbera, and improvisation with Jamey Aebersold. Jim is the Musical Director of the Ottawa Jazz Festival’s annual ‘Youth Jazz Summit', bringing together young jazz students aged 17 – 22 from across Canada to rehearse and perform during the Ottawa Jazz Festival.\nJim has adjudicated festivals and presented workshops across Canada and in the U.S.A., including clinics, a research paper and performing groups at the International Association of Jazz Educators Conferences in Chicago, New York, Anaheim and New Orleans. Jim is currently a Sessional Instructor at The University of Toronto (Jazz Studies) where he teaches Trumpet, Jazz and Traditional Materials, Ear Training, Improvisation, Large and Small Ensembles, and Graduate Seminar in Jazz Literature, and is also an adjunct faculty member at Humber College."]
                             [:div.clear]]]
                 :charts [:div#charts
-                         [:div#list
-                          chart-divs/surface-tension]]
+                         (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                          (if (= (:Composer next-chart) "Jim Lewis")
+                                                            (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                            saved-charts))
+                                                        [:div#list] (:charts catalogue/catalogue))]
+                           composers-charts)]
                 :users [:div#users]}
    "josh-grossman" {:title "Josh Grossman - Clovertone Music"
                     :contents [:div#contents
@@ -278,11 +245,12 @@
                                  "Josh Grossman is a graduate of the University of Toronto’s Jazz Performance Program where he studied trumpet with Chase Sanborn and Kevin Turcotte; he has performed in big bands under the direction of Phil Nimmons, Paul Read, Ron Collier and Paul Ashwell. Josh is the founder, Artistic Director and conductor of the Toronto Jazz Orchestra (TJO), celebrating its tenth anniversary in 2009. Since its inception, the TJO has released three CDs, performed with Phil Nimmons, Seamus Blake and Kurt Elling, and has presented special concerts including the music of Phil Nimmons, Stan Kenton, the Thad Jones/Mel Lewis Orchestra, and West Side Story. Josh was on faculty at either Scarborough Music Camp or Music by the Lake (both with the Toronto District School Board) for eight years and has been an adjudicator with Music Alive and PIMTA since 2008. Josh can be seen performing with his Toronto Jazz Orchestra and with the Chris Hunt Tentet; he has been the Artistic Director of the Markham Jazz Festival since 2006."]
                                 [:div.clear]]]
                     :charts [:div#charts
-                             [:div#list
-                              chart-divs/chazz
-                              chart-divs/amazing-grace
-                              chart-divs/the-path
-                              chart-divs/the-wiggle]]
+                             (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                              (if (= (:Composer next-chart) "Josh Grossman")
+                                                                (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                saved-charts))
+                                                            [:div#list] (:charts catalogue/catalogue))]
+                               composers-charts)]
                     :users [:div#users]}
    "liam-gallagher" {:title "Liam Gallagher - Clovertone Music"
                      :contents [:div#contents
@@ -293,8 +261,12 @@
                                   "Liam Gallagher composes for his 12tet Jazzasaurus Rex, his 8 piece studio outfit Octorock, written for community and university ensembles such as U of T's 11 O'Clock Jazz Orchestra, and the Hart House Jazz Orchestra, and freelances in the video game industry, shipping titles with studios including BR Warner Studios, and Crystallized Games. Liam Gallagher was educated at the University of Toronto where he studied arranging with Terry Promane and bass with Andrew Downing."]
                                  [:div.clear]]]
                      :charts [:div#charts
-                              [:div#list
-                               chart-divs/junk]]
+                              (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                               (if (= (:Composer next-chart) "Liam Gallagher")
+                                                                 (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                 saved-charts))
+                                                             [:div#list] (:charts catalogue/catalogue))]
+                                composers-charts)]
                      :users [:div#users]}
    "maria-kundakcioglu" {:title "Maria Kundakcioglu - Clovertone Music"
                          :contents [:div#contents
@@ -305,9 +277,12 @@
                                       "Drummer, percussionist, pianist, and composer Maria Kundakcioglu is a senior student at Martingrove Collegiate Institute in Toronto. She graduated from the Special Advanced Program at the Yamaha Music School where she began composing for piano at the age of 6. She has since recorded and performed her compositions arranged for various ensembles with professional musicians in Toronto, Edmonton, Winnipeg, Whistler, and at the Asian Oceania Junior Original Concert in Thailand, Bangkok. Maria was inspired to begin arranging her compositions for stage band by her school conductor after hearing her perform her combo arrangement of “Sol Fiesta” performed at the Living Arts Center in Toronto in a tribute concert for Oscar Peterson. Consequently, the John G. Althouse middle school stage band brought home the gold and adjudicator’s award from The Heritage Music Festival in Chicago in 2006 along with first place at the Kiwanis Ontario Provincial Music Festival with Maria’s composition and arrangement of “Sol Fiesta” as part of their repertoire.Her composition “Tumbadora” was debuted in a combo version at the Sheraton Centre for the Performing Arts while opening for Herbie Hancock during the Toronto Downtown Jazz Festival in 2007. Currently, Maria teaches drums privately, writes and sings with the band “A Goodbye Incident!”, can be found counseling and teaching percussion at Mono Cliffs and Albion Hills Toronto District School Board summer camps, conducting her school choir, and playing percussion and piano with the Etobicoke Youth Band and many performing ensembles at her high school."]
                                      [:div.clear]]]
                          :charts [:div#charts
-                                  [:div#list
-                                   chart-divs/sol-fiesta
-                                   chart-divs/tumbadora]]
+                                  (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                                   (if (= (:Composer next-chart) "Maria Kundakcioglu")
+                                                                     (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                     saved-charts))
+                                                                 [:div#list] (:charts catalogue/catalogue))]
+                                    composers-charts)]
                          :users [:div#users]}
    "michael-kundakcioglu" {:title "Michael Kundakcioglu - Clovertone Music"
                            :contents [:div#contents
@@ -318,8 +293,12 @@
                                         "Saxophonist and pianist, Michael is a graduate of the Junior Special Advanced Program at the Yamaha Music School in Toronto. Currently a student at John G. Althouse Middle school in Toronto, Michael enjoys playing lead alto and singing with the award winning stage band, concert bands, chamber, concert and jazz choirs. Michael debuted his composition “Funk Out” with the Etobicoke Youth Stage Band with great success at the Palais Royale in Toronto in 2009.When Michael is not composing, performing or practicing you can find him at a track racing high speed karts. Michael’s unwavering life long ambition is to become a professional musician and race car driver."]
                                        [:div.clear]]]
                            :charts [:div#charts
-                                    [:div#list
-                                     chart-divs/funk-out]]
+                                    (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                                     (if (= (:Composer next-chart) "Michael Kundakcioglu")
+                                                                       (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                       saved-charts))
+                                                                   [:div#list] (:charts catalogue/catalogue))]
+                                      composers-charts)]
                            :users [:div#users]}
    "terry-promane" {:title "Terry Promane - Clovertone Music"
                     :contents [:div#contents
@@ -330,9 +309,12 @@
                                  "Terry Promane is an Associate Professor and Jazz Coordinator at the University of Toronto. A trombone, bass trombone and tuba player, Terry maintains a very active performing career in the theatres, recording studios and jazz clubs. He is a member of many of Toronto’s most prestigious jazz groups, including the Mike Murley Septet; the John MacLeod Big Band; the Paul Read Orchestra; the Kirk MacDonald Jazz Orchestra; Dave Young/Terry Promane Sextet/Octet/Big Band and the Carn Davidson 9. Many of these groups feature Terry’s original compositions and arrangements.A first-call session player, Terry can be heard on many jingles, film scores, and on the concert stage, performing with Holly Cole, the Toronto Symphony Orchestra, Ella Fitzgerald, Ray Charles, Mel Torme, Natalie Cole. Career highlights include, the Rob McConnell Tentet, the Boss Brass Kenny Wheeler, Bill Holman, Maria Schneider, Vince Mendoza. Terry Promane was twice named Jazz Trombonist of the Year by Jazz Report Magazine, and nominated three years in a row by the National Jazz Awards as Trombonist of the Year and Arranger of the Year. Other awards include 2 JUNO Awards as a member of the John MacLeod Big Band, The Rob McConnell Tentet and 2 JUNO nominations as a member of the Mike Murley Septet and the Kirk MacDonald Jazz Orchestra."]
                                 [:div.clear]]]
                     :charts [:div#charts
-                             [:div#list
-                              chart-divs/this-buts-for-you
-                              chart-divs/a-cool-breeze]]
+                             (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                              (if (= (:Composer next-chart) "Terry Promane")
+                                                                (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                                saved-charts))
+                                                            [:div#list] (:charts catalogue/catalogue))]
+                               composers-charts)]
                     :users [:div#users]}
    "tom-richards" {:title "Tom Richards - Clovertone Music"
                    :contents [:div#contents
@@ -344,11 +326,12 @@
                                [:p "Check out Tom’s Projects at http://insoundmusic.com."]
                                [:div.clear]]]
                    :charts [:div#charts
-                            [:div#list
-                             chart-divs/branta
-                             chart-divs/moatfield-shuffle
-                             chart-divs/summer-on-my-mind
-                             chart-divs/roscos-big-hit]]
+                            (let [composers-charts (reduce (fn [saved-charts next-chart]
+                                                             (if (= (:Composer next-chart) "Tom Richards")
+                                                               (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                               saved-charts))
+                                                           [:div#list] (:charts catalogue/catalogue))]
+                              composers-charts)]
                    :users [:div#users]}
    "index" {:title "All Charts - Clovertone Music"
             :contents [:div#contents

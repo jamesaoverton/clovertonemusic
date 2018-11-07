@@ -21,16 +21,6 @@
  :pattern "%d - %p %m%n"
  :level :info)
 
-;; Load and validate the catalogue from the .csv files on disk. Everything is loaded 'as is' to
-;; begin with, and then validated table by table.
-(def catalogue
-  (let [raw-catalogue (catalogue/load-catalogue)]
-    ;; Each key in the catalogue represents a 'table', i.e. a vector of 'rows' (hashmaps).
-    ;; Tables are validated one at a time:
-    (reduce (fn [tables next-key]
-              (assoc tables next-key (catalogue/validate-table next-key raw-catalogue)))
-            {} (keys raw-catalogue))))
-
 (defroutes all-routes
   (GET "/about/:page" [page] renderer/render-about)
   (GET "/about/" [] renderer/render-about)
