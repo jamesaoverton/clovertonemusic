@@ -1,19 +1,11 @@
-(ns clovertonemusic.html-renderer)
-
-(load "root-pages")
-(load "about-pages")
-(load "grades-pages")
-(load "genres-pages")
-(load "composers-pages")
-(load "charts-pages")
-
-(require '[hiccup.core :as page]
-         '[clovertonemusic.root-pages :as root-pages]
-         '[clovertonemusic.about-pages :as about-pages]
-         '[clovertonemusic.grades-pages :as grades-pages]
-         '[clovertonemusic.genres-pages :as genres-pages]
-         '[clovertonemusic.composers-pages :as composers-pages]
-         '[clovertonemusic.charts-pages :as charts-pages])
+(ns clovertonemusic.html
+  (:require [hiccup.core :as page]
+            [clovertonemusic.rootpages :as rootpages]
+            [clovertonemusic.aboutpages :as aboutpages]
+            [clovertonemusic.gradespages :as gradespages]
+            [clovertonemusic.genrespages :as genrespages]
+            [clovertonemusic.composerspages :as composerspages]
+            [clovertonemusic.chartspages :as chartspages]))
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -92,41 +84,41 @@
 (defn render-about
   [request]
   (let [about-page (:page (:params request))
-        about-html (get about-pages/html-about about-page)]
-    (when (some #(= about-page %) (keys about-pages/html-about))
+        about-html (get aboutpages/html-about about-page)]
+    (when (some #(= about-page %) (keys aboutpages/html-about))
       (render-html (:title about-html) (:contents about-html) (:charts about-html) (:users about-html)))))
 
 (defn render-charts
   [request]
   (let [chart (or (:page (:params request)) "index")
-        chart-html (get charts-pages/html-charts chart)]
-    (when (some #(= chart %) (keys charts-pages/html-charts))
+        chart-html (get chartspages/html-charts chart)]
+    (when (some #(= chart %) (keys chartspages/html-charts))
       (render-html (:title chart-html) (:contents chart-html) (:charts chart-html) (:users chart-html)))))
 
 (defn render-composers
   [request]
   (let [composer (or (:page (:params request)) "index")
-        composer-html (get composers-pages/html-composers composer)]
-    (when (some #(= composer %) (keys composers-pages/html-composers))
+        composer-html (get composerspages/html-composers composer)]
+    (when (some #(= composer %) (keys composerspages/html-composers))
       (render-html (:title composer-html) (:contents composer-html) (:charts composer-html) (:users composer-html)))))
 
 (defn render-genres
   [request]
   (let [genre (:page (:params request))
-        genre-html (get genres-pages/html-genres genre)]
-    (when (some #(= genre %) (keys genres-pages/html-genres))
+        genre-html (get genrespages/html-genres genre)]
+    (when (some #(= genre %) (keys genrespages/html-genres))
       (render-html (:title genre-html) (:contents genre-html) (:charts genre-html) (:users genre-html)))))
 
 (defn render-grades
   [request]
   (let [grade (:page (:params request))
-        grade-html (get grades-pages/html-grades grade)]
-    (when (some #(= grade %) (keys grades-pages/html-grades))
+        grade-html (get gradespages/html-grades grade)]
+    (when (some #(= grade %) (keys gradespages/html-grades))
       (render-html (:title grade-html) (:contents grade-html) (:charts grade-html) (:users grade-html)))))
 
 (defn render-root
   [request]
   (let [rootpg (or (:page (:params request)) "index")
-        rootpg-html (get root-pages/html-root rootpg)]
-    (when (some #(= rootpg %) (keys root-pages/html-root))
+        rootpg-html (get rootpages/html-root rootpg)]
+    (when (some #(= rootpg %) (keys rootpages/html-root))
       (render-html (:title rootpg-html) (:contents rootpg-html) (:charts rootpg-html) (:users rootpg-html)))))

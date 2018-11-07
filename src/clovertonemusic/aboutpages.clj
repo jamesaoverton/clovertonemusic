@@ -1,8 +1,4 @@
-(ns clovertonemusic.about-pages)
-
-(load "chart-divs")
-
-(require '[clovertonemusic.chart-divs :as chart-divs])
+(ns clovertonemusic.aboutpages)
 
 (def html-about
   {"clinics" {:title "Clinics - Clovertone Music"

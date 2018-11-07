@@ -10,8 +10,7 @@
                  [hiccup "1.0.5"]
                  [compojure "1.1.6"]
                  [http-kit "2.2.0"]
-                 [javax.servlet/servlet-api "2.5"]
-                 [com.gfredericks/forty-two "1.0.0"]]
+                 [javax.servlet/servlet-api "2.5"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

@@ -1,15 +1,11 @@
-(ns clovertonemusic.grades-pages)
-
-(load "chart-divs")
-
-(require '[clovertonemusic.chart-divs :as chart-divs]
-         '[clovertonemusic.catalogue :as catalogue]
-         '[com.gfredericks.forty-two :as words])
+(ns clovertonemusic.gradespages
+  (:require [clovertonemusic.chartdivs :as chartdivs]
+            [clovertonemusic.catalogue :as catalogue]))
 
 (def html-grades
   (reduce (fn [saved-grades curr-grade]
             (merge saved-grades
-                   {(words/words (Integer/parseInt (:Number curr-grade)))
+                   {(:Filename curr-grade)
                     {:title (str (:Name curr-grade) " - Clovertone Music")
                      :contents [:div#contents
                                 [:div#content.index
@@ -19,7 +15,7 @@
                               (let [charts-in-grade
                                     (reduce (fn [saved-charts curr-chart]
                                               (if (= (:Grade curr-chart) (:Number curr-grade))
-                                                (conj saved-charts (chart-divs/chart-to-html curr-chart))
+                                                (conj saved-charts (chartdivs/chart-to-html curr-chart))
                                                 saved-charts))
                                             [:div#list] (:charts catalogue/catalogue))]
                                 charts-in-grade)]

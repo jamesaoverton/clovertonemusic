@@ -1,9 +1,6 @@
-(ns clovertonemusic.genres-pages)
-
-(load "chart-divs")
-
-(require '[clovertonemusic.chart-divs :as chart-divs]
-         '[clovertonemusic.catalogue :as catalogue])
+(ns clovertonemusic.genrespages
+  (:require [clovertonemusic.chartdivs :as chartdivs]
+            [clovertonemusic.catalogue :as catalogue]))
 
 (def html-genres
   (reduce (fn [saved-genres curr-genre]
@@ -18,7 +15,7 @@
                               (let [genres-charts
                                     (reduce (fn [saved-charts next-chart]
                                               (if (= (:Category next-chart) (:Filename curr-genre))
-                                                (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                (conj saved-charts (chartdivs/chart-to-html next-chart))
                                                 saved-charts))
                                             [:div#list] (:charts catalogue/catalogue))]
                                 genres-charts)]

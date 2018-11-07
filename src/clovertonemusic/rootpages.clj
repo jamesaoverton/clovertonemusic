@@ -1,11 +1,6 @@
-(ns clovertonemusic.root-pages)
-
-;; This file contains the HTML code used for pages in the root directory
-
-(load "chart-divs")
-
-(require '[clovertonemusic.chart-divs :as chart-divs]
-         '[clovertonemusic.catalogue :as catalogue])
+(ns clovertonemusic.rootpages
+  (:require [clovertonemusic.chartdivs :as chartdivs]
+            [clovertonemusic.catalogue :as catalogue]))
 
 (def html-root
   {"index" {:title "Home - Clovertone Music."
@@ -21,7 +16,7 @@
                      (let [featured-charts
                            (reduce (fn [saved-charts next-chart]
                                      (if-not (= (:Featured next-chart) "0")
-                                       (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                       (conj saved-charts (chartdivs/chart-to-html next-chart))
                                        saved-charts))
                                    [:div#list] (sort-by :Featured (:charts catalogue/catalogue)))]
                        featured-charts)]

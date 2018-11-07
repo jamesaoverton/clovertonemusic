@@ -1,9 +1,6 @@
-(ns clovertonemusic.composers-pages)
-
-(load "chart-divs")
-
-(require '[clovertonemusic.chart-divs :as chart-divs]
-         '[clovertonemusic.catalogue :as catalogue])
+(ns clovertonemusic.composerspages
+  (:require [clovertonemusic.chartdivs :as chartdivs]
+            [clovertonemusic.catalogue :as catalogue]))
 
 (def html-composers
   (merge
@@ -20,7 +17,7 @@
                                (let [composers-charts
                                      (reduce (fn [saved-charts next-chart]
                                                (if (= (:Composer next-chart) (:Name curr-composer))
-                                                 (conj saved-charts (chart-divs/chart-to-html next-chart))
+                                                 (conj saved-charts (chartdivs/chart-to-html next-chart))
                                                  saved-charts))
                                              [:div#list] (:charts catalogue/catalogue))]
                                  composers-charts)]

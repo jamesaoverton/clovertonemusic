@@ -1,7 +1,6 @@
-(ns clovertonemusic.chart-divs)
-
-(require '[clojure.string :as str]
-         '[clovertonemusic.catalogue :as catalogue])
+(ns clovertonemusic.chartdivs
+  (:require [clojure.string :as str]
+            [clovertonemusic.catalogue :as catalogue]))
 
 (defn chart-to-html
   [chart]

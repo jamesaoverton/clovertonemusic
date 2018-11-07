@@ -1,10 +1,9 @@
-(ns clovertonemusic.catalogue)
-
-(require '[clojure.tools.logging :as log]
-         '[clj-logging-config.log4j :as log-config]
-         '[clojure.data.csv :as csv]
-         '[clojure.java.io :as io]
-         '[clojure.string :as str])
+(ns clovertonemusic.catalogue
+  (:require [clojure.tools.logging :as log]
+            [clj-logging-config.log4j :as log-config]
+            [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
