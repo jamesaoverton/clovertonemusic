@@ -10,7 +10,7 @@
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
-  [title contents charts users]
+  [{title :title, contents :contents, charts :charts, users :users}]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (page/html
@@ -83,42 +83,42 @@
 
 (defn render-about
   [request]
-  (let [about-page (:page (:params request))
-        about-html (get aboutpages/html-about about-page)]
+  (let [about-page (:page (:params request))]
     (when (some #(= about-page %) (keys aboutpages/html-about))
-      (render-html (:title about-html) (:contents about-html) (:charts about-html) (:users about-html)))))
+      (let [about-html (get aboutpages/html-about about-page)]
+        (render-html about-html)))))
 
 (defn render-charts
   [request]
-  (let [chart (or (:page (:params request)) "index")
-        chart-html (get chartspages/html-charts chart)]
+  (let [chart (or (:page (:params request)) "index")]
     (when (some #(= chart %) (keys chartspages/html-charts))
-      (render-html (:title chart-html) (:contents chart-html) (:charts chart-html) (:users chart-html)))))
+      (let [chart-html (get chartspages/html-charts chart)]
+        (render-html chart-html)))))
 
 (defn render-composers
   [request]
-  (let [composer (or (:page (:params request)) "index")
-        composer-html (get composerspages/html-composers composer)]
+  (let [composer (or (:page (:params request)) "index")]
     (when (some #(= composer %) (keys composerspages/html-composers))
-      (render-html (:title composer-html) (:contents composer-html) (:charts composer-html) (:users composer-html)))))
+      (let [composer-html (get composerspages/html-composers composer)]
+        (render-html composer-html)))))
 
 (defn render-genres
   [request]
-  (let [genre (:page (:params request))
-        genre-html (get genrespages/html-genres genre)]
+  (let [genre (:page (:params request))]
     (when (some #(= genre %) (keys genrespages/html-genres))
-      (render-html (:title genre-html) (:contents genre-html) (:charts genre-html) (:users genre-html)))))
+      (let [genre-html (get genrespages/html-genres genre)]
+        (render-html genre-html)))))
 
 (defn render-grades
   [request]
-  (let [grade (:page (:params request))
-        grade-html (get gradespages/html-grades grade)]
+  (let [grade (:page (:params request))]
     (when (some #(= grade %) (keys gradespages/html-grades))
-      (render-html (:title grade-html) (:contents grade-html) (:charts grade-html) (:users grade-html)))))
+      (let [grade-html (get gradespages/html-grades grade)]
+        (render-html grade-html)))))
 
 (defn render-root
   [request]
-  (let [rootpg (or (:page (:params request)) "index")
-        rootpg-html (get rootpages/html-root rootpg)]
+  (let [rootpg (or (:page (:params request)) "index")]
     (when (some #(= rootpg %) (keys rootpages/html-root))
-      (render-html (:title rootpg-html) (:contents rootpg-html) (:charts rootpg-html) (:users rootpg-html)))))
+      (let [rootpg-html (get rootpages/html-root rootpg)]
+        (render-html (rootpg-html))))))
