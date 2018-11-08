@@ -6,7 +6,6 @@
             [compojure.handler :refer [site]]
             [compojure.core :refer [defroutes GET POST PUT DELETE ANY context]]
             [clojure.string :as str]
-            [clovertonemusic.catalogue :as catalogue]
             [clovertonemusic.html :as html]))
 
 (log-config/set-logger!

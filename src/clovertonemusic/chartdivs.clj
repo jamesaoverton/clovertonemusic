@@ -1,18 +1,18 @@
 (ns clovertonemusic.chartdivs
   (:require [clojure.string :as str]
-            [clovertonemusic.catalogue :as catalogue]))
+            [clovertonemusic.data :as data]))
 
 (defn chart-to-html
   [chart]
   (let [number (:chart-number chart)
         grade-number (:grade chart)
-        grade-name (loop [[next-grade & remaining-grades] (:grades catalogue/catalogue)]
+        grade-name (loop [[next-grade & remaining-grades] (:grades data/catalogue)]
                      (if (= (:grade-number next-grade) grade-number)
                        (:grade-name next-grade)
                        (recur remaining-grades)))
         chart-path (str "/charts/" (:filename chart))
         chart-name (:chart-name chart)
-        composer-path (str "/composers/" (loop [[next-comp & remaining-comps] (:composers catalogue/catalogue)]
+        composer-path (str "/composers/" (loop [[next-comp & remaining-comps] (:composers data/catalogue)]
                                            (if (= (:composer chart) (:composer-name next-comp))
                                              (:filename next-comp)
                                              (recur remaining-comps))))

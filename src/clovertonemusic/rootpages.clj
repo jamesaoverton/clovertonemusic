@@ -1,6 +1,6 @@
 (ns clovertonemusic.rootpages
   (:require [clovertonemusic.chartdivs :as chartdivs]
-            [clovertonemusic.catalogue :as catalogue]))
+            [clovertonemusic.data :as data]))
 
 (def html-root
   {"index" {:title "Home - Clovertone Music."
@@ -18,6 +18,6 @@
                                      (if-not (= (:featured next-chart) "0")
                                        (conj saved-charts (chartdivs/chart-to-html next-chart))
                                        saved-charts))
-                                   [:div#list] (sort-by :featured (:charts catalogue/catalogue)))]
+                                   [:div#list] (sort-by :featured (:charts data/catalogue)))]
                        featured-charts)]
             :users [:div#users]}})

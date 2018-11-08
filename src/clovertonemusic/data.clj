@@ -1,4 +1,4 @@
-(ns clovertonemusic.catalogue
+(ns clovertonemusic.data
   (:require [clojure.tools.logging :as log]
             [clj-logging-config.log4j :as log-config]
             [clojure.data.csv :as csv]

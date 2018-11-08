@@ -1,6 +1,6 @@
 (ns clovertonemusic.chartspages
   (:require [clovertonemusic.chartdivs :as chartdivs]
-            [clovertonemusic.catalogue :as catalogue]))
+            [clovertonemusic.data :as data]))
 
 (def html-charts
   {"10-41-am" {:title "10:41AM - Clovertone Music"
@@ -444,6 +444,6 @@
             :charts [:div#charts
                      (let [all-charts (reduce (fn [saved-charts next-chart]
                                                   (conj saved-charts (chartdivs/chart-to-html next-chart)))
-                                              [:div#list] (:charts catalogue/catalogue))]
+                                              [:div#list] (:charts data/catalogue))]
                        all-charts)]
             :users [:div#users]}})

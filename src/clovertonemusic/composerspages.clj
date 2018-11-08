@@ -1,6 +1,6 @@
 (ns clovertonemusic.composerspages
   (:require [clovertonemusic.chartdivs :as chartdivs]
-            [clovertonemusic.catalogue :as catalogue]))
+            [clovertonemusic.data :as data]))
 
 (def html-composers
   (merge
@@ -19,10 +19,10 @@
                                                (if (= (:composer next-chart) (:composer-name curr-composer))
                                                  (conj saved-charts (chartdivs/chart-to-html next-chart))
                                                  saved-charts))
-                                             [:div#list] (:charts catalogue/catalogue))]
+                                             [:div#list] (:charts data/catalogue))]
                                  composers-charts)]
                       :users [:div#users]}}))
-           {} (:composers catalogue/catalogue))
+           {} (:composers data/catalogue))
    {"index" {:title "All Charts - Clovertone Music"
              :contents [:div#contents
                         [:div#content
@@ -44,6 +44,6 @@
                                              :height "140",
                                              :src (str "/images/" (:filename curr-composer) "-140.jpg")}]]
                                            [:div.name (:composer-name curr-composer)]]))
-                                   [:ul.composers] (:composers catalogue/catalogue))]]
+                                   [:ul.composers] (:composers data/catalogue))]]
              :charts [:div#charts]
              :users [:div#users]}}))
