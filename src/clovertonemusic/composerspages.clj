@@ -6,17 +6,17 @@
   (merge
    (reduce (fn [saved-composers curr-composer]
              (merge saved-composers
-                    {(:Filename curr-composer)
-                     {:title (str (:Name curr-composer) " - Clovertone Music")
+                    {(:filename curr-composer)
+                     {:title (str (:composer-name curr-composer) " - Clovertone Music")
                       :contents [:div#contents
                                  [:div#content
-                                  [:h1.title (:Name curr-composer)]
-                                  [:img.float {:src (str "/images/" (:Filename curr-composer) ".jpg")}]
-                                  [:p (:Notes curr-composer)]]]
+                                  [:h1.title (:composer-name curr-composer)]
+                                  [:img.float {:src (str "/images/" (:filename curr-composer) ".jpg")}]
+                                  [:p (:notes curr-composer)]]]
                       :charts [:div#charts
                                (let [composers-charts
                                      (reduce (fn [saved-charts next-chart]
-                                               (if (= (:Composer next-chart) (:Name curr-composer))
+                                               (if (= (:composer next-chart) (:composer-name curr-composer))
                                                  (conj saved-charts (chartdivs/chart-to-html next-chart))
                                                  saved-charts))
                                              [:div#list] (:charts catalogue/catalogue))]
@@ -37,13 +37,13 @@
                          (reduce (fn [saved-composers curr-composer]
                                    (conj saved-composers
                                          [:li
-                                          [:a.composer {:href (str "/composers/" (:Filename curr-composer))}]
+                                          [:a.composer {:href (str "/composers/" (:filename curr-composer))}]
                                           [:div.image
                                            [:img
                                             {:width "140",
                                              :height "140",
-                                             :src (str "/images/" (:Filename curr-composer) "-140.jpg")}]]
-                                           [:div.name (:Name curr-composer)]]))
+                                             :src (str "/images/" (:filename curr-composer) "-140.jpg")}]]
+                                           [:div.name (:composer-name curr-composer)]]))
                                    [:ul.composers] (:composers catalogue/catalogue))]]
              :charts [:div#charts]
              :users [:div#users]}}))

@@ -12,41 +12,41 @@
 (def csv-path "data/catalogue")
 (def catalogue-table-names ["composers" "genres" "grades" "charts"])
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
-  {:composers {(keyword "Date Created")  "y/datetime/"
-               (keyword "Date Modified") "y/datetime/"
-               :Name                     "y/string/"
-               :Filename                 "y/string/"
-               :Notes                    "n/string/"}
-   :genres {(keyword "Date Created")     "y/datetime/"
-            (keyword "Date Modified")    "y/datetime/"
-            :Name                        "y/string/"
-            :Filename                    "y/string/"
-            :Notes                       "n/string/"}
-   :grades {(keyword "Date Created")     "y/datetime/"
-            (keyword "Date Modified")    "y/datetime/"
-            :Number                      "y/number/"
-            :Name                        "y/string/"
-            :Filename                    "y/string/"
-            :Notes                       "n/string/"}
-   :charts {(keyword "Date Created")     "y/datetime/"
-            (keyword "Date Modified")    "y/datetime/"
-            :Number                      "y/number/"
-            :Name                        "y/string/"
-            :Filename                    "y/string/"
-            :Notes                       "n/string/"
-            :Genre                       "y/string/"
-            :Composer                    "y/string/composers-Name"
-            :Grade                       "y/number/grades-Number"
-            :Category                    "y/string/genres-Filename"
-            :Price                       "y/money/"
-            :Recorded                    "n/number/"
-            :Featured                    "y/number/"
-            :Duration                    "n/time/"
-            :Meter                       "n/ratio/"
-            :Tempo                       "n/number/"
-            (keyword "Band Type")        "n/string/"
-            :Master                      "n/number/"
-            :Project                     "n/string/"}})
+  {:composers {:date-created             "y/datetime/"
+               :date-modified            "y/datetime/"
+               :composer-name            "y/string/"
+               :filename                 "y/string/"
+               :notes                    "n/string/"}
+   :genres {:date-created                "y/datetime/"
+            :date-modified               "y/datetime/"
+            :genre-name                  "y/string/"
+            :filename                    "y/string/"
+            :notes                       "n/string/"}
+   :grades {:date-created                "y/datetime/"
+            :date-modified               "y/datetime/"
+            :grade-number                "y/number/"
+            :grade-name                  "y/string/"
+            :filename                    "y/string/"
+            :notes                       "n/string/"}
+   :charts {:date-created                "y/datetime/"
+            :date-modified               "y/datetime/"
+            :chart-number                "y/number/"
+            :chart-name                  "y/string/"
+            :filename                    "y/string/"
+            :notes                       "n/string/"
+            :genre                       "y/string/"
+            :composer                    "y/string/composers-composer-name"
+            :grade                       "y/number/grades-grade-number"
+            :category                    "y/string/genres-filename"
+            :price                       "y/money/"
+            :recorded                    "n/number/"
+            :featured                    "y/number/"
+            :duration                    "n/time/"
+            :meter                       "n/ratio/"
+            :tempo                       "n/number/"
+            :band-type                   "n/string/"
+            :master                      "n/number/"
+            :project                     "n/string/"}})
 
 (defn fail
   "Logs a fatal error and then exits with a failure status"
@@ -123,7 +123,7 @@
             ;; we need to convert the column names to keywords after splitting:
             (reduce (fn [result-vector next-string]
                       (conj result-vector (keyword next-string)))
-                    [] (str/split foreign-key #"-"))]
+                    [] (str/split foreign-key #"-" 2))]
         ;; Find all of the values in the foreign key table for this column, and then check to see if
         ;; the contents of this cell is one of those values:
         (let [foreign-values (reduce

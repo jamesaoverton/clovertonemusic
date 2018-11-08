@@ -4,35 +4,35 @@
 
 (defn chart-to-html
   [chart]
-  (let [number (:Number chart)
-        grade-number (:Grade chart)
+  (let [number (:chart-number chart)
+        grade-number (:grade chart)
         grade-name (loop [[next-grade & remaining-grades] (:grades catalogue/catalogue)]
-                     (if (= (:Number next-grade) grade-number)
-                       (:Name next-grade)
+                     (if (= (:grade-number next-grade) grade-number)
+                       (:grade-name next-grade)
                        (recur remaining-grades)))
-        chart-path (str "/charts/" (:Filename chart))
-        chart-name (:Name chart)
+        chart-path (str "/charts/" (:filename chart))
+        chart-name (:chart-name chart)
         composer-path (str "/composers/" (loop [[next-comp & remaining-comps] (:composers catalogue/catalogue)]
-                                           (if (= (:Composer chart) (:Name next-comp))
-                                             (:Filename next-comp)
+                                           (if (= (:composer chart) (:composer-name next-comp))
+                                             (:filename next-comp)
                                              (recur remaining-comps))))
-        composer-name (:Composer chart)
-        price (:Price chart)
+        composer-name (:composer chart)
+        price (:price chart)
         split-price (str/split (second (re-find #"\$(\S+)" "$1.00")) #"\.")
-        category (:Category chart)
-        audio-path (str "/audio/" (:Filename chart) ".mp3")
-        preview-path (str "/preview/" (:Filename chart) ".preview.pdf")
-        purchase-email (:Name chart)
-        customized-email (:Name chart)
-        chart-notes (:Notes chart)
+        category (:category chart)
+        audio-path (str "/audio/" (:filename chart) ".mp3")
+        preview-path (str "/preview/" (:filename chart) ".preview.pdf")
+        purchase-email (:chart-name chart)
+        customized-email (:chart-name chart)
+        chart-notes (:notes chart)
         chart-details [:tbody
                        [:tr
-                        [:td ((keyword "Band Type") chart)]
-                        [:td (:Genre chart)]
-                        [:td [:a {:href composer-path} (:Composer chart)]]
-                        [:td (:Duration chart)]
-                        [:td (:Meter chart)]
-                        [:td (:Tempo chart)]]]]
+                        [:td (:band-type chart)]
+                        [:td (:genre chart)]
+                        [:td [:a {:href composer-path} (:composer chart)]]
+                        [:td (:duration chart)]
+                        [:td (:meter chart)]
+                        [:td (:tempo chart)]]]]
 
     [(keyword (str "div#" number ".chart.grade" grade-number))
      [:div.head

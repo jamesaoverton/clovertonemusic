@@ -15,9 +15,9 @@
             :charts [:div#charts
                      (let [featured-charts
                            (reduce (fn [saved-charts next-chart]
-                                     (if-not (= (:Featured next-chart) "0")
+                                     (if-not (= (:featured next-chart) "0")
                                        (conj saved-charts (chartdivs/chart-to-html next-chart))
                                        saved-charts))
-                                   [:div#list] (sort-by :Featured (:charts catalogue/catalogue)))]
+                                   [:div#list] (sort-by :featured (:charts catalogue/catalogue)))]
                        featured-charts)]
             :users [:div#users]}})

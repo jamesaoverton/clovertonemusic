@@ -33,7 +33,7 @@
   (GET "/" [] html/render-root)
 
   (route/resources "") ; this will grab anything in the public/ directory
-  (route/not-found "<h1>Page not found</h1>")) ;; all other, return 404
+  (route/not-found "<h1>Page not found</h1>")) ; all other, return 404
 
 (defn -main
   [& args]
