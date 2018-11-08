@@ -3,7 +3,7 @@
             [clj-logging-config.log4j :as log-config]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as string]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -99,7 +99,7 @@
   [table rownum column contents catalogue]
   ;; split up the string specifying the constraints associated with this column (defined above):
   (let [[required datatype foreign-key]
-        (str/split (get (get catalogue-table-constraints table) column) #"/")]
+        (string/split (get (get catalogue-table-constraints table) column) #"/")]
     ;; If the column is required, make sure it is not empty:
     (when (and (= required "y") (not (re-find #"\S+" contents)))
       (fail (str "At row " rownum ": Required column: " column " of table " table " is empty")))
@@ -123,7 +123,7 @@
             ;; we need to convert the column names to keywords after splitting:
             (reduce (fn [result-vector next-string]
                       (conj result-vector (keyword next-string)))
-                    [] (str/split foreign-key #"-" 2))]
+                    [] (string/split foreign-key #"-" 2))]
         ;; Find all of the values in the foreign key table for this column, and then check to see if
         ;; the contents of this cell is one of those values:
         (let [foreign-values (reduce

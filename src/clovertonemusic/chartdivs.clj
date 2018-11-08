@@ -1,5 +1,5 @@
 (ns clovertonemusic.chartdivs
-  (:require [clojure.string :as str]
+  (:require [clojure.string :as string]
             [clovertonemusic.data :as data]))
 
 (defn chart-to-html
@@ -18,7 +18,7 @@
                                              (recur remaining-comps))))
         composer-name (:composer chart)
         price (:price chart)
-        split-price (str/split (second (re-find #"\$(\S+)" "$1.00")) #"\.")
+        split-price (string/split (second (re-find #"\$(\S+)" "$1.00")) #"\.")
         category (:category chart)
         audio-path (str "/audio/" (:filename chart) ".mp3")
         preview-path (str "/preview/" (:filename chart) ".preview.pdf")
