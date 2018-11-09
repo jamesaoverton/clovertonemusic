@@ -728,33 +728,27 @@
 
 (defn html-charts
   []
-  (reduce (fn [saved-chart2s curr-chart2]
-            (merge saved-chart2s
-                   {(:filename curr-chart2)
-                    {:title (str (:chart-name curr-chart2) " - Clovertone Music")
+  (into {} (conj
+            (map (fn [curr-chart]
+                   {(:filename curr-chart)
+                    {:title (str (:chart-name curr-chart) " - Clovertone Music")
                      :contents [:div#contents
-                                (let [charts-in-chart2
-                                      (reduce (fn [saved-charts curr-chart]
-                                                (if (= (:chart-number curr-chart) (:chart-number curr-chart2))
-                                                  (conj saved-charts (chartdivs/chart-to-html curr-chart))
-                                                  saved-charts))
-                                              [:div#list] (:charts data/catalogue))]
-                                  charts-in-chart2)]
+                                (into [:div#list]
+                                      (map chartdivs/chart-to-html
+                                           (filter #(= (:chart-number curr-chart) (:chart-number %))
+                                                   (:charts data/catalogue))))]
                      :charts [:div#charts]
-                     :users [:div#users]}}))
-          {"index" {:title "All Charts - Clovertone Music"
-                    :contents [:div#contents
-                               [:div#content.index
-                                [:h1.title "All Charts"]
-                                [:p
-                                 "Here's a list of all our titles so you can browse from the oldest selections to our newest material."]]]
-                    :charts [:div#charts
-                             (let [all-charts (reduce (fn [saved-charts next-chart]
-                                                        (conj saved-charts (chartdivs/chart-to-html next-chart)))
-                                                      [:div#list] (:charts data/catalogue))]
-                               all-charts)]
-                    :users [:div#users]}}
-          (:charts data/catalogue)))
+                     :users [:div#users]}})
+                 (:charts data/catalogue))
+            {"index" {:title "All Charts - Clovertone Music"
+                      :contents [:div#contents
+                                 [:div#content.index
+                                  [:h1.title "All Charts"]
+                                  [:p
+                                   "Here's a list of all our titles so you can browse from the oldest selections "
+                                   "to our newest material."]]]
+                      :charts [:div#charts (into [:div#list] (map chartdivs/chart-to-html (:charts data/catalogue)))]
+                      :users [:div#users]}})))
 
 (defn render-charts
   [request]
@@ -765,50 +759,46 @@
 
 (defn html-composers
   []
-  (merge
-   (reduce (fn [saved-composers curr-composer]
-             (merge saved-composers
-                    {(:filename curr-composer)
-                     {:title (str (:composer-name curr-composer) " - Clovertone Music")
+  (into {} (conj
+            (map (fn [curr-composer]
+                   {(:filename curr-composer)
+                    {:title (str (:composer-name curr-composer) " - Clovertone Music")
+                     :contents [:div#contents
+                                [:div#content.index
+                                 [:h1.title (:composer-name curr-composer)]
+                                 [:img.float {:src (str "/images/" (:filename curr-composer) ".jpg")}]
+                                 [:p (:notes curr-composer)]]]
+                     :charts [:div#charts
+                              (into [:div#list]
+                                    (map chartdivs/chart-to-html
+                                         (filter #(= (:composer-name curr-composer) (:composer %))
+                                                 (:charts data/catalogue))))]
+                     :users [:div#users]}})
+                 (:composers data/catalogue))
+            {"index" {:title "Composers - Clovertone Music"
                       :contents [:div#contents
                                  [:div#content
-                                  [:h1.title (:composer-name curr-composer)]
-                                  [:img.float {:src (str "/images/" (:filename curr-composer) ".jpg")}]
-                                  [:p (:notes curr-composer)]]]
-                      :charts [:div#charts
-                               (let [composers-charts
-                                     (reduce (fn [saved-charts next-chart]
-                                               (if (= (:composer next-chart) (:composer-name curr-composer))
-                                                 (conj saved-charts (chartdivs/chart-to-html next-chart))
-                                                 saved-charts))
-                                             [:div#list] (:charts data/catalogue))]
-                                 composers-charts)]
-                      :users [:div#users]}}))
-           {} (:composers data/catalogue))
-   {"index" {:title "All Charts - Clovertone Music"
-             :contents [:div#contents
-                        [:div#content
-                         [:h1.title "All Charts"]
-                         [:p
-                          (str "Clovertone Music’s Composers are the who’s-who of Canadian professional "
-                               "musicians. You’ll see these musicians teaching at the top universities and "
-                               "colleges in the country, and playing in the pit orchestra’s of downtown shows, "
-                               "in music festivals and in the clubs. All have experience writing not only for "
-                               "professionals but also teaching and writing for students of all ages. Read "
-                               "about the people and help them make a living through writing music!")]
-                         (reduce (fn [saved-composers curr-composer]
-                                   (conj saved-composers
-                                         [:li
-                                          [:a.composer {:href (str "/composers/" (:filename curr-composer))}]
-                                          [:div.image
-                                           [:img
-                                            {:width "140",
-                                             :height "140",
-                                             :src (str "/images/" (:filename curr-composer) "-140.jpg")}]]
-                                           [:div.name (:composer-name curr-composer)]]))
-                                   [:ul.composers] (:composers data/catalogue))]]
-             :charts [:div#charts]
-             :users [:div#users]}}))
+                                  [:h1.title "Composers"]
+                                  [:p
+                                   (str "Clovertone Music’s Composers are the who’s-who of Canadian professional "
+                                        "musicians. You’ll see these musicians teaching at the top universities and "
+                                        "colleges in the country, and playing in the pit orchestra’s of downtown shows, "
+                                        "in music festivals and in the clubs. All have experience writing not only for "
+                                        "professionals but also teaching and writing for students of all ages. Read "
+                                        "about the people and help them make a living through writing music!")]
+                                  (into [:ul.composers]
+                                        (map (fn [curr-composer]
+                                               [:li
+                                                [:a.composer {:href (str "/composers/" (:filename curr-composer))}]
+                                                [:div.image
+                                                 [:img
+                                                  {:width "140",
+                                                   :height "140",
+                                                   :src (str "/images/" (:filename curr-composer) "-140.jpg")}]]
+                                                [:div.name (:composer-name curr-composer)]])
+                                             (:composers data/catalogue)))]]
+                      :charts [:div#charts]
+                      :users [:div#users]}})))
 
 (defn render-composers
   [request]
@@ -817,26 +807,23 @@
       (let [composer-html (get (html-composers) composer)]
         (render-html composer-html)))))
 
+
 (defn html-genres
   []
-  (reduce (fn [saved-genres curr-genre]
-            (merge saved-genres
-                   {(:filename curr-genre)
-                    {:title (str (:genre-name curr-genre) " - Clovertone Music")
-                     :contents [:div#contents
-                                [:div#content.index
-                                 [:h1.title (:genre-name curr-genre)]
-                                 [:p (:notes curr-genre)]]]
-                     :charts [:div#charts
-                              (let [genres-charts
-                                    (reduce (fn [saved-charts next-chart]
-                                              (if (= (:category next-chart) (:filename curr-genre))
-                                                (conj saved-charts (chartdivs/chart-to-html next-chart))
-                                                saved-charts))
-                                            [:div#list] (:charts data/catalogue))]
-                                genres-charts)]
-                     :users [:div#users]}}))
-          {} (:genres data/catalogue)))
+  (into {} (map (fn [curr-genre]
+                  {(:filename curr-genre)
+                   {:title (str (:genre-name curr-genre) " - Clovertone Music")
+                    :contents [:div#contents
+                               [:div#content.index
+                                [:h1.title (:genre-name curr-genre)]
+                                [:p (:notes curr-genre)]]]
+                    :charts [:div#charts
+                             (into [:div#list]
+                                   (map chartdivs/chart-to-html
+                                        (filter #(= (:filename curr-genre) (:category %))
+                                                (:charts data/catalogue))))]
+                    :users [:div#users]}})
+                (:genres data/catalogue))))
 
 (defn render-genres
   [request]
@@ -847,24 +834,20 @@
 
 (defn html-grades
   []
-  (reduce (fn [saved-grades curr-grade]
-            (merge saved-grades
-                   {(:filename curr-grade)
-                    {:title (str (:grade-name curr-grade) " - Clovertone Music")
-                     :contents [:div#contents
-                                [:div#content.index
-                                 [:h1.title (:grade-name curr-grade)]
-                                 [:p (:notes curr-grade)]]]
-                     :charts [:div#charts
-                              (let [charts-in-grade
-                                    (reduce (fn [saved-charts curr-chart]
-                                              (if (= (:grade curr-chart) (:grade-number curr-grade))
-                                                (conj saved-charts (chartdivs/chart-to-html curr-chart))
-                                                saved-charts))
-                                            [:div#list] (:charts data/catalogue))]
-                                charts-in-grade)]
-                     :users [:div#users]}}))
-          {} (:grades data/catalogue)))
+  (into {} (map (fn [curr-grade]
+                  {(:filename curr-grade)
+                   {:title (str (:grade-name curr-grade) " - Clovertone Music")
+                    :contents [:div#contents
+                               [:div#content.index
+                                [:h1.title (:grade-name curr-grade)]
+                                [:p (:notes curr-grade)]]]
+                    :charts [:div#charts
+                             (into [:div#list]
+                                   (map chartdivs/chart-to-html
+                                        (filter #(= (:grade-number curr-grade) (:grade %))
+                                                (:charts data/catalogue))))]
+                    :users [:div#users]}})
+                (:grades data/catalogue))))
 
 (defn render-grades
   [request]
@@ -885,15 +868,11 @@
                               "and features some of our countries top composers. Fill out your repertoire "
                               "with Canadian content and feel good about supporting Canadian musicians!")]]]
             :charts [:div#charts
-                     (let [featured-charts
-                           (reduce (fn [saved-charts next-chart]
-                                     (if-not (= (:featured next-chart) "0")
-                                       (conj saved-charts (chartdivs/chart-to-html next-chart))
-                                       saved-charts))
-                                   [:div#list] (sort-by :featured (:charts data/catalogue)))]
-                       featured-charts)]
+                     (into [:div#list]
+                           (map chartdivs/chart-to-html
+                                (filter #(not= (:featured %) "0")
+                                        (sort-by :featured (:charts data/catalogue)))))]
             :users [:div#users]}})
-
 
 (defn render-root
   [request]
