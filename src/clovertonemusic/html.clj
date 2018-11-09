@@ -726,157 +726,130 @@
       (let [about-html (get (html-about) about-page)]
         (render-html about-html)))))
 
-(defn html-charts
-  []
-  (into {} (conj
-            (map (fn [curr-chart]
-                   {(:filename curr-chart)
-                    {:title (str (:chart-name curr-chart) " - Clovertone Music")
-                     :contents [:div#contents
-                                (into [:div#list]
-                                      (map chartdivs/chart-to-html
-                                           (filter #(= (:chart-number curr-chart) (:chart-number %))
-                                                   (:charts data/catalogue))))]
-                     :charts [:div#charts]
-                     :users [:div#users]}})
-                 (:charts data/catalogue))
-            {"index" {:title "All Charts - Clovertone Music"
-                      :contents [:div#contents
-                                 [:div#content.index
-                                  [:h1.title "All Charts"]
-                                  [:p
-                                   "Here's a list of all our titles so you can browse from the oldest selections "
-                                   "to our newest material."]]]
-                      :charts [:div#charts (into [:div#list] (map chartdivs/chart-to-html (:charts data/catalogue)))]
-                      :users [:div#users]}})))
-
 (defn render-charts
   [request]
-  (let [chart (or (:page (:params request)) "index")]
-    (when (some #(= chart %) (keys (html-charts)))
-      (let [chart-html (get (html-charts) chart)]
-        (render-html chart-html)))))
-
-(defn html-composers
-  []
-  (into {} (conj
-            (map (fn [curr-composer]
-                   {(:filename curr-composer)
-                    {:title (str (:composer-name curr-composer) " - Clovertone Music")
-                     :contents [:div#contents
-                                [:div#content.index
-                                 [:h1.title (:composer-name curr-composer)]
-                                 [:img.float {:src (str "/images/" (:filename curr-composer) ".jpg")}]
-                                 [:p (:notes curr-composer)]]]
-                     :charts [:div#charts
-                              (into [:div#list]
-                                    (map chartdivs/chart-to-html
-                                         (filter #(= (:composer-name curr-composer) (:composer %))
-                                                 (:charts data/catalogue))))]
-                     :users [:div#users]}})
-                 (:composers data/catalogue))
-            {"index" {:title "Composers - Clovertone Music"
-                      :contents [:div#contents
-                                 [:div#content
-                                  [:h1.title "Composers"]
-                                  [:p
-                                   (str "Clovertone Music’s Composers are the who’s-who of Canadian professional "
-                                        "musicians. You’ll see these musicians teaching at the top universities and "
-                                        "colleges in the country, and playing in the pit orchestra’s of downtown shows, "
-                                        "in music festivals and in the clubs. All have experience writing not only for "
-                                        "professionals but also teaching and writing for students of all ages. Read "
-                                        "about the people and help them make a living through writing music!")]
-                                  (into [:ul.composers]
-                                        (map (fn [curr-composer]
-                                               [:li
-                                                [:a.composer {:href (str "/composers/" (:filename curr-composer))}]
-                                                [:div.image
-                                                 [:img
-                                                  {:width "140",
-                                                   :height "140",
-                                                   :src (str "/images/" (:filename curr-composer) "-140.jpg")}]]
-                                                [:div.name (:composer-name curr-composer)]])
-                                             (:composers data/catalogue)))]]
-                      :charts [:div#charts]
-                      :users [:div#users]}})))
+  (let [chart (:page (:params request))
+        chart-catentry (first (filter #(= (:filename %) chart) (:charts data/catalogue)))]
+    (if-not (nil? chart-catentry)
+      (render-html
+       {:title (str (:chart-name chart-catentry) " - Clovertone Music")
+        :contents [:div#contents
+                   (into [:div#list]
+                         (map chartdivs/chart-to-html
+                              (filter #(= (:chart-number chart-catentry) (:chart-number %))
+                                      (:charts data/catalogue))))]
+        :charts [:div#charts]
+        :users [:div#users]})
+      (when (nil? chart)
+        (render-html
+         {:title "All Charts - Clovertone Music"
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title "All Charts"]
+                      [:p
+                       "Here's a list of all our titles so you can browse from the oldest selections "
+                       "to our newest material."]]]
+          :charts [:div#charts (into [:div#list] (map chartdivs/chart-to-html (:charts data/catalogue)))]
+          :users [:div#users]})))))
 
 (defn render-composers
   [request]
-  (let [composer (or (:page (:params request)) "index")]
-    (when (some #(= composer %) (keys (html-composers)))
-      (let [composer-html (get (html-composers) composer)]
-        (render-html composer-html)))))
-
-
-(defn html-genres
-  []
-  (into {} (map (fn [curr-genre]
-                  {(:filename curr-genre)
-                   {:title (str (:genre-name curr-genre) " - Clovertone Music")
-                    :contents [:div#contents
-                               [:div#content.index
-                                [:h1.title (:genre-name curr-genre)]
-                                [:p (:notes curr-genre)]]]
-                    :charts [:div#charts
-                             (into [:div#list]
-                                   (map chartdivs/chart-to-html
-                                        (filter #(= (:filename curr-genre) (:category %))
-                                                (:charts data/catalogue))))]
-                    :users [:div#users]}})
-                (:genres data/catalogue))))
+  (let [composer (:page (:params request))
+        composer-catentry (first (filter #(= (:filename %) composer) (:composers data/catalogue)))]
+    (if-not (nil? composer-catentry)
+      (render-html
+       {:title (str (:composer-name composer-catentry) " - Clovertone Music")
+        :contents [:div#contents
+                   [:div#content.index
+                    [:h1.title (:composer-name composer-catentry)]
+                    [:img.float {:src (str "/images/" (:filename composer-catentry) ".jpg")}]
+                    [:p (:notes composer-catentry)]]]
+        :charts [:div#charts
+                 (into [:div#list]
+                       (map chartdivs/chart-to-html
+                            (filter #(= (:composer-name composer-catentry) (:composer %))
+                                    (:charts data/catalogue))))]
+        :users [:div#users]})
+      (when (nil? composer)
+        (render-html
+         {:title "Composers - Clovertone Music"
+          :contents [:div#contents
+                     [:div#content
+                      [:h1.title "Composers"]
+                      [:p
+                       (str "Clovertone Music’s Composers are the who’s-who of Canadian professional "
+                            "musicians. You’ll see these musicians teaching at the top universities and "
+                            "colleges in the country, and playing in the pit orchestra’s of downtown shows, "
+                            "in music festivals and in the clubs. All have experience writing not only for "
+                            "professionals but also teaching and writing for students of all ages. Read "
+                            "about the people and help them make a living through writing music!")]
+                      (into [:ul.composers]
+                            (map (fn [composer-catentry]
+                                   [:li
+                                    [:a.composer {:href (str "/composers/" (:filename composer-catentry))}]
+                                    [:div.image
+                                     [:img
+                                      {:width "140",
+                                       :height "140",
+                                       :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
+                                    [:div.name (:composer-name composer-catentry)]])
+                                 (:composers data/catalogue)))]]
+          :charts [:div#charts]
+          :users [:div#users]})))))
 
 (defn render-genres
   [request]
-  (let [genre (:page (:params request))]
-    (when (some #(= genre %) (keys (html-genres)))
-      (let [genre-html (get (html-genres) genre)]
-        (render-html genre-html)))))
-
-(defn html-grades
-  []
-  (into {} (map (fn [curr-grade]
-                  {(:filename curr-grade)
-                   {:title (str (:grade-name curr-grade) " - Clovertone Music")
-                    :contents [:div#contents
-                               [:div#content.index
-                                [:h1.title (:grade-name curr-grade)]
-                                [:p (:notes curr-grade)]]]
-                    :charts [:div#charts
-                             (into [:div#list]
-                                   (map chartdivs/chart-to-html
-                                        (filter #(= (:grade-number curr-grade) (:grade %))
-                                                (:charts data/catalogue))))]
-                    :users [:div#users]}})
-                (:grades data/catalogue))))
+  (let [genre (:page (:params request))
+        genre-catentry (first (filter #(= (:filename %) genre) (:genres data/catalogue)))]
+    (when-not (nil? genre-catentry)
+      (render-html
+       {:title (str (:genre-name genre-catentry) " - Clovertone Music")
+        :contents [:div#contents
+                   [:div#content.index
+                    [:h1.title (:genre-name genre-catentry)]
+                    [:p (:notes genre-catentry)]]]
+        :charts [:div#charts
+                 (into [:div#list]
+                       (map chartdivs/chart-to-html
+                            (filter #(= (:filename genre-catentry) (:category %))
+                                    (:charts data/catalogue))))]
+        :users [:div#users]}))))
 
 (defn render-grades
   [request]
-  (let [grade (:page (:params request))]
-    (when (some #(= grade %) (keys (html-grades)))
-      (let [grade-html (get (html-grades) grade)]
-        (render-html grade-html)))))
-
-(defn html-root
-  []
-  {"index" {:title "Home - Clovertone Music."
-            :contents [:div#contents
-                       [:div#content.index
-                        [:h1.title "Home"]
-                        [:p
-                         (str "Welcome to Clovertone Music, we are a sheet music publisher specializing "
-                              "in the educational jazz band market. Our library is completely Canadian "
-                              "and features some of our countries top composers. Fill out your repertoire "
-                              "with Canadian content and feel good about supporting Canadian musicians!")]]]
-            :charts [:div#charts
-                     (into [:div#list]
-                           (map chartdivs/chart-to-html
-                                (filter #(not= (:featured %) "0")
-                                        (sort-by :featured (:charts data/catalogue)))))]
-            :users [:div#users]}})
+  (let [grade (:page (:params request))
+        grade-catentry (first (filter #(= (:filename %) grade) (:grades data/catalogue)))]
+    (when-not (nil? grade-catentry)
+      (render-html
+       {:title (str (:grade-name grade-catentry) " - Clovertone Music")
+        :contents [:div#contents
+                   [:div#content.index
+                    [:h1.title (:grade-name grade-catentry)]
+                    [:p (:notes grade-catentry)]]]
+        :charts [:div#charts
+                 (into [:div#list]
+                       (map chartdivs/chart-to-html
+                            (filter #(= (:grade-number grade-catentry) (:grade %))
+                                    (:charts data/catalogue))))]
+        :users [:div#users]}))))
 
 (defn render-root
   [request]
-  (let [rootpg (or (:page (:params request)) "index")]
-    (when (some #(= rootpg %) (keys (html-root)))
-      (let [rootpg-html (get (html-root) rootpg)]
-        (render-html rootpg-html)))))
+  (let [rootpg (:page (:params request))]
+    (when (or (nil? rootpg) (= "index" rootpg))
+      (render-html
+       {:title "Home - Clovertone Music."
+        :contents [:div#contents
+                   [:div#content.index
+                    [:h1.title "Home"]
+                    [:p
+                     (str "Welcome to Clovertone Music, we are a sheet music publisher specializing "
+                          "in the educational jazz band market. Our library is completely Canadian "
+                          "and features some of our countries top composers. Fill out your repertoire "
+                          "with Canadian content and feel good about supporting Canadian musicians!")]]]
+        :charts [:div#charts
+                 (into [:div#list]
+                       (map chartdivs/chart-to-html
+                            (filter #(not= (:featured %) "0")
+                                    (sort-by :featured (:charts data/catalogue)))))]
+        :users [:div#users]}))))
