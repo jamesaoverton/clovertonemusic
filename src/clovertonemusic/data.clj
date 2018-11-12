@@ -9,6 +9,12 @@
  :pattern "%d - %p %m%n"
  :level :info)
 
+(defn fail
+  "Logs a fatal error and then exits with a failure status"
+  [errorstr]
+  (log/fatal errorstr)
+  (System/exit 1))
+
 (def csv-path "data/catalogue")
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
@@ -46,12 +52,6 @@
             :band-type                   "n/string/"
             :master                      "n/number/"
             :project                     "n/string/"}})
-
-(defn fail
-  "Logs a fatal error and then exits with a failure status"
-  [errorstr]
-  (log/fatal errorstr)
-  (System/exit 1))
 
 (defn validate-cell
   "For each data cell belonging to a given column of a given table:
