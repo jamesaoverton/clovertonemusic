@@ -100,7 +100,10 @@
 
 (defn validate-row
   "Validates the data in the given row, cell by cell."
-  [tablename row rownum catalogue]
+  [tablename row rownum numfields catalogue]
+  (when-not (= (count row) numfields)
+    (throw (Exception. (str "Number of fields in data row #"
+                            rownum " does not match the number of headers"))))
   (doseq [col row]
     (let [col-name (key col)]
       (validate-cell tablename rownum col-name (get row col-name) catalogue)))
@@ -109,19 +112,16 @@
 
 (defn create-table
   "Creates a 'table' from the given data implemented as a vector of zipmaps"
-  [tablename catalogue [header-row & body-rows]]
-  (into [] (map (fn [next-row]
-                  (let [rownum (inc (.indexOf body-rows next-row))]
-                    (if-not (= (count header-row) (count next-row))
-                      (throw (Exception.
-                              (str "Number of fields in data row #"
-                                   rownum " does not match the number of headers")))
-                      (validate-row
-                       tablename
-                       (zipmap (map keyword header-row) next-row)
-                       rownum
-                       catalogue))))
-                body-rows)))
+  [tablename catalogue [header & body-rows]]
+  (into [] (map (fn [row]
+                  (let [processed-row (zipmap (map keyword header) row)]
+                    (validate-row
+                     tablename
+                     processed-row
+                     (inc (.indexOf body-rows row))
+                     (count header)
+                     catalogue))))
+        body-rows))
 
 (defn extract-from-csv
   "Reads the contents of the CSV file containing the catalogue data from disk using the
