@@ -16,6 +16,7 @@
   (System/exit 1))
 
 (def csv-path "data/catalogue")
+
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
                :date-modified            "y/datetime/"

@@ -734,10 +734,11 @@
       (render-html
        {:title (str (:chart-name chart-catentry) " - Clovertone Music")
         :contents [:div#contents
-                   (into [:div#list]
-                         (map chartdivs/chart-to-html
-                              (filter #(= (:chart-number chart-catentry) (:chart-number %))
-                                      (:charts data/catalogue))))]
+                   (->> data/catalogue
+                        (:charts)
+                        (filter #(= (:chart-number chart-catentry) (:chart-number %)))
+                        (map chartdivs/chart-to-html)
+                        (conj [:div#list]))]
         :charts [:div#charts]
         :users [:div#users]})
       (when (nil? chart)
@@ -765,10 +766,11 @@
                     [:img.float {:src (str "/images/" (:filename composer-catentry) ".jpg")}]
                     [:p (:notes composer-catentry)]]]
         :charts [:div#charts
-                 (into [:div#list]
-                       (map chartdivs/chart-to-html
-                            (filter #(= (:composer-name composer-catentry) (:composer %))
-                                    (:charts data/catalogue))))]
+                 (->> data/catalogue
+                      (:charts)
+                      (filter #(= (:composer-name composer-catentry) (:composer %)))
+                      (map chartdivs/chart-to-html)
+                      (conj [:div#list]))]
         :users [:div#users]})
       (when (nil? composer)
         (render-html
@@ -809,10 +811,11 @@
                     [:h1.title (:genre-name genre-catentry)]
                     [:p (:notes genre-catentry)]]]
         :charts [:div#charts
-                 (into [:div#list]
-                       (map chartdivs/chart-to-html
-                            (filter #(= (:filename genre-catentry) (:category %))
-                                    (:charts data/catalogue))))]
+                 (->> data/catalogue
+                      (:charts)
+                      (filter #(= (:filename genre-catentry) (:category %)))
+                      (map chartdivs/chart-to-html)
+                      (conj [:div#list]))]
         :users [:div#users]}))))
 
 (defn render-grades
@@ -827,10 +830,11 @@
                     [:h1.title (:grade-name grade-catentry)]
                     [:p (:notes grade-catentry)]]]
         :charts [:div#charts
-                 (into [:div#list]
-                       (map chartdivs/chart-to-html
-                            (filter #(= (:grade-number grade-catentry) (:grade %))
-                                    (:charts data/catalogue))))]
+                 (->> data/catalogue
+                      (:charts)
+                      (filter #(= (:grade-number grade-catentry) (:grade %)))
+                      (map chartdivs/chart-to-html)
+                      (conj [:div#list]))]
         :users [:div#users]}))))
 
 (defn render-root
@@ -848,8 +852,10 @@
                           "and features some of our countries top composers. Fill out your repertoire "
                           "with Canadian content and feel good about supporting Canadian musicians!")]]]
         :charts [:div#charts
-                 (into [:div#list]
-                       (map chartdivs/chart-to-html
-                            (filter #(not= (:featured %) "0")
-                                    (sort-by :featured (:charts data/catalogue)))))]
+                 (->> data/catalogue
+                      (:charts)
+                      (sort-by :featured)
+                      (filter #(not= (:featured %) "0"))
+                      (map chartdivs/chart-to-html)
+                      (conj [:div#list]))]
         :users [:div#users]}))))
