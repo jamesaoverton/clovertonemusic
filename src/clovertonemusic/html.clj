@@ -1,6 +1,5 @@
 (ns clovertonemusic.html
   (:require [hiccup.core :as page]
-            [clovertonemusic.chartdivs :as chartdivs]
             [clovertonemusic.data :as data]))
 
 (defn render-html
@@ -76,6 +75,80 @@
                [:li [:a {:href "/about/privacy-policy"} "Privacy Policy\n"]]
                [:li "© 2017 Clovertone Music"]]]]
             ]])})
+
+(defn chart-to-html
+  [chart]
+  (let [number (:chart-number chart)
+        grade-name (->> data/catalogue
+                        (:grades)
+                        (filter #(= (:grade-number %) (:grade chart)))
+                        (first)
+                        (:grade-name))
+        composer-path (->> data/catalogue
+                           (:composers)
+                           (filter #(= (:composer chart) (:composer-name %)))
+                           (first)
+                           (:filename)
+                           (str "/composers/"))]
+    [(keyword (str "div#" number ".chart.grade" (:grade chart)))
+     [:div.head
+      [:h2.title [:a {:href (str "/charts/" (:filename chart))} (:chart-name chart)]]
+      [:h3.name
+       [:a
+        {:href composer-path}
+        (str "By " (:composer chart) "\n")]]]
+     [:div.body
+      [:div.image
+       [:div.genre-image.swing]
+       [:div.genre (:category chart)]
+       [:div.grade grade-name]]
+      [:a.purchase
+       {:href
+        (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
+             "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20%22"
+             (:chart-name chart) "%22.%0D%0A")}]
+      [:div.blank]
+      [:div.price (:price chart)]
+      [:ul.actions
+       [:li
+        [:a#audio2.audio
+         {:href (str "/audio/" (:filename chart) ".mp3")}
+         "▶   Listen\n"]]
+       [:li
+        [:a
+         {:href (str "/preview/" (:filename chart) ".preview.pdf") :target "_blank"}
+         "Preview\n"]]
+       [:li
+        [:a
+         {:href
+          (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
+               "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20a%20customized%20version%20of%20"
+               "the%20chart%20%22" (:chart-name chart)
+               "%22.%0D%0A%0D%0AHere's%20some%20information%20about%20our%20band%2C%20including%20our%20"
+               "instrumentation%2C%20who%20we%20would%20like%20to%20feature%2C%20and%20the%20difficulty"
+               "%20level%20that%20we%20can%20handle%3A%0D%0A%0D%0A%0D%0A%0D%0AI%20prefer%20to%20be%20"
+               "contacted%0D%0A-%20by%20email%20at%20this%20address%0D%0A-%20by%20phone%3A%20my%20number"
+               "%20is%20XXX-XXX-XXXX%2C%20and%20I%20am%20available%20between%20the%20hours%20of"
+               "%20%0D%0A%0D%0A")}
+         "Customize\n"]]]
+      (:notes chart)]
+     [:table.details
+      [:thead
+       [:tr
+        [:td "Band"]
+        [:td "Genre"]
+        [:td "Composer"]
+        [:td "Duration"]
+        [:td "Meter"]
+        [:td "Tempo"]]]
+      [:tbody
+       [:tr
+        [:td (:band-type chart)]
+        [:td (:genre chart)]
+        [:td [:a {:href composer-path} (:composer chart)]]
+        [:td (:duration chart)]
+        [:td (:meter chart)]
+        [:td (:tempo chart)]]]]]))
 
 (defn html-about
   []
@@ -737,7 +810,7 @@
                    (->> data/catalogue
                         (:charts)
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
-                        (map chartdivs/chart-to-html)
+                        (map chart-to-html)
                         (conj [:div#list]))]
         :charts [:div#charts]
         :users [:div#users]})
@@ -750,7 +823,7 @@
                       [:p
                        "Here's a list of all our titles so you can browse from the oldest selections "
                        "to our newest material."]]]
-          :charts [:div#charts (into [:div#list] (map chartdivs/chart-to-html (:charts data/catalogue)))]
+          :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
           :users [:div#users]})))))
 
 (defn render-composers
@@ -769,7 +842,7 @@
                  (->> data/catalogue
                       (:charts)
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
-                      (map chartdivs/chart-to-html)
+                      (map chart-to-html)
                       (conj [:div#list]))]
         :users [:div#users]})
       (when (nil? composer)
@@ -814,7 +887,7 @@
                  (->> data/catalogue
                       (:charts)
                       (filter #(= (:filename genre-catentry) (:category %)))
-                      (map chartdivs/chart-to-html)
+                      (map chart-to-html)
                       (conj [:div#list]))]
         :users [:div#users]}))))
 
@@ -833,7 +906,7 @@
                  (->> data/catalogue
                       (:charts)
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
-                      (map chartdivs/chart-to-html)
+                      (map chart-to-html)
                       (conj [:div#list]))]
         :users [:div#users]}))))
 
@@ -856,6 +929,6 @@
                       (:charts)
                       (sort-by :featured)
                       (filter #(not= (:featured %) "0"))
-                      (map chartdivs/chart-to-html)
+                      (map chart-to-html)
                       (conj [:div#list]))]
         :users [:div#users]}))))
