@@ -802,7 +802,10 @@
 (defn render-charts
   [request]
   (let [chart (:page (:params request))
-        chart-catentry (first (filter #(= (:filename %) chart) (:charts data/catalogue)))]
+        chart-catentry (->> data/catalogue
+                            (:charts)
+                            (filter #(= (:filename %) chart))
+                            (first))]
     (if-not (nil? chart-catentry)
       (render-html
        {:title (str (:chart-name chart-catentry) " - Clovertone Music")
@@ -829,7 +832,10 @@
 (defn render-composers
   [request]
   (let [composer (:page (:params request))
-        composer-catentry (first (filter #(= (:filename %) composer) (:composers data/catalogue)))]
+        composer-catentry (->> data/catalogue
+                               (:composers)
+                               (filter #(= (:filename %) composer))
+                               (first))]
     (if-not (nil? composer-catentry)
       (render-html
        {:title (str (:composer-name composer-catentry) " - Clovertone Music")
@@ -875,7 +881,10 @@
 (defn render-genres
   [request]
   (let [genre (:page (:params request))
-        genre-catentry (first (filter #(= (:filename %) genre) (:genres data/catalogue)))]
+        genre-catentry (->> data/catalogue
+                            (:genres)
+                            (filter #(= (:filename %) genre))
+                            (first))]
     (when-not (nil? genre-catentry)
       (render-html
        {:title (str (:genre-name genre-catentry) " - Clovertone Music")
@@ -894,7 +903,10 @@
 (defn render-grades
   [request]
   (let [grade (:page (:params request))
-        grade-catentry (first (filter #(= (:filename %) grade) (:grades data/catalogue)))]
+        grade-catentry (->> data/catalogue
+                            (:grades)
+                            (filter #(= (:filename %) grade))
+                            (first))]
     (when-not (nil? grade-catentry)
       (render-html
        {:title (str (:grade-name grade-catentry) " - Clovertone Music")
