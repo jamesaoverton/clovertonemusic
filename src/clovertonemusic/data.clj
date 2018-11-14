@@ -5,6 +5,9 @@
             [clojure.java.io :as io]
             [clojure.string :as string]))
 
+(def about-path "data/about")
+(def csv-path "data/catalogue")
+
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
@@ -15,7 +18,16 @@
   (log/fatal errorstr)
   (System/exit 1))
 
-(def csv-path "data/catalogue")
+(def about-page-paths
+  {:clinics (str about-path "/clinics.md")
+   :clovertone-story (str about-path "/clovertone-story.md")
+   :commissions (str about-path "/commissions.md")
+   :customization (str about-path "/customization.md")
+   :faq (str about-path "/faq.md")
+   :grading-system (str about-path "/grading-system.md")
+   :musician-roster (str about-path "/musician-roster.md")
+   :podcast (str about-path "/podcast.md")
+   :privacy-policy (str about-path "/privacy-policy.md")})
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
