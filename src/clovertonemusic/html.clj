@@ -178,24 +178,11 @@
      :charts [:div#charts]
      :users [:div#users]}))
 
-(defn html-about
-  []
-  {"clinics" (generate-about-contents "clinics")
-   "clovertone-story" (generate-about-contents "clovertone-story")
-   "commissions" (generate-about-contents "commissions")
-   "customization" (generate-about-contents "customization")
-   "faq" (generate-about-contents "faq")
-   "musician-roster" (generate-about-contents "musician-roster")
-   "podcast" (generate-about-contents "podcast")
-   "privacy-policy" (generate-about-contents "privacy-policy")
-   "grading-system" (generate-about-contents "grading-system")})
-
 (defn render-about
   [request]
   (let [about-page (:page (:params request))]
-    (when (some #(= about-page %) (keys (html-about)))
-      (let [about-html (get (html-about) about-page)]
-        (render-html about-html)))))
+    (when (some #(= (keyword about-page) %) (keys data/about-page-paths))
+      (render-html (generate-about-contents about-page)))))
 
 (defn render-charts
   [request]
