@@ -885,7 +885,7 @@
                             (:genres)
                             (filter #(= (:filename %) genre))
                             (first))]
-    (when-not (nil? genre-catentry)
+    (when genre-catentry
       (render-html
        {:title (str (:genre-name genre-catentry) " - Clovertone Music")
         :contents [:div#contents
@@ -907,7 +907,7 @@
                             (:grades)
                             (filter #(= (:filename %) grade))
                             (first))]
-    (when-not (nil? grade-catentry)
+    (when grade-catentry
       (render-html
        {:title (str (:grade-name grade-catentry) " - Clovertone Music")
         :contents [:div#contents

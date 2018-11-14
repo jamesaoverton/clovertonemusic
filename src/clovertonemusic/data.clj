@@ -84,15 +84,15 @@
       (fail (str "At row " rownum ": '" col-data "' is not a valid " datatype " in column '"
                  col-name "' of table '" tablename "'")))
     ;; Validate the foreign key if it exists:
-    (when-not (nil? foreign-key)
+    (when foreign-key
       (let [;; The foreign key constraint is of the form 'table-column', but it is a string so
             ;; we need to convert the column names to keywords after splitting:
-            [foreign-table foreign-column] (into [] (map (fn [next-string] (keyword next-string))
-                                                         (string/split foreign-key #"-" 2)))
+            [foreign-table foreign-column] (vec (map (fn [next-string] (keyword next-string))
+                                                     (string/split foreign-key #"-" 2)))
             ;; Find all of the values in the foreign key table for this column, and then check to see if
             ;; the contents of this cell is one of those values:
-            foreign-values (into [] (map (fn [next-row] (get next-row foreign-column))
-                                         (get catalogue foreign-table)))]
+            foreign-values (vec (map (fn [next-row] (get next-row foreign-column))
+                                     (get catalogue foreign-table)))]
         (when-not (some #(= col-data %) foreign-values)
           ;; if the column contents do not match any of the possible foreign key values,
           ;; just fail:
@@ -113,15 +113,15 @@
 (defn create-table
   "Creates a 'table' from the given data implemented as a vector of zipmaps"
   [tablename catalogue [header & body-rows]]
-  (into [] (map (fn [row]
-                  (let [processed-row (zipmap (map keyword header) row)]
-                    (validate-row
-                     tablename
-                     processed-row
-                     (inc (.indexOf body-rows row))
-                     (count header)
-                     catalogue))))
-        body-rows))
+  (vec (map (fn [row]
+              (let [processed-row (zipmap (map keyword header) row)]
+                (validate-row
+                 tablename
+                 processed-row
+                 (inc (.indexOf body-rows row))
+                 (count header)
+                 catalogue)))
+            body-rows)))
 
 (defn extract-from-csv
   "Reads the contents of the CSV file containing the catalogue data from disk using the
