@@ -106,6 +106,7 @@
        [:div.grade grade-name]]
       [:a.purchase
        {:href
+        ;; TODO: GET THIS FROM A MARKDOWN FILE
         (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
              "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20%22"
              (:chart-name chart) "%22.%0D%0A")}
@@ -126,6 +127,7 @@
        [:li
         [:a
          {:href
+          ;; TODO: GET THIS FROM A MARKDOWN FILE
           (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
                "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20a%20customized%20version%20of%20"
                "the%20chart%20%22" (:chart-name chart)
@@ -248,13 +250,13 @@
                       (into [:ul.composers]
                             (map (fn [composer-catentry]
                                    [:li
-                                    [:a.composer {:href (str "/composers/" (:filename composer-catentry))}]
-                                    [:div.image
-                                     [:img
-                                      {:width "140",
-                                       :height "140",
-                                       :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
-                                    [:div.name (:composer-name composer-catentry)]])
+                                    [:a.composer {:href (str "/composers/" (:filename composer-catentry))}
+                                     [:div.image
+                                      [:img
+                                       {:width "140",
+                                        :height "140",
+                                        :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
+                                     [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
           :charts [:div#charts]
           :users [:div#users]})))))
