@@ -80,6 +80,7 @@
 (defn chart-to-html
   [chart]
   (let [number (:chart-number chart)
+        price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
         grade-name (->> data/catalogue
                         (:grades)
                         (filter #(= (:grade-number %) (:grade chart)))
@@ -100,16 +101,19 @@
         (str "By " (:composer chart) "\n")]]]
      [:div.body
       [:div.image
-       [:div.genre-image.swing]
+       [(keyword (str "div.genre-image." (:category chart)))]
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
        {:href
         (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
              "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20%22"
-             (:chart-name chart) "%22.%0D%0A")}]
-      [:div.blank]
-      [:div.price (:price chart)]
+             (:chart-name chart) "%22.%0D%0A")}
+       [:div.blank]
+       [:div.price
+        [:span.dollar-sign "$"]
+        [:span.dollars (get price 1)]
+        [:span.cents (get price 2)]]]
       [:ul.actions
        [:li
         [:a#audio2.audio
