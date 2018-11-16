@@ -208,9 +208,7 @@
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title "All Charts"]
-                      [:p
-                       "Here's a list of all our titles so you can browse from the oldest selections "
-                       "to our newest material."]]]
+                      [:p (slurp (:charts data/indices-paths))]]]
           :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
           :users [:div#users]})))))
 
@@ -242,13 +240,7 @@
           :contents [:div#contents
                      [:div#content
                       [:h1.title "Composers"]
-                      [:p
-                       (str "Clovertone Music’s Composers are the who’s-who of Canadian professional "
-                            "musicians. You’ll see these musicians teaching at the top universities and "
-                            "colleges in the country, and playing in the pit orchestra’s of downtown shows, "
-                            "in music festivals and in the clubs. All have experience writing not only for "
-                            "professionals but also teaching and writing for students of all ages. Read "
-                            "about the people and help them make a living through writing music!")]
+                      [:p (slurp (:composers data/indices-paths))]
                       (into [:ul.composers]
                             (map (fn [composer-catentry]
                                    [:li
@@ -316,11 +308,7 @@
         :contents [:div#contents
                    [:div#content.index
                     [:h1.title "Home"]
-                    [:p
-                     (str "Welcome to Clovertone Music, we are a sheet music publisher specializing "
-                          "in the educational jazz band market. Our library is completely Canadian "
-                          "and features some of our countries top composers. Fill out your repertoire "
-                          "with Canadian content and feel good about supporting Canadian musicians!")]]]
+                    [:p (slurp (:index data/indices-paths))]]]
         :charts [:div#charts
                  (->> data/catalogue
                       (:charts)

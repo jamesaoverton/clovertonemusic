@@ -6,6 +6,7 @@
             [clojure.string :as string]))
 
 (def about-path "data/about")
+(def indices-path "data/indices")
 (def csv-path "data/catalogue")
 
 (log-config/set-logger!
@@ -28,6 +29,11 @@
    :musician-roster (str about-path "/musician-roster.md")
    :podcast (str about-path "/podcast.md")
    :privacy-policy (str about-path "/privacy-policy.md")})
+
+(def indices-paths
+  {:charts (str indices-path "/charts.md")
+   :composers (str indices-path "/composers.md")
+   :index (str indices-path "/index.md")})
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
