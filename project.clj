@@ -11,7 +11,8 @@
                  [markdown-to-hiccup "0.3.0"]
                  [compojure "1.1.6"]
                  [http-kit "2.2.0"]
-                 [javax.servlet/servlet-api "2.5"]]
+                 [javax.servlet/servlet-api "2.5"]
+                 [ring/ring-codec "1.1.1"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

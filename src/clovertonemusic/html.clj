@@ -1,6 +1,8 @@
 (ns clovertonemusic.html
   (:require [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
+            [ring.util.codec :as codec]
+            [clojure.string :as string]
             [clovertonemusic.data :as data]))
 
 (defn render-html
@@ -77,6 +79,16 @@
                [:li "© 2017 Clovertone Music"]]]]
             ]])})
 
+(defn get-email
+  [email chart-name]
+  (let [email-contents (data/get-email-contents email)]
+    (str "mailto:" (->> (:to email-contents)
+                        (codec/url-encode))
+         "?subject=" (->> (:subject email-contents)
+                          (codec/url-encode))
+         "&body=" (->> (string/replace (:body email-contents) #"<CHART>" chart-name)
+                       (codec/url-encode)))))
+
 (defn chart-to-html
   [chart]
   (let [number (:chart-number chart)
@@ -105,11 +117,7 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       {:href
-        ;; TODO: GET THIS FROM A MARKDOWN FILE
-        (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
-             "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20%22"
-             (:chart-name chart) "%22.%0D%0A")}
+       {:href (get-email "purchase" (:chart-name chart))}
        [:div.blank]
        [:div.price
         [:span.dollar-sign "$"]
@@ -126,17 +134,7 @@
          "Preview\n"]]
        [:li
         [:a
-         {:href
-          ;; TODO: GET THIS FROM A MARKDOWN FILE
-          (str "mailto:info@clovertonemusic.com?subject=Customized%20Charts%20from%20Clovertone%20Music&"
-               "body=Hello%2C%0D%0A%0D%0AI%20would%20like%20to%20order%20a%20customized%20version%20of%20"
-               "the%20chart%20%22" (:chart-name chart)
-               "%22.%0D%0A%0D%0AHere's%20some%20information%20about%20our%20band%2C%20including%20our%20"
-               "instrumentation%2C%20who%20we%20would%20like%20to%20feature%2C%20and%20the%20difficulty"
-               "%20level%20that%20we%20can%20handle%3A%0D%0A%0D%0A%0D%0A%0D%0AI%20prefer%20to%20be%20"
-               "contacted%0D%0A-%20by%20email%20at%20this%20address%0D%0A-%20by%20phone%3A%20my%20number"
-               "%20is%20XXX-XXX-XXXX%2C%20and%20I%20am%20available%20between%20the%20hours%20of"
-               "%20%0D%0A%0D%0A")}
+         {:href (get-email "customize" (:chart-name chart))}
          "Customize\n"]]]
       (:notes chart)]
      [:table.details

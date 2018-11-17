@@ -7,7 +7,8 @@
 
 (def about-path "data/about")
 (def indices-path "data/indices")
-(def csv-path "data/catalogue")
+(def email-path "data/email")
+(def catalogue-path "data/catalogue")
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -34,6 +35,16 @@
   {:charts (str indices-path "/charts.md")
    :composers (str indices-path "/composers.md")
    :index (str indices-path "/index.md")})
+
+(defn get-email-contents
+  [email]
+  (with-open [reader (io/reader (str email-path "/" email ".csv"))]
+    (let [[header & rest] (doall (csv/read-csv reader))
+          ;; We need to destructure again because read-csv returns 'rest' as a Cons"
+          [data & dummy] rest]
+      {:to (get data (.indexOf header "to"))
+       :subject (get data (.indexOf header "subject"))
+       :body (get data (.indexOf header "body"))})))
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
@@ -145,7 +156,7 @@
   "Reads the contents of the CSV file containing the catalogue data from disk using the
   csv library and the read-csv function, which returns a lazy sequence of vectors representing rows"
   [filename]
-  (with-open [reader (io/reader (str csv-path "/" filename))]
+  (with-open [reader (io/reader (str catalogue-path "/" filename))]
     (doall
      (csv/read-csv reader))))
 
