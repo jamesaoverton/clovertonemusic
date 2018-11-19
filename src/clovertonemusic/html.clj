@@ -79,7 +79,7 @@
                [:li "© 2017 Clovertone Music"]]]]
             ]])})
 
-(defn get-email
+(defn construct-email
   [email chart-name]
   (let [email-contents (data/get-email-contents email)]
     (str "mailto:" (->> (:to email-contents)
@@ -117,7 +117,7 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       {:href (get-email "purchase" (:chart-name chart))}
+       {:href (construct-email "purchase" (:chart-name chart))}
        [:div.blank]
        [:div.price
         [:span.dollar-sign "$"]
@@ -134,7 +134,7 @@
          "Preview\n"]]
        [:li
         [:a
-         {:href (get-email "customize" (:chart-name chart))}
+         {:href (construct-email "customize" (:chart-name chart))}
          "Customize\n"]]]
       (:notes chart)]
      [:table.details
@@ -167,9 +167,8 @@
 (defn generate-about-contents
   [about-page]
   (let [contents (->> about-page
-                      (keyword)
-                      (get data/about-page-paths)
-                      (m2h/file->hiccup)
+                      (data/get-about-page-contents)
+                      (m2h/md->hiccup)
                       (m2h/component)
                       (map tweak-about-page)
                       (vec)
@@ -185,8 +184,10 @@
 (defn render-about
   [request]
   (let [about-page (:page (:params request))]
-    (when (some #(= (keyword about-page) %) (keys data/about-page-paths))
-      (render-html (generate-about-contents about-page)))))
+    (try
+      (render-html (generate-about-contents about-page))
+      ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
+      (catch java.io.FileNotFoundException ex))))
 
 (defn render-charts
   [request]
@@ -212,7 +213,7 @@
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title "All Charts"]
-                      [:p (slurp (:charts data/indices-paths))]]]
+                      [:p (data/get-index-file-contents "charts")]]]
           :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
           :users [:div#users]})))))
 
@@ -244,7 +245,7 @@
           :contents [:div#contents
                      [:div#content
                       [:h1.title "Composers"]
-                      [:p (slurp (:composers data/indices-paths))]
+                      [:p (data/get-index-file-contents "composers")]
                       (into [:ul.composers]
                             (map (fn [composer-catentry]
                                    [:li
@@ -312,7 +313,7 @@
         :contents [:div#contents
                    [:div#content.index
                     [:h1.title "Home"]
-                    [:p (slurp (:index data/indices-paths))]]]
+                    [:p (data/get-index-file-contents "index")]]]
         :charts [:div#charts
                  (->> data/catalogue
                       (:charts)

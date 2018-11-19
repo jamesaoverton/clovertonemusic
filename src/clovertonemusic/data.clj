@@ -20,21 +20,16 @@
   (log/fatal errorstr)
   (System/exit 1))
 
-(def about-page-paths
-  {:clinics (str about-path "/clinics.md")
-   :clovertone-story (str about-path "/clovertone-story.md")
-   :commissions (str about-path "/commissions.md")
-   :customization (str about-path "/customization.md")
-   :faq (str about-path "/faq.md")
-   :grading-system (str about-path "/grading-system.md")
-   :musician-roster (str about-path "/musician-roster.md")
-   :podcast (str about-path "/podcast.md")
-   :privacy-policy (str about-path "/privacy-policy.md")})
+(defn get-about-page-contents
+  [about-page]
+  (slurp (str about-path "/" about-page ".md")))
 
-(def indices-paths
-  {:charts (str indices-path "/charts.md")
-   :composers (str indices-path "/composers.md")
-   :index (str indices-path "/index.md")})
+(defn get-index-file-contents
+  [index-file]
+  (try
+    (slurp (str indices-path "/" index-file ".md"))
+    (catch java.io.FileNotFoundException ex
+      "No content found!")))
 
 (defn get-email-contents
   [email]
