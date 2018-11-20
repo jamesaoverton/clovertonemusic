@@ -40,7 +40,9 @@
                [:li [:a {:href "/about/commissions"} "Commissions"]]
                [:li [:a {:href "/composers/"} "Composers"]]
                [:li [:a {:href "/about/faq"} "FAQ"]]]]
-             [:div#search-box.box.left [:input#search {:type "text", :value "Search"}]]
+             [:div#search-box.box.left
+              [:form
+               [:input#search {:type "text", :name "search", :placeholder "Search"}]]]
              ;; The contents, charts, and users parameters passed to this function go here:
              [:div#main.right contents charts users]
              [:div#audio-box]
@@ -130,7 +132,7 @@
          "▶   Listen\n"]]
        [:li
         [:a
-         {:href (str "/preview/" (:filename chart) ".preview.pdf") :target "_blank"}
+         {:href (str "/previews/" (:filename chart) ".preview.pdf") :target "_blank"}
          "Preview\n"]]
        [:li
         [:a
@@ -151,9 +153,53 @@
         [:td (:band-type chart)]
         [:td (:genre chart)]
         [:td [:a {:href composer-path} (:composer chart)]]
+        ;; TODO: convert this from seconds to something readable
         [:td (:duration chart)]
         [:td (:meter chart)]
         [:td (:tempo chart)]]]]]))
+
+(defn search
+  [search-string]
+  (letfn [(search-string-in-chart [chart]
+            ;; Note: we do not filter on either category or grade since these
+            ;; filters are easily accessible from the side menu
+            (or
+             (string/index-of (string/lower-case (:chart-name chart))
+                              (string/lower-case search-string))
+             (string/index-of (string/lower-case (:composer chart))
+                              (string/lower-case search-string))
+             (string/index-of (string/lower-case (:band-type chart))
+                              (string/lower-case search-string))
+             (string/index-of (string/lower-case (:tempo chart))
+                              (string/lower-case search-string))
+             (string/index-of (string/lower-case (:meter chart))
+                              (string/lower-case search-string))
+             ;; TODO: search on duration will have to be redone once it is converted to a more
+             ;; readable format (see related TODO above)
+             (string/index-of (string/lower-case (:duration chart))
+                              (string/lower-case search-string))
+             ;; For price, require the query string to either lead or end with a "$",
+             ;; and don't require the cents:
+             (and
+              (or
+               (nth (re-matches #"\$(\d+)(\.\d{2})?" search-string) 1)
+               (nth (re-matches #"(\d+)(\.\d{2})?\$" search-string) 1))
+              (string/index-of (:price chart)
+                               (string/replace search-string #"\$" "")))
+             (string/index-of (string/lower-case (:genre chart))
+                              (string/lower-case search-string))
+             (string/index-of (string/lower-case (:notes chart))
+                              (string/lower-case search-string))))]
+    (render-html
+     {:title "Search Results - Clovertone Music"
+      :contents [:div#contents
+                 (->> data/catalogue
+                      (:charts)
+                      (filter search-string-in-chart)
+                      (map chart-to-html)
+                      (conj [:div#list]))]
+      :charts [:div#charts]
+      :users [:div#users]})))
 
 (defn tweak-about-page
   [page-component]
@@ -183,142 +229,154 @@
 
 (defn render-about
   [request]
-  (let [about-page (:page (:params request))]
-    (try
-      (render-html (generate-about-contents about-page))
-      ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
-      (catch java.io.FileNotFoundException ex))))
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [about-page (:page (:params request))]
+      (try
+        (render-html (generate-about-contents about-page))
+        ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
+        (catch java.io.FileNotFoundException ex)))))
 
 (defn render-charts
   [request]
-  (let [chart (:page (:params request))
-        chart-catentry (->> data/catalogue
-                            (:charts)
-                            (filter #(= (:filename %) chart))
-                            (first))]
-    (if-not (nil? chart-catentry)
-      (render-html
-       {:title (str (:chart-name chart-catentry) " - Clovertone Music")
-        :contents [:div#contents
-                   (->> data/catalogue
-                        (:charts)
-                        (filter #(= (:chart-number chart-catentry) (:chart-number %)))
-                        (map chart-to-html)
-                        (conj [:div#list]))]
-        :charts [:div#charts]
-        :users [:div#users]})
-      (when (nil? chart)
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [chart (:page (:params request))
+          chart-catentry (->> data/catalogue
+                              (:charts)
+                              (filter #(= (:filename %) chart))
+                              (first))]
+      (if-not (nil? chart-catentry)
         (render-html
-         {:title "All Charts - Clovertone Music"
+         {:title (str (:chart-name chart-catentry) " - Clovertone Music")
           :contents [:div#contents
-                     [:div#content.index
-                      [:h1.title "All Charts"]
-                      [:p (data/get-index-file-contents "charts")]]]
-          :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
-          :users [:div#users]})))))
+                     (->> data/catalogue
+                          (:charts)
+                          (filter #(= (:chart-number chart-catentry) (:chart-number %)))
+                          (map chart-to-html)
+                          (conj [:div#list]))]
+          :charts [:div#charts]
+          :users [:div#users]})
+        (when (nil? chart)
+          (render-html
+           {:title "All Charts - Clovertone Music"
+            :contents [:div#contents
+                       [:div#content.index
+                        [:h1.title "All Charts"]
+                        [:p (data/get-index-file-contents "charts")]]]
+            :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
+            :users [:div#users]}))))))
 
 (defn render-composers
   [request]
-  (let [composer (:page (:params request))
-        composer-catentry (->> data/catalogue
-                               (:composers)
-                               (filter #(= (:filename %) composer))
-                               (first))]
-    (if-not (nil? composer-catentry)
-      (render-html
-       {:title (str (:composer-name composer-catentry) " - Clovertone Music")
-        :contents [:div#contents
-                   [:div#content.index
-                    [:h1.title (:composer-name composer-catentry)]
-                    [:img.float {:src (str "/images/" (:filename composer-catentry) ".jpg")}]
-                    [:p (:notes composer-catentry)]]]
-        :charts [:div#charts
-                 (->> data/catalogue
-                      (:charts)
-                      (filter #(= (:composer-name composer-catentry) (:composer %)))
-                      (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]})
-      (when (nil? composer)
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [composer (:page (:params request))
+          composer-catentry (->> data/catalogue
+                                 (:composers)
+                                 (filter #(= (:filename %) composer))
+                                 (first))]
+      (if-not (nil? composer-catentry)
         (render-html
-         {:title "Composers - Clovertone Music"
+         {:title (str (:composer-name composer-catentry) " - Clovertone Music")
           :contents [:div#contents
-                     [:div#content
-                      [:h1.title "Composers"]
-                      [:p (data/get-index-file-contents "composers")]
-                      (into [:ul.composers]
-                            (map (fn [composer-catentry]
-                                   [:li
-                                    [:a.composer {:href (str "/composers/" (:filename composer-catentry))}
-                                     [:div.image
-                                      [:img
-                                       {:width "140",
-                                        :height "140",
-                                        :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
-                                     [:div.name (:composer-name composer-catentry)]]])
-                                 (:composers data/catalogue)))]]
-          :charts [:div#charts]
-          :users [:div#users]})))))
+                     [:div#content.index
+                      [:h1.title (:composer-name composer-catentry)]
+                      [:img.float {:src (str "/images/" (:filename composer-catentry) ".jpg")}]
+                      [:p (:notes composer-catentry)]]]
+          :charts [:div#charts
+                   (->> data/catalogue
+                        (:charts)
+                        (filter #(= (:composer-name composer-catentry) (:composer %)))
+                        (map chart-to-html)
+                        (conj [:div#list]))]
+          :users [:div#users]})
+        (when (nil? composer)
+          (render-html
+           {:title "Composers - Clovertone Music"
+            :contents [:div#contents
+                       [:div#content
+                        [:h1.title "Composers"]
+                        [:p (data/get-index-file-contents "composers")]
+                        (into [:ul.composers]
+                              (map (fn [composer-catentry]
+                                     [:li
+                                      [:a.composer {:href (str "/composers/" (:filename composer-catentry))}
+                                       [:div.image
+                                        [:img
+                                         {:width "140",
+                                          :height "140",
+                                          :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
+                                       [:div.name (:composer-name composer-catentry)]]])
+                                   (:composers data/catalogue)))]]
+            :charts [:div#charts]
+            :users [:div#users]}))))))
 
 (defn render-genres
   [request]
-  (let [genre (:page (:params request))
-        genre-catentry (->> data/catalogue
-                            (:genres)
-                            (filter #(= (:filename %) genre))
-                            (first))]
-    (when genre-catentry
-      (render-html
-       {:title (str (:genre-name genre-catentry) " - Clovertone Music")
-        :contents [:div#contents
-                   [:div#content.index
-                    [:h1.title (:genre-name genre-catentry)]
-                    [:p (:notes genre-catentry)]]]
-        :charts [:div#charts
-                 (->> data/catalogue
-                      (:charts)
-                      (filter #(= (:filename genre-catentry) (:category %)))
-                      (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [genre (:page (:params request))
+          genre-catentry (->> data/catalogue
+                              (:genres)
+                              (filter #(= (:filename %) genre))
+                              (first))]
+      (when genre-catentry
+        (render-html
+         {:title (str (:genre-name genre-catentry) " - Clovertone Music")
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title (:genre-name genre-catentry)]
+                      [:p (:notes genre-catentry)]]]
+          :charts [:div#charts
+                   (->> data/catalogue
+                        (:charts)
+                        (filter #(= (:filename genre-catentry) (:category %)))
+                        (map chart-to-html)
+                        (conj [:div#list]))]
+          :users [:div#users]})))))
 
 (defn render-grades
   [request]
-  (let [grade (:page (:params request))
-        grade-catentry (->> data/catalogue
-                            (:grades)
-                            (filter #(= (:filename %) grade))
-                            (first))]
-    (when grade-catentry
-      (render-html
-       {:title (str (:grade-name grade-catentry) " - Clovertone Music")
-        :contents [:div#contents
-                   [:div#content.index
-                    [:h1.title (:grade-name grade-catentry)]
-                    [:p (:notes grade-catentry)]]]
-        :charts [:div#charts
-                 (->> data/catalogue
-                      (:charts)
-                      (filter #(= (:grade-number grade-catentry) (:grade %)))
-                      (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [grade (:page (:params request))
+          grade-catentry (->> data/catalogue
+                              (:grades)
+                              (filter #(= (:filename %) grade))
+                              (first))]
+      (when grade-catentry
+        (render-html
+         {:title (str (:grade-name grade-catentry) " - Clovertone Music")
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title (:grade-name grade-catentry)]
+                      [:p (:notes grade-catentry)]]]
+          :charts [:div#charts
+                   (->> data/catalogue
+                        (:charts)
+                        (filter #(= (:grade-number grade-catentry) (:grade %)))
+                        (map chart-to-html)
+                        (conj [:div#list]))]
+          :users [:div#users]})))))
 
 (defn render-root
   [request]
-  (let [rootpg (:page (:params request))]
-    (when (or (nil? rootpg) (= "index" rootpg))
-      (render-html
-       {:title "Home - Clovertone Music."
-        :contents [:div#contents
-                   [:div#content.index
-                    [:h1.title "Home"]
-                    [:p (data/get-index-file-contents "index")]]]
-        :charts [:div#charts
-                 (->> data/catalogue
-                      (:charts)
-                      (sort-by :featured)
-                      (filter #(not= (:featured %) "0"))
-                      (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+  (if (:search (:params request))
+    (search (:search (:params request)))
+    (let [rootpg (:page (:params request))]
+      (when (or (nil? rootpg) (= "index" rootpg))
+        (render-html
+         {:title "Home - Clovertone Music."
+          :contents [:div#contents
+                     [:div#content.index
+                      [:h1.title "Home"]
+                      [:p (data/get-index-file-contents "index")]]]
+          :charts [:div#charts
+                   (->> data/catalogue
+                        (:charts)
+                        (sort-by :featured)
+                        (filter #(not= (:featured %) "0"))
+                        (map chart-to-html)
+                        (conj [:div#list]))]
+          :users [:div#users]})))))
