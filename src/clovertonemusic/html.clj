@@ -91,6 +91,14 @@
          "&body=" (->> (string/replace (:body email-contents) #"<CHART>" chart-name)
                        (codec/url-encode)))))
 
+(defn construct-readable-duration
+  [seconds-string]
+  ;; We can assume that the duration ends in 's'
+  (let [total-seconds (Integer/parseInt (string/replace seconds-string #"s$" ""))
+        minutes (quot total-seconds 60)
+        seconds (mod total-seconds 60)]
+    (format "%d:%02d" minutes seconds)))
+
 (defn chart-to-html
   [chart]
   (let [number (:chart-number chart)
@@ -153,8 +161,7 @@
         [:td (:band-type chart)]
         [:td (:genre chart)]
         [:td [:a {:href composer-path} (:composer chart)]]
-        ;; TODO: convert this from seconds to something readable
-        [:td (:duration chart)]
+        [:td (construct-readable-duration (:duration chart))]
         [:td (:meter chart)]
         [:td (:tempo chart)]]]]]))
 
@@ -174,9 +181,8 @@
                               (string/lower-case search-string))
              (string/index-of (string/lower-case (:meter chart))
                               (string/lower-case search-string))
-             ;; TODO: search on duration will have to be redone once it is converted to a more
-             ;; readable format (see related TODO above)
-             (string/index-of (string/lower-case (:duration chart))
+             (string/index-of (string/lower-case (->> (:duration chart)
+                                                      (construct-readable-duration)))
                               (string/lower-case search-string))
              ;; For price, require the query string to either lead or end with a "$",
              ;; and don't require the cents:
