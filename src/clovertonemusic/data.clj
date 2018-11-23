@@ -64,7 +64,7 @@
             :chart-name                  "y/string/"
             :filename                    "y/string/"
             :notes                       "n/string/"
-            :genre                       "y/string/"
+            :subgenre                    "y/string/"
             :composer                    "y/string/composers-composer-name"
             :grade                       "y/number/grades-grade-number"
             :category                    "y/string/genres-filename"

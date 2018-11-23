@@ -8,7 +8,7 @@
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
-  [{title :title, contents :contents, charts :charts, users :users}]
+  [{title :title, sorting :sorting, contents :contents, charts :charts, users :users}]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (page/html
@@ -43,8 +43,8 @@
              [:div#search-box.box.left
               [:form
                [:input#search {:type "text", :name "search", :placeholder "Search"}]]]
-             ;; The contents, charts, and users parameters passed to this function go here:
-             [:div#main.right contents charts users]
+             ;; The contents, sorting, charts, and users parameters passed to this function go here:
+             [:div#main.right contents sorting charts users]
              [:div#audio-box]
              [:div#catalogue-box.box.left
               [:h2 "Catalogue"]
@@ -81,12 +81,32 @@
                [:li "© 2017 Clovertone Music"]]]]
             ]])})
 
+(defn get-sorting
+  []
+  ;; The sort keys must correspond to chart column names as specified in `data.clj`
+  [:ul#sort
+   "Sort By:"
+   [:li [:a {:href "?sort=chart-name"} "Name"]]
+   [:li [:a {:href "?sort=composer"} "Composer"]]
+   [:li [:a {:href "?sort=grade"} "Grade"]]
+   [:li [:a {:href "?sort=category"} "Genre"]]
+   [:li [:a {:href "?sort=subgenre"} "Subgenre"]]
+   [:li [:a {:href "?sort=price"} "Price"]]
+   [:li [:a {:href "?sort=duration"} "Duration"]]
+   [:li [:a {:href "?sort=tempo"} "Tempo"]]])
+
+(defn sort-charts
+  [sort-param charts]
+  (if sort-param
+    (sort-by (keyword sort-param) charts)
+    charts))
+
 (defn construct-email
   [email chart-name]
   (let [email-contents (data/get-email-contents email)]
-    (str "mailto:" (->> (:to email-contents)
+    (str "mailto:" (->> :to email-contents
                         (codec/url-encode))
-         "?subject=" (->> (:subject email-contents)
+         "?subject=" (->> :subject email-contents
                           (codec/url-encode))
          "&body=" (->> (string/replace (:body email-contents) #"<CHART>" chart-name)
                        (codec/url-encode)))))
@@ -104,15 +124,15 @@
   (let [number (:chart-number chart)
         price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
         grade-name (->> data/catalogue
-                        (:grades)
+                        :grades
                         (filter #(= (:grade-number %) (:grade chart)))
                         (first)
-                        (:grade-name))
+                        :grade-name)
         composer-path (->> data/catalogue
-                           (:composers)
+                           :composers
                            (filter #(= (:composer chart) (:composer-name %)))
                            (first)
-                           (:filename)
+                           :filename
                            (str "/composers/"))]
     [(keyword (str "div#" number ".chart.grade" (:grade chart)))
      [:div.head
@@ -151,7 +171,7 @@
       [:thead
        [:tr
         [:td "Band"]
-        [:td "Genre"]
+        [:td "Subgenre"]
         [:td "Composer"]
         [:td "Duration"]
         [:td "Meter"]
@@ -159,7 +179,7 @@
       [:tbody
        [:tr
         [:td (:band-type chart)]
-        [:td (:genre chart)]
+        [:td (:subgenre chart)]
         [:td [:a {:href composer-path} (:composer chart)]]
         [:td (construct-readable-duration (:duration chart))]
         [:td (:meter chart)]
@@ -181,7 +201,7 @@
                               (string/lower-case search-string))
              (string/index-of (string/lower-case (:meter chart))
                               (string/lower-case search-string))
-             (string/index-of (string/lower-case (->> (:duration chart)
+             (string/index-of (string/lower-case (->> :duration chart
                                                       (construct-readable-duration)))
                               (string/lower-case search-string))
              ;; For price, require the query string to either lead or end with a "$",
@@ -192,19 +212,22 @@
                (nth (re-matches #"(\d+)(\.\d{2})?\$" search-string) 1))
               (string/index-of (:price chart)
                                (string/replace search-string #"\$" "")))
-             (string/index-of (string/lower-case (:genre chart))
+             (string/index-of (string/lower-case (:subgenre chart))
                               (string/lower-case search-string))
              (string/index-of (string/lower-case (:notes chart))
                               (string/lower-case search-string))))]
     (render-html
      {:title "Search Results - Clovertone Music"
+      :sorting [:div#sorting (get-sorting)]
       :contents [:div#contents
-                 (->> data/catalogue
-                      (:charts)
-                      (filter search-string-in-chart)
-                      (map chart-to-html)
-                      (conj [:div#list]))]
-      :charts [:div#charts]
+                 [:div#content.index
+                  [:h1.title "Search Results: " search-string]]]
+      :charts [:div#charts
+               (->> data/catalogue
+                    :charts
+                    (filter search-string-in-chart)
+                    (map chart-to-html)
+                    (conj [:div#list]))]
       :users [:div#users]})))
 
 (defn tweak-about-page
@@ -229,6 +252,7 @@
                    (m2h/hiccup-in contents)
                    (last))]
     {:title (str title " - Clovertone Music")
+     :sorting [:div#sorting]
      :contents contents
      :charts [:div#charts]
      :users [:div#users]}))
@@ -249,15 +273,16 @@
     (search (:search (:params request)))
     (let [chart (:page (:params request))
           chart-catentry (->> data/catalogue
-                              (:charts)
+                              :charts
                               (filter #(= (:filename %) chart))
                               (first))]
       (if-not (nil? chart-catentry)
         (render-html
          {:title (str (:chart-name chart-catentry) " - Clovertone Music")
+          :sorting [:div#sorting]
           :contents [:div#contents
                      (->> data/catalogue
-                          (:charts)
+                          :charts
                           (filter #(= (:chart-number chart-catentry) (:chart-number %)))
                           (map chart-to-html)
                           (conj [:div#list]))]
@@ -266,11 +291,17 @@
         (when (nil? chart)
           (render-html
            {:title "All Charts - Clovertone Music"
+            :sorting [:div#sorting (get-sorting)]
             :contents [:div#contents
                        [:div#content.index
                         [:h1.title "All Charts"]
                         [:p (data/get-index-file-contents "charts")]]]
-            :charts [:div#charts (into [:div#list] (map chart-to-html (:charts data/catalogue)))]
+            :charts [:div#charts
+                     (->> data/catalogue
+                          (:charts)
+                          (sort-charts (:sort (:params request)))
+                          (map chart-to-html)
+                          (conj [:div#list]))]
             :users [:div#users]}))))))
 
 (defn render-composers
@@ -285,6 +316,7 @@
       (if-not (nil? composer-catentry)
         (render-html
          {:title (str (:composer-name composer-catentry) " - Clovertone Music")
+          :sorting [:div#sorting (get-sorting)]
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title (:composer-name composer-catentry)]
@@ -292,14 +324,16 @@
                       [:p (:notes composer-catentry)]]]
           :charts [:div#charts
                    (->> data/catalogue
-                        (:charts)
+                        :charts
                         (filter #(= (:composer-name composer-catentry) (:composer %)))
+                        (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
           :users [:div#users]})
         (when (nil? composer)
           (render-html
            {:title "Composers - Clovertone Music"
+            :sorting [:div#sorting (get-sorting)]
             :contents [:div#contents
                        [:div#content
                         [:h1.title "Composers"]
@@ -324,20 +358,22 @@
     (search (:search (:params request)))
     (let [genre (:page (:params request))
           genre-catentry (->> data/catalogue
-                              (:genres)
+                              :genres
                               (filter #(= (:filename %) genre))
                               (first))]
       (when genre-catentry
         (render-html
          {:title (str (:genre-name genre-catentry) " - Clovertone Music")
+          :sorting [:div#sorting (get-sorting)]
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title (:genre-name genre-catentry)]
                       [:p (:notes genre-catentry)]]]
           :charts [:div#charts
                    (->> data/catalogue
-                        (:charts)
+                        :charts
                         (filter #(= (:filename genre-catentry) (:category %)))
+                        (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
           :users [:div#users]})))))
@@ -348,20 +384,22 @@
     (search (:search (:params request)))
     (let [grade (:page (:params request))
           grade-catentry (->> data/catalogue
-                              (:grades)
+                              :grades
                               (filter #(= (:filename %) grade))
                               (first))]
       (when grade-catentry
         (render-html
          {:title (str (:grade-name grade-catentry) " - Clovertone Music")
+          :sorting [:div#sorting (get-sorting)]
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title (:grade-name grade-catentry)]
                       [:p (:notes grade-catentry)]]]
           :charts [:div#charts
                    (->> data/catalogue
-                        (:charts)
+                        :charts
                         (filter #(= (:grade-number grade-catentry) (:grade %)))
+                        (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
           :users [:div#users]})))))
@@ -374,15 +412,17 @@
       (when (or (nil? rootpg) (= "index" rootpg))
         (render-html
          {:title "Home - Clovertone Music."
+          :sorting [:div#sorting (get-sorting)]
           :contents [:div#contents
                      [:div#content.index
                       [:h1.title "Home"]
                       [:p (data/get-index-file-contents "index")]]]
           :charts [:div#charts
                    (->> data/catalogue
-                        (:charts)
-                        (sort-by :featured)
+                        :charts
                         (filter #(not= (:featured %) "0"))
+                        (sort-by :featured)
+                        (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
           :users [:div#users]})))))
