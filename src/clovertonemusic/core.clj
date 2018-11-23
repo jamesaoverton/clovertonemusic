@@ -4,7 +4,7 @@
             [org.httpkit.server :refer [run-server]]
             [compojure.route :as route]
             [compojure.handler :refer [site]]
-            [compojure.core :refer [defroutes GET POST PUT DELETE ANY context]]
+            [compojure.core :refer [defroutes GET]]
             [clovertonemusic.html :as html]))
 
 (log-config/set-logger!
@@ -12,23 +12,48 @@
  :level :info)
 
 (defroutes all-routes
-  (GET "/about/:page" [page] html/render-about)
-  (GET "/about/" [] html/render-about)
+  (GET "/about/:page" [page search]
+       (if search
+         html/render-search
+         html/render-about))
 
-  (GET "/charts/:page" [page] html/render-charts)
-  (GET "/charts/" [] html/render-charts)
+  (GET "/charts/:page" [page search]
+       (if search
+         html/render-search
+         html/render-charts))
+  (GET "/charts/" [search]
+       (if search
+         html/render-search
+         html/render-charts))
 
-  (GET "/composers/:page" [page] html/render-composers)
-  (GET "/composers/" [] html/render-composers)
+  (GET "/composers/:page" [page search]
+       (if search
+         html/render-search
+         html/render-composers))
+  (GET "/composers/" [search]
+       (if search
+         html/render-search
+         html/render-composers))
 
-  (GET "/genres/:page" [page] html/render-genres)
-  (GET "/genres/" [] html/render-genres)
+  (GET "/genres/:page" [page search]
+       (if search
+         html/render-search
+         html/render-genres))
 
-  (GET "/grades/:page" [page] html/render-grades)
-  (GET "/grades/" [] html/render-grades)
+  (GET "/grades/:page" [page search]
+       (if search
+         html/render-search
+         html/render-grades))
 
-  (GET "/:page.html" [page] html/render-root)
-  (GET "/" [] html/render-root)
+  (GET "/:page.html" [page search]
+       (if search
+         html/render-search
+         html/render-root))
+
+  (GET "/" [search]
+       (if search
+         html/render-search
+         html/render-root))
 
   (route/resources "") ; this will grab anything in the public/ directory
   (route/not-found "<h1>Page not found</h1>")) ; all other, return 404
