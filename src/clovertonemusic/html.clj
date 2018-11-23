@@ -82,22 +82,32 @@
             ]])})
 
 (defn get-sorting
-  []
-  ;; The sort keys must correspond to chart column names as specified in `data.clj`
-  [:ul#sort
-   "Sort By:"
-   [:li [:a {:href "?sort=chart-name"} "Name"]]
-   [:li [:a {:href "?sort=composer"} "Composer"]]
-   [:li [:a {:href "?sort=grade"} "Grade"]]
-   [:li [:a {:href "?sort=category"} "Genre"]]
-   [:li [:a {:href "?sort=subgenre"} "Subgenre"]]
-   [:li [:a {:href "?sort=price"} "Price"]]
-   [:li [:a {:href "?sort=duration"} "Duration"]]
-   [:li [:a {:href "?sort=tempo"} "Tempo"]]])
+  ([page-params]
+   ;; page-params (optional) is a list representing whatever other page parameters were present
+   ;; prior to the sort request (e.g. ["search=searchstr" "president=Trump" ...])
+   (let [href-suffix (when page-params
+                       (->> page-params
+                            (string/join "&")
+                            (str "&")))]
+     [:ul#sort
+      "Sort By:"
+      ;; The sort keys must correspond to chart column names as specified in `data.clj`
+      [:li [:a {:href (str "?sort=chart-name" href-suffix)} "Name"]]
+      [:li [:a {:href (str "?sort=composer" href-suffix)} "Composer"]]
+      [:li [:a {:href (str "?sort=grade" href-suffix)} "Grade"]]
+      [:li [:a {:href (str "?sort=category" href-suffix)} "Genre"]]
+      [:li [:a {:href (str "?sort=subgenre" href-suffix)} "Subgenre"]]
+      [:li [:a {:href (str "?sort=price" href-suffix)} "Price"]]
+      [:li [:a {:href (str "?sort=duration" href-suffix)} "Duration"]]
+      [:li [:a {:href (str "?sort=tempo" href-suffix)} "Tempo"]]]))
+  ([]
+   ;; If no page parameters are passed, call thyself again with nil:
+   (get-sorting nil)))
 
 (defn sort-charts
   [sort-param charts]
   (if sort-param
+    ;; TODO: NUMBERIC SORT FOR NUMERIC COLUMNS
     (sort-by (keyword sort-param) charts)
     charts))
 
@@ -220,7 +230,7 @@
                             (string/lower-case search-string))))]
     (render-html
      {:title "Search Results - Clovertone Music"
-      :sorting [:div#sorting (get-sorting)]
+      :sorting [:div#sorting (get-sorting [(str "search=" search-string)])]
       :contents [:div#contents
                  [:div#content.index
                   [:h1.title "Search Results: " search-string]]]
@@ -228,6 +238,7 @@
                (->> data/catalogue
                     :charts
                     (filter search-string-in-chart)
+                    (sort-charts (:sort (:params request)))
                     (map chart-to-html)
                     (conj [:div#list]))]
       :users [:div#users]})))
