@@ -106,10 +106,30 @@
 
 (defn sort-charts
   [sort-param charts]
-  (if sort-param
-    ;; TODO: NUMBERIC SORT FOR NUMERIC COLUMNS
-    (sort-by (keyword sort-param) charts)
-    charts))
+  (if-not sort-param
+    ;; If no sort-parameter has been given, just return the charts back as is:
+    charts
+    ;; Otherwise:
+    (letfn [(get-numeric-price [chart]
+              (->> :price chart
+                   (re-matches #"\$(\d+\.\d\d)")
+                   (second)
+                   (Float/parseFloat)))
+            (get-numeric-duration [chart]
+              (->> :duration chart
+                   (re-matches #"(\d+)s")
+                   (second)
+                   (Integer/parseInt)))]
+
+      (let [sort-key (keyword sort-param)]
+        (cond
+          ;; Keys for price and duration need to be parsed and converted to numbers before sorting:
+          (= sort-key :price) (sort-by get-numeric-price < charts)
+          (= sort-key :duration) (sort-by get-numeric-duration < charts)
+          ;; Sorting is done numerically for :grade and :tempo:
+          (some #(= sort-key %) [:grade :tempo]) (sort-by #(Integer/parseInt (sort-key %)) < charts)
+          ;; Sort is done in the default way in all other cases:
+          :else (sort-by sort-key charts))))))
 
 (defn construct-email
   [email chart-name]
@@ -422,7 +442,7 @@
                  (->> data/catalogue
                       :charts
                       (filter #(not= (:featured %) "0"))
-                      (sort-by :featured)
+                      (sort-by #(Integer/parseInt (:featured %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
