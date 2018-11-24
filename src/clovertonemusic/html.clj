@@ -92,14 +92,30 @@
      [:ul#sort
       "Sort By:"
       ;; The sort keys must correspond to chart column names as specified in `data.clj`
-      [:li [:a {:href (str "?sort=chart-name" href-suffix)} "Name"]]
-      [:li [:a {:href (str "?sort=composer" href-suffix)} "Composer"]]
-      [:li [:a {:href (str "?sort=grade" href-suffix)} "Grade"]]
-      [:li [:a {:href (str "?sort=category" href-suffix)} "Genre"]]
-      [:li [:a {:href (str "?sort=subgenre" href-suffix)} "Subgenre"]]
-      [:li [:a {:href (str "?sort=price" href-suffix)} "Price"]]
-      [:li [:a {:href (str "?sort=duration" href-suffix)} "Duration"]]
-      [:li [:a {:href (str "?sort=tempo" href-suffix)} "Tempo"]]]))
+      [:li "Name"
+       [:a {:href (str "?sort=chart-name:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=chart-name:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Composer"
+       [:a {:href (str "?sort=composer:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=composer:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Grade"
+       [:a {:href (str "?sort=grade:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=grade:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Genre"
+       [:a {:href (str "?sort=category:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=category:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Subgenre"
+       [:a {:href (str "?sort=subgenre:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=subgenre:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Price"
+       [:a {:href (str "?sort=price:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=price:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Duration"
+       [:a {:href (str "?sort=duration:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=duration:desc" href-suffix)} "&nbsp;&#x25BD;"]]
+      [:li "Tempo"
+       [:a {:href (str "?sort=tempo:asc" href-suffix)} "&nbsp;&#x25B3;"]
+       [:a {:href (str "?sort=tempo:desc" href-suffix)} "&nbsp;&#x25BD;"]]]))
   ([]
    ;; If no page parameters are passed, call thyself again with nil:
    (get-sorting nil)))
@@ -121,15 +137,20 @@
                    (second)
                    (Integer/parseInt)))]
 
-      (let [sort-key (keyword sort-param)]
-        (cond
-          ;; Keys for price and duration need to be parsed and converted to numbers before sorting:
-          (= sort-key :price) (sort-by get-numeric-price < charts)
-          (= sort-key :duration) (sort-by get-numeric-duration < charts)
-          ;; Sorting is done numerically for :grade and :tempo:
-          (some #(= sort-key %) [:grade :tempo]) (sort-by #(Integer/parseInt (sort-key %)) < charts)
-          ;; Sort is done in the default way in all other cases:
-          :else (sort-by sort-key charts))))))
+      (let [sort-key (keyword (first (string/split sort-param #":")))
+            sort-dir (second (string/split sort-param #":"))
+            ascending-charts
+            (cond
+              ;; Keys for price and duration need to be parsed and converted to numbers before sorting:
+              (= sort-key :price) (sort-by get-numeric-price < charts)
+              (= sort-key :duration) (sort-by get-numeric-duration < charts)
+              ;; Sorting is done numerically for :grade and :tempo:
+              (some #(= sort-key %) [:grade :tempo]) (sort-by #(Integer/parseInt (sort-key %)) < charts)
+              ;; Sort is done in the default way in all other cases:
+              :else (sort-by sort-key charts))]
+        (if (= sort-dir "desc")
+          (reverse ascending-charts)
+          ascending-charts)))))
 
 (defn construct-email
   [email chart-name]
