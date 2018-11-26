@@ -34,9 +34,8 @@
 (defn get-email-contents
   [email]
   (with-open [reader (io/reader (str email-path "/" email ".csv"))]
-    (let [[header & rest] (doall (csv/read-csv reader))
-          ;; We need to destructure again because read-csv returns 'rest' as a Cons"
-          [data & dummy] rest]
+    ;; We need to destructure twice here because read-csv returns a Cons
+    (let [[header & [data & rest]] (doall (csv/read-csv reader))]
       {:to (get data (.indexOf header "to"))
        :subject (get data (.indexOf header "subject"))
        :body (get data (.indexOf header "body"))})))
