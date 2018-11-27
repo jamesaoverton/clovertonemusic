@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/tools.logging "0.4.1"]
+                 [buddy/buddy-hashers "1.3.0"]
                  [clj-logging-config "1.9.12"]
                  [hiccup "1.0.5"]
                  [markdown-to-hiccup "0.3.0"]

@@ -1,5 +1,6 @@
 (ns clovertonemusic.data
-  (:require [clojure.tools.logging :as log]
+  (:require [buddy.hashers :as hashers]
+            [clojure.tools.logging :as log]
             [clj-logging-config.log4j :as log-config]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
@@ -9,6 +10,7 @@
 (def indices-path "data/indices")
 (def email-path "data/email")
 (def catalogue-path "data/catalogue")
+(def users-file "data/users/users.csv")
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -34,8 +36,7 @@
 (defn get-email-contents
   [email]
   (with-open [reader (io/reader (str email-path "/" email ".csv"))]
-    ;; We need to destructure twice here because read-csv returns a Cons
-    (let [[header & [data & rest]] (doall (csv/read-csv reader))]
+    (let [[header data] (doall (csv/read-csv reader))]
       {:to (get data (.indexOf header "to"))
        :subject (get data (.indexOf header "subject"))
        :body (get data (.indexOf header "body"))})))
@@ -134,19 +135,19 @@
   row)
 
 (defn create-table
-  "Creates a 'table' from the given data implemented as a vector of zipmaps"
+  "Creates a 'table' from the given data implemented as a (lazy) sequence of zipmaps"
   [tablename catalogue [header & body-rows]]
-  (vec (map (fn [row]
-              (let [processed-row (zipmap (map keyword header) row)]
-                (validate-row
-                 tablename
-                 processed-row
-                 (inc (.indexOf body-rows row))
-                 (count header)
-                 catalogue)))
-            body-rows)))
+  (map (fn [row]
+         (let [processed-row (zipmap (map keyword header) row)]
+           (validate-row
+            tablename
+            processed-row
+            (inc (.indexOf body-rows row))
+            (count header)
+            catalogue)))
+       body-rows))
 
-(defn extract-from-csv
+(defn extract-catalogue-data-from-csv
   "Reads the contents of the CSV file containing the catalogue data from disk using the
   csv library and the read-csv function, which returns a lazy sequence of vectors representing rows"
   [filename]
@@ -163,7 +164,7 @@
     (log/info "Loading" tablename)
     (->> ".csv"
          (str tablename)
-         (extract-from-csv)
+         (extract-catalogue-data-from-csv)
          (create-table tablename catalogue)
          (hash-map (keyword tablename))
          (merge catalogue))
@@ -182,3 +183,27 @@
        (generate-table-from-csv "composers")
        (generate-table-from-csv "grades")
        (generate-table-from-csv "charts")))
+
+(defn get-user-db
+  []
+  (with-open [reader (io/reader users-file)]
+    (let [[header & data-rows] (doall (csv/read-csv reader))]
+      (map #(zipmap (map keyword header) %) data-rows))))  
+
+(log/info "Loading user database")
+(def user-db (get-user-db))
+(when-not (apply distinct? (map #(:email %) user-db))
+  (fail "User database contains duplicate emails"))
+
+(defn encrypt-password
+  [passwd]
+  (hashers/derive passwd))
+
+(defn check-password
+  [email passwd]
+  ;; Returns true if the password is correct, false if not correct, and nil if the user isn't found.
+  (->> user-db
+       (filter #(= (:email %) email))
+       (first) ; Note: the result of the filter must be unique (this is verified at load time)
+       :password
+       (hashers/check passwd)))
