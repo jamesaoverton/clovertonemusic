@@ -4,14 +4,52 @@
             [org.httpkit.server :refer [run-server]]
             [compojure.route :as route]
             [compojure.handler :refer [site]]
-            [compojure.core :refer [defroutes GET]]
-            [clovertonemusic.html :as html]))
+            [compojure.core :refer [defroutes context GET POST]]
+            [buddy.auth.accessrules :refer [restrict]]
+            [buddy.auth.backends.session :refer [session-backend]]
+            [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
+            [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.params :refer [wrap-params]]
+            [clovertonemusic.html :as html]
+            [clovertonemusic.data :as data]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
 
+(defn is-authenticated
+  "Determines whether the request is authenticated by checking for the presence of the :identity
+  keyword within it."
+  [{identity :identity :as req}]
+  (not (nil? identity)))
+
+(defn wrap-user
+  "Adds complete information for the user to the request"
+  [handler]
+  (fn [{userid :identity :as req}]
+    (->> userid
+         (data/get-user-by-id)
+         (assoc req :user)
+         (handler))))
+
+(defroutes user-routes
+  (GET "/" [] html/render-user))
+
 (defroutes all-routes
+  ;; To test authentication:
+  ;; (app {:request-method :post :uri "/login/" :form-params {"username" "jim@thedoors.com"
+  ;;                                                          "password" "jim"}})
+  ;; This yields the output: {:status 302, :headers {"Location" "/", "Set-Cookie" ("<...>")}, :body ""}
+  ;; Then send:
+  ;; (app {:request-method :get :uri "/user/" :headers {"cookie" "<...>"}}))
+
+  (context "/user" []
+           (restrict user-routes {:handler is-authenticated}))
+
+  (GET "/login/" [] html/render-login)
+  (POST "/login/" [] html/post-login)
+  (POST "/logout" [] html/post-logout)
+
   (GET "/about/:page" [page search]
        (if search
          html/render-search
@@ -58,8 +96,17 @@
   (route/resources "") ; this will grab anything in the public/ directory
   (route/not-found "<h1>Page not found</h1>")) ; all other, return 404
 
+(def backend (session-backend))
+(def app
+  (-> #'all-routes
+      (wrap-user)
+      (wrap-authentication backend)
+      (wrap-authorization backend)
+      (wrap-session)
+      (wrap-params)))
+
 (defn -main
   [& args]
   ;; Start the http server
   (log/info "Starting HTTP server on port 8090. Press Ctrl-C to exit.")
-  (run-server (site #'all-routes) {:port 8090}))
+  (run-server (site #'app) {:port 8090}))

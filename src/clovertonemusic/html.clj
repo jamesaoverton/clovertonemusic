@@ -2,6 +2,7 @@
   (:require [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
             [ring.util.codec :as codec]
+            [ring.util.response :refer [response redirect]]
             [clojure.string :as string]
             [clovertonemusic.data :as data]))
 
@@ -468,3 +469,29 @@
                       (map chart-to-html)
                       (conj [:div#list]))]
         :users [:div#users]}))))
+
+(defn render-user
+  [request]
+  request)
+
+(defn render-login
+  [request]
+  request)
+
+(defn post-login
+  [{{username "username" password "password"} :form-params
+    session :session :as req}]
+  (if-let [user (data/get-user-by-username-and-password username password)]
+    ;; If the credentials are ok, associate a session to the request that incorporates an :identity
+    ;; field associated with the user, and redirect to the home page:
+    (->> user
+         :userid
+         (assoc session :identity)
+         (assoc (redirect "/") :session))
+    ;; Otherwise just redirect back to the login page
+    (redirect "/login/")))
+
+(defn post-logout
+  [{session :session}]
+  (assoc (redirect "/login/")
+         :session (dissoc session :identity)))

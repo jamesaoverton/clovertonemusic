@@ -195,15 +195,38 @@
 (when-not (apply distinct? (map #(:email %) user-db))
   (fail "User database contains duplicate emails"))
 
-(defn encrypt-password
-  [passwd]
-  (hashers/derive passwd))
+(defn get-user-by-id
+  [userid]
+  (->> user-db
+       (filter #(= (:userid %) userid))
+       (first))) ; Note: result of filter must be unique (verified at load time)
+
+(defn get-user-by-email
+  [email]
+  (->> user-db
+       (filter #(= (:email %) email))
+       (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn check-password
   [email passwd]
   ;; Returns true if the password is correct, false if not correct, and nil if the user isn't found.
-  (->> user-db
-       (filter #(= (:email %) email))
-       (first) ; Note: the result of the filter must be unique (this is verified at load time)
+  (->> (get-user-by-email email)
        :password
        (hashers/check passwd)))
+
+(defn get-user-by-username-and-password
+  "Returns the record corresponding to the given username if the password is correct,
+  or nil otherwise. The username is just the user's email address."
+  [email passwd]
+  (let [password-ok (check-password email passwd)]
+    (cond
+      (nil? password-ok) nil
+      (not password-ok) nil
+      (password-ok) (get-user-by-email email))))
+
+(defn create-user!
+  [email name passwd]
+  ;; TODO: CHANGE USERID TO JUST A SEQUENTIAL INT:
+  (let [userid (java.util.UUID/randomUUID)]
+    (with-open [writer (io/writer users-file :append true)]
+      (csv/write-csv writer [[userid email name (hashers/derive passwd)]]))))
