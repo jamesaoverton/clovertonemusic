@@ -4,7 +4,8 @@
             [clj-logging-config.log4j :as log-config]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [java-time :as jtime]))
 
 (def about-path "data/about")
 (def indices-path "data/indices")
@@ -195,6 +196,14 @@
 (when-not (apply distinct? (map #(:email %) user-db))
   (fail "User database contains duplicate emails"))
 
+(defn get-next-user-id
+  "Returns a number 1 larger than the largest user id in the db"
+  []
+  (->> user-db
+       (map (fn [idstring] (Integer/parseInt (:ID idstring))))
+       (apply max)
+       (inc)))
+
 (defn get-user-by-id
   [userid]
   (->> user-db
@@ -225,8 +234,9 @@
       (password-ok) (get-user-by-email email))))
 
 (defn create-user!
-  [email name passwd]
-  ;; TODO: CHANGE USERID TO JUST A SEQUENTIAL INT:
-  (let [userid (java.util.UUID/randomUUID)]
+  [passwd name band city province country phone email newsletter activated]
+  (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+        userid (get-next-user-id)]
     (with-open [writer (io/writer users-file :append true)]
-      (csv/write-csv writer [[userid email name (hashers/derive passwd)]]))))
+      (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
+                              city province country phone email newsletter activated]]))))
