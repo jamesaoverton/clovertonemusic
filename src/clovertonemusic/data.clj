@@ -42,6 +42,64 @@
        :subject (get data (.indexOf header "subject"))
        :body (get data (.indexOf header "body"))})))
 
+(defn extract-user-data-from-csv
+  "Reads the contents of the CSV file containing user information and returns a sequence
+  of zipmaps for each user record"
+  []
+  (with-open [reader (io/reader users-file)]
+    (let [[header & data-rows] (doall (csv/read-csv reader))]
+      (map #(zipmap (map keyword header) %) data-rows))))
+
+(defn get-next-user-id
+  "Returns a number 1 larger than the largest user id in the db"
+  [user-db]
+  (->> user-db
+       (map (fn [idstring] (Integer/parseInt (:ID idstring))))
+       (apply max)
+       (inc)))
+
+(defn get-user-by-id
+  "Finds and returns the user in the db corresponding to the given userid"
+  [user-db userid]
+  (->> user-db
+       (filter #(= (:userid %) userid))
+       (first))) ; Note: result of filter must be unique (verified at load time)
+
+(defn get-user-by-email
+  "Finds and returns the user in the db corresponding to the given email"
+  [user-db email]
+  (->> user-db
+       (filter #(= (:email %) email))
+       (first))) ; Note: result of filter must be unique (verified at load time)
+
+(defn check-password
+  [user-db email passwd]
+  ;; Returns true if the password is correct, false if not correct, and nil if the user isn't found.
+  (->> email
+       (get-user-by-email user-db)
+       :password
+       (hashers/check passwd)))
+
+(defn get-user-by-username-and-password
+  "Returns the record corresponding to the given username if the password is correct,
+  or nil otherwise. The username is just the user's email address."
+  [user-db email passwd]
+  (let [password-ok (check-password user-db email passwd)]
+    (cond
+      (nil? password-ok) nil
+      (not password-ok) nil
+      (password-ok) (get-user-by-email email))))
+
+(defn create-user
+  "Creates a user with the given informatoin and writes the record to the csv file"
+  [passwd name band city province country phone email newsletter activated]
+  (let [user-db (extract-user-data-from-csv)
+        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+        userid (get-next-user-id user-db)]
+    (with-open [writer (io/writer users-file :append true)]
+      (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
+                              city province country phone email newsletter activated]]))))
+
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
                :date-modified            "y/datetime/"
@@ -185,58 +243,7 @@
        (generate-table-from-csv "grades")
        (generate-table-from-csv "charts")))
 
-(defn get-user-db
-  []
-  (with-open [reader (io/reader users-file)]
-    (let [[header & data-rows] (doall (csv/read-csv reader))]
-      (map #(zipmap (map keyword header) %) data-rows))))  
-
-(log/info "Loading user database")
-(def user-db (get-user-db))
-(when-not (apply distinct? (map #(:email %) user-db))
-  (fail "User database contains duplicate emails"))
-
-(defn get-next-user-id
-  "Returns a number 1 larger than the largest user id in the db"
-  []
-  (->> user-db
-       (map (fn [idstring] (Integer/parseInt (:ID idstring))))
-       (apply max)
-       (inc)))
-
-(defn get-user-by-id
-  [userid]
-  (->> user-db
-       (filter #(= (:userid %) userid))
-       (first))) ; Note: result of filter must be unique (verified at load time)
-
-(defn get-user-by-email
-  [email]
-  (->> user-db
-       (filter #(= (:email %) email))
-       (first))) ; Note: result of filter must be unique (verified at load time)
-
-(defn check-password
-  [email passwd]
-  ;; Returns true if the password is correct, false if not correct, and nil if the user isn't found.
-  (->> (get-user-by-email email)
-       :password
-       (hashers/check passwd)))
-
-(defn get-user-by-username-and-password
-  "Returns the record corresponding to the given username if the password is correct,
-  or nil otherwise. The username is just the user's email address."
-  [email passwd]
-  (let [password-ok (check-password email passwd)]
-    (cond
-      (nil? password-ok) nil
-      (not password-ok) nil
-      (password-ok) (get-user-by-email email))))
-
-(defn create-user!
-  [passwd name band city province country phone email newsletter activated]
-  (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-        userid (get-next-user-id)]
-    (with-open [writer (io/writer users-file :append true)]
-      (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
-                              city province country phone email newsletter activated]]))))
+;; Verify that the user database is in a good state:
+(let [user-db (extract-user-data-from-csv)]
+  (when-not (apply distinct? (map #(:email %) user-db))
+    (fail "User database contains duplicate emails")))
