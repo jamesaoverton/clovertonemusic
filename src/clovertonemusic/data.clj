@@ -88,7 +88,7 @@
     (cond
       (nil? password-ok) nil
       (not password-ok) nil
-      (password-ok) (get-user-by-email email))))
+      password-ok (get-user-by-email user-db email))))
 
 (defn create-user
   "Creates a user with the given informatoin and writes the record to the csv file"

@@ -49,6 +49,7 @@
 
   (GET "/login/" [] html/render-login)
   (POST "/login/" [] html/post-login)
+  (POST "/signup/" [] html/post-signup)
   (POST "/logout" [] html/post-logout)
 
   (GET "/about/:page" [page search]

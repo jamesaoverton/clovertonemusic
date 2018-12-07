@@ -480,7 +480,7 @@
                 :sorting [:div#sorting]
                 :contents [:div#login.window
                            [:h2 "Log In or Sign Up"]
-                           [:form.login_form
+                           [:form.login_form {:action "/login/" :method "post"}
                             [:p
                              [:label "My email address is"]
                              [:input {:name "email" :type "email" :required true}]]
@@ -508,8 +508,8 @@
                                [:td [:input {:name "retyped_password" :type "password"}]]]
                               [:tr [:th] [:td [:br]]]
                               [:tr
-                               [:th [:input#signup_user {:name "create_user" :type "submit"
-                                                         :value "Sign up securely"}]]
+                               [:th [:input {:type "submit" :formaction "/signup/"
+                                             :value "Sign up securely"}]]
                                [:td]]]
                              [:hr]
                              [:p
@@ -519,25 +519,32 @@
                                [:input {:name "password" :type "password"}]]
                               [:br]
                               [:br]
-                              [:input#signin_user.returning_user_info {:type "submit" :value "Sign in securely"}]
-                              [:span#login-status.status]
+                              [:input.returning_user_info {:type "submit" :value "Sign in securely"}]
+                              [:span#login-status.status
+                               (when (:retry (:params request))
+                                 [:p.error "Username and/or password not valid"])]
                               [:br][:br]
                               [:a.returning_user_info {:href "/"} "Forgot your password?"]]]]]
                 :charts [:div#charts]
                 :users [:div#users]}))
 
 (defn post-login
-  [{{username "username" password "password"} :form-params
+  [{{username "email" password "password"} :form-params
     session :session :as req}]
-  (if-let [user (data/get-user-by-username-and-password username password)]
-    ;; If the credentials are ok, associate a session to the request that incorporates an :identity
-    ;; field associated with the user, and redirect to the home page:
-    (->> user
-         :userid
-         (assoc session :identity)
-         (assoc (redirect "/") :session))
-    ;; Otherwise just redirect back to the login page
-    (redirect "/login/")))
+  (let [user-db (data/get-user-db)]
+    (if-let [user (data/get-user-by-username-and-password user-db username password)]
+      ;; If the credentials are ok, associate a session to the request that incorporates an :identity
+      ;; field associated with the user, and redirect to the home page:
+      (->> user
+           :userid
+           (assoc session :identity)
+           (assoc (redirect "/") :session))
+      ;; Otherwise just redirect back to the login page
+      (redirect "/login/?retry=true"))))
+
+(defn post-signup
+  [request]
+  (println request))
 
 (defn post-logout
   [{session :session}]
