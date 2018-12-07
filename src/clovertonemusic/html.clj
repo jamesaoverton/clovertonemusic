@@ -476,7 +476,55 @@
 
 (defn render-login
   [request]
-  request)
+  (render-html {:title "Log In or Sign Up - Clovertone Music"
+                :sorting [:div#sorting]
+                :contents [:div#login.window
+                           [:h2 "Log In or Sign Up"]
+                           [:form.login_form
+                            [:p
+                             [:label "My email address is"]
+                             [:input {:name "email" :type "email" :required true}]]
+                            [:p
+                             [:input.new_user_radio {:name "user" :type "radio"}]
+                             [:label "I am a new user"]
+                             [:br]
+                             [:table.new_user_info
+                              [:tr [:th] [:td [:br]]]
+                              [:tr
+                               [:th "Name"] [:td [:input {:name "name" :type "text"}]]]
+                              [:tr
+                               [:th "School or band name"] [:td [:input {:name "band_name" :type "text"}]]]
+                              [:tr
+                               [:th "City"] [:td [:input {:name "city" :type "text"}]]]
+                              [:tr
+                               [:th "Province"] [:td [:input {:name "province" :type "text"}]]]
+                              [:tr
+                               [:th "Country"] [:td [:input {:name "country" :type "text"}]]]
+                              [:tr
+                               [:th "Enter a new password"]
+                               [:td [:input {:name "new_password" :type "password"}]]]
+                              [:tr
+                               [:th "Re-type password"]
+                               [:td [:input {:name "retyped_password" :type "password"}]]]
+                              [:tr [:th] [:td [:br]]]
+                              [:tr
+                               [:th [:input#signup_user {:name "create_user" :type "submit"
+                                                         :value "Sign up securely"}]]
+                               [:td]]]
+                             [:hr]
+                             [:p
+                              [:input.returning_user_radio {:name "user" :type "radio" :checked true}]
+                              [:label "I am a returning user"]
+                              [:label.returning_user_info "&nbsp;and my password is&nbsp;"
+                               [:input {:name "password" :type "password"}]]
+                              [:br]
+                              [:br]
+                              [:input#signin_user.returning_user_info {:type "submit" :value "Sign in securely"}]
+                              [:span#login-status.status]
+                              [:br][:br]
+                              [:a.returning_user_info {:href "/"} "Forgot your password?"]]]]]
+                :charts [:div#charts]
+                :users [:div#users]}))
 
 (defn post-login
   [{{username "username" password "password"} :form-params

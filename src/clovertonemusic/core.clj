@@ -27,10 +27,11 @@
   "Adds complete information for the user to the request"
   [handler]
   (fn [{userid :identity :as req}]
-    (->> userid
-         (data/get-user-by-id)
-         (assoc req :user)
-         (handler))))
+    (let [user-db (data/get-user-db)]
+      (->> userid
+           (data/get-user-by-id user-db)
+           (assoc req :user)
+           (handler)))))
 
 (defroutes user-routes
   (GET "/" [] html/render-user))

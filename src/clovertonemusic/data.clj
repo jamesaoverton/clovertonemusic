@@ -42,7 +42,7 @@
        :subject (get data (.indexOf header "subject"))
        :body (get data (.indexOf header "body"))})))
 
-(defn extract-user-data-from-csv
+(defn get-user-db
   "Reads the contents of the CSV file containing user information and returns a sequence
   of zipmaps for each user record"
   []
@@ -93,7 +93,7 @@
 (defn create-user
   "Creates a user with the given informatoin and writes the record to the csv file"
   [passwd name band city province country phone email newsletter activated]
-  (let [user-db (extract-user-data-from-csv)
+  (let [user-db (get-user-db)
         today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
         userid (get-next-user-id user-db)]
     (with-open [writer (io/writer users-file :append true)]
@@ -244,6 +244,6 @@
        (generate-table-from-csv "charts")))
 
 ;; Verify that the user database is in a good state:
-(let [user-db (extract-user-data-from-csv)]
+(let [user-db (get-user-db)]
   (when-not (apply distinct? (map #(:email %) user-db))
     (fail "User database contains duplicate emails")))
