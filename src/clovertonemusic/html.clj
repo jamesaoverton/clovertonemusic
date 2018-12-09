@@ -485,7 +485,11 @@
                              [:label "My email address is"]
                              [:input {:name "email" :type "email" :required true}]]
                             [:p
-                             [:input.new_user_radio {:name "user" :type "radio"}]
+                             ;; if the request contains "signup=true" then select the new
+                             ;; user radio button, otherwise don't.
+                             (if (:signup (:params request))
+                               [:input.new_user_radio {:name "user" :type "radio" :checked true}]
+                               [:input.new_user_radio {:name "user" :type "radio"}])
                              [:label "I am a new user"]
                              [:br]
                              [:table.new_user_info
@@ -510,20 +514,40 @@
                               [:tr
                                [:th [:input {:type "submit" :formaction "/signup/"
                                              :value "Sign up securely"}]]
-                               [:td]]]
+                               [:td]]
+                              ;; If the request contains "blank=true" this means that the user
+                              ;; tried to sign up without filling in all of the fields:
+                              (when (:blank (:params request))
+                                [:p.error "All fields are required"])
+                              ;; If the request contains "nomatch=true" this means that the user
+                              ;; entered two passwords that don't match.
+                              (when (:nomatch (:params request))
+                                [:p.error "Passwords do not match"])]
                              [:hr]
                              [:p
-                              [:input.returning_user_radio {:name "user" :type "radio" :checked true}]
+                              ;; if the request contains "signup=true" then don't select the returning
+                              ;; user radio button, otherwise do.
+                              (if (:signup (:params request))
+                                [:input.returning_user_radio {:name "user" :type "radio"}]
+                                [:input.returning_user_radio {:name "user" :type "radio" :checked true}])
                               [:label "I am a returning user"]
                               [:label.returning_user_info "&nbsp;and my password is&nbsp;"
-                               [:input {:name "password" :type "password"}]]
+                               [:input {:name "password" :type "password"
+                                        :value "placeholder"}]]
                               [:br]
                               [:br]
                               [:input.returning_user_info {:type "submit" :value "Sign in securely"}]
                               [:span#login-status.status
-                               (when (:retry (:params request))
-                                 [:p.error "Username and/or password not valid"])]
+                               ;; If the request contains "notfound=true" then the user tried to login
+                               ;; with an unrecognised email address
+                               (when (:notfound (:params request))
+                                 [:p.error "User not found"])
+                               ;; If the request contains "wrongpw=true" then the user tried to login
+                               ;; with a recognised email address but with an incorrect password.
+                               (when (:wrongpw (:params request))
+                                 [:p.error "Incorrect password"])]
                               [:br][:br]
+                              ;; TODO: IMPLEMENT THIS:
                               [:a.returning_user_info {:href "/"} "Forgot your password?"]]]]]
                 :charts [:div#charts]
                 :users [:div#users]}))
@@ -531,20 +555,38 @@
 (defn post-login
   [{{username "email" password "password"} :form-params
     session :session :as req}]
-  (let [user-db (data/get-user-db)]
-    (if-let [user (data/get-user-by-username-and-password user-db username password)]
-      ;; If the credentials are ok, associate a session to the request that incorporates an :identity
-      ;; field associated with the user, and redirect to the home page:
-      (->> user
-           :userid
-           (assoc session :identity)
-           (assoc (redirect "/") :session))
-      ;; Otherwise just redirect back to the login page
-      (redirect "/login/?retry=true"))))
+  (let [user-db (data/get-user-db)
+        user (data/get-user-by-username-and-password user-db username password)]
+    (cond
+      (nil? user) (redirect "/login/?notfound=true")
+      (= user false) (redirect "/login/?wrongpw=true")
+      :else (->> user
+                 ;; If the credentials are ok, associate a session to the request that
+                 ;; incorporates an :identity field associated with the user, and redirect
+                 ;; to the home page:
+                 :userid
+                 (assoc session :identity)
+                 (assoc (redirect "/") :session)))))
 
 (defn post-signup
-  [request]
-  (println request))
+  [{{email "email" name "name" band_name "band_name" city "city" province "province"
+     country "country" new_password "new_password"
+     retyped_password "retyped_password"} :form-params
+    session :session :as req}]
+  (cond
+    ;; If one of the fields is blank, or if the passwords do not match, redirect back to
+    ;; the login page:
+    (some string/blank?
+          [email name band_name city
+           province country
+           new_password retyped_password]) (redirect "/login/?signup=true&blank=true")
+    (not= retyped_password new_password) (redirect "/login/?signup=true&nomatch=true")
+    :else (do
+            ;; TODO: INSTEAD OF CREATING IMMEDIATELY, A NEW FORM NEEDS TO BE PRESENTED ASKING
+            ;; IF YOU WOULD LIKE TO SIGN UP TO THE NEWSLETTER. THEN AN EMAIL MUST BE SENT TO THE USER
+            ;; WITH AN 'ACTIVATE' LINK ETC.
+            (data/create-user new_password name band_name city province country "555-555-5555" email 1 0)
+            (redirect "/login/"))))
 
 (defn post-logout
   [{session :session}]

@@ -82,12 +82,13 @@
 
 (defn get-user-by-username-and-password
   "Returns the record corresponding to the given username if the password is correct,
-  or nil otherwise. The username is just the user's email address."
+  or false if the password is incorrect, or nil if the username isn't found. The username is
+  just the user's email address."
   [user-db email passwd]
   (let [password-ok (check-password user-db email passwd)]
     (cond
       (nil? password-ok) nil
-      (not password-ok) nil
+      (not password-ok) false
       password-ok (get-user-by-email user-db email))))
 
 (defn create-user
