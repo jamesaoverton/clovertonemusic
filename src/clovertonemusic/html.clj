@@ -9,7 +9,7 @@
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
-  [{title :title, sorting :sorting, contents :contents, charts :charts, users :users}]
+  [{title :title, sorting :sorting, contents :contents, charts :charts}]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (page/html
@@ -44,8 +44,8 @@
              [:div#search-box.box.left
               [:form
                [:input#search {:type "text", :name "search", :placeholder "Search"}]]]
-             ;; The contents, sorting, charts, and users parameters passed to this function go here:
-             [:div#main.right contents sorting charts users]
+             ;; The contents, sorting, and charts parameters passed to this function go here:
+             [:div#main.right contents sorting charts]
              [:div#audio-box]
              [:div#catalogue-box.box.left
               [:h2 "Catalogue"]
@@ -282,8 +282,7 @@
                     (filter search-string-in-chart)
                     (sort-charts (:sort (:params request)))
                     (map chart-to-html)
-                    (conj [:div#list]))]
-      :users [:div#users]})))
+                    (conj [:div#list]))]})))
 
 (defn tweak-about-page
   [page-component]
@@ -309,8 +308,7 @@
     {:title (str title " - Clovertone Music")
      :sorting [:div#sorting]
      :contents contents
-     :charts [:div#charts]
-     :users [:div#users]}))
+     :charts [:div#charts]}))
 
 (defn render-about
   [request]
@@ -337,8 +335,7 @@
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-        :charts [:div#charts]
-        :users [:div#users]})
+        :charts [:div#charts]})
       (when (nil? chart)
         (render-html
          {:title "All Charts - Clovertone Music"
@@ -352,8 +349,7 @@
                         (:charts)
                         (sort-charts (:sort (:params request)))
                         (map chart-to-html)
-                        (conj [:div#list]))]
-          :users [:div#users]})))))
+                        (conj [:div#list]))]})))))
 
 (defn render-composers
   [request]
@@ -377,8 +373,7 @@
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]})
+                      (conj [:div#list]))]})
       (when (nil? composer)
         (render-html
          {:title "Composers - Clovertone Music"
@@ -398,8 +393,7 @@
                                         :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
                                      [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
-          :charts [:div#charts]
-          :users [:div#users]})))))
+          :charts [:div#charts]})))))
 
 (defn render-genres
   [request]
@@ -422,8 +416,7 @@
                       (filter #(= (:filename genre-catentry) (:category %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+                      (conj [:div#list]))]}))))
 
 (defn render-grades
   [request]
@@ -446,8 +439,7 @@
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+                      (conj [:div#list]))]}))))
 
 (defn render-root
   [request]
@@ -467,8 +459,7 @@
                       (sort-by #(Integer/parseInt (:featured %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]
-        :users [:div#users]}))))
+                      (conj [:div#list]))]}))))
 
 (defn render-user
   [request]
@@ -492,19 +483,20 @@
                              [:table#new_user_info
                               [:tr [:th] [:td [:br]]]
                               [:tr
-                               [:th "Name"] [:td [:input#new_user_name {:name "name" :type "text"}]]]
+                               [:th "Name"]
+                               [:td [:input#new_user_name {:name "name" :type "text"}]]]
                               [:tr
-                               [:th "School or band name"] [:td [:input#new_user_band
-                                                                 {:name "band_name" :type "text"}]]]
+                               [:th "School or band name"]
+                               [:td [:input#new_user_band {:name "band_name" :type "text"}]]]
                               [:tr
-                               [:th "City"] [:td [:input#new_user_city
-                                                  {:name "city" :type "text"}]]]
+                               [:th "City"]
+                               [:td [:input#new_user_city {:name "city" :type "text"}]]]
                               [:tr
-                               [:th "Province"] [:td [:input#new_user_province
-                                                      {:name "province" :type "text"}]]]
+                               [:th "Province"]
+                               [:td [:input#new_user_province {:name "province" :type "text"}]]]
                               [:tr
-                               [:th "Country"] [:td [:input#new_user_country
-                                                     {:name "country" :type "text"}]]]
+                               [:th "Country"]
+                               [:td [:input#new_user_country {:name "country" :type "text"}]]]
                               [:tr
                                [:th "Enter a new password"]
                                [:td [:input#new_user_new_passwd
@@ -527,8 +519,7 @@
                               [:label "I am a returning user"]
                               [:label#returning_user_passwd "&nbsp;and my password is&nbsp;"
                                [:input#returning_user_passwd_input
-                                {:name "password" :type "password"
-                                 :value "placeholder" :required true}]]
+                                {:name "password" :type "password" :required true}]]
                               [:br]
                               [:br]
                               [:input#returning_user_submit {:type "submit"
@@ -584,8 +575,7 @@
                                    .setAttribute(\"required\", \"\");
                                }
                              };"]]
-                :charts [:div#charts]
-                :users [:div#users]}))
+                :charts [:div#charts]}))
 
 (defn post-login
   [{{username "email" password "password"} :form-params
