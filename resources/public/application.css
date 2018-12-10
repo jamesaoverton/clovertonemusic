@@ -851,17 +851,25 @@ input[type="password"] {
   margin-left: 5px;
   margin-right: 5px;
 }
-.new_user_info {
+#new_user_info {
     display: none;
 }
-.new_user_radio:checked ~ .new_user_info {
+#new_user_radio:checked ~ #new_user_info {
   display: inline-block;
   text-align: left;
 }
-.returning_user_info {
+#returning_user_passwd,
+#returning_user_submit,
+#returning_user_forgot {
   display: none;
 }
-.returning_user_radio:checked ~ .returning_user_info {
+#returning_user_radio:checked ~ #returning_user_passwd {
+  display: inline-block;
+}
+#returning_user_radio:checked ~ #returning_user_submit {
+  display: inline-block;
+}
+#returning_user_radio:checked ~ #returning_user_forgot {
   display: inline-block;
 }
 .tight {

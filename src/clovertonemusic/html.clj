@@ -485,61 +485,57 @@
                              [:label "My email address is"]
                              [:input {:name "email" :type "email" :required true}]]
                             [:p
-                             ;; if the request contains "signup=true" then select the new
-                             ;; user radio button, otherwise don't.
-                             (if (:signup (:params request))
-                               [:input.new_user_radio {:name "user" :type "radio" :checked true}]
-                               [:input.new_user_radio {:name "user" :type "radio"}])
+                             [:input#new_user_radio {:name "user" :type "radio"
+                                                     :onclick "toggle_login_form(1)"}]
                              [:label "I am a new user"]
                              [:br]
-                             [:table.new_user_info
+                             [:table#new_user_info
                               [:tr [:th] [:td [:br]]]
                               [:tr
-                               [:th "Name"] [:td [:input {:name "name" :type "text"}]]]
+                               [:th "Name"] [:td [:input#new_user_name {:name "name" :type "text"}]]]
                               [:tr
-                               [:th "School or band name"] [:td [:input {:name "band_name" :type "text"}]]]
+                               [:th "School or band name"] [:td [:input#new_user_band
+                                                                 {:name "band_name" :type "text"}]]]
                               [:tr
-                               [:th "City"] [:td [:input {:name "city" :type "text"}]]]
+                               [:th "City"] [:td [:input#new_user_city
+                                                  {:name "city" :type "text"}]]]
                               [:tr
-                               [:th "Province"] [:td [:input {:name "province" :type "text"}]]]
+                               [:th "Province"] [:td [:input#new_user_province
+                                                      {:name "province" :type "text"}]]]
                               [:tr
-                               [:th "Country"] [:td [:input {:name "country" :type "text"}]]]
+                               [:th "Country"] [:td [:input#new_user_country
+                                                     {:name "country" :type "text"}]]]
                               [:tr
                                [:th "Enter a new password"]
-                               [:td [:input {:name "new_password" :type "password"}]]]
+                               [:td [:input#new_user_new_passwd
+                                     {:name "new_password" :type "password"}]]]
                               [:tr
                                [:th "Re-type password"]
-                               [:td [:input {:name "retyped_password" :type "password"}]]]
+                               [:td [:input#new_user_retyped_passwd
+                                     {:name "retyped_password" :type "password"}]]]
                               [:tr [:th] [:td [:br]]]
                               [:tr
                                [:th [:input {:type "submit" :formaction "/signup/"
                                              :value "Sign up securely"}]]
                                [:td]]
-                              ;; If the request contains "blank=true" this means that the user
-                              ;; tried to sign up without filling in all of the fields:
-                              (when (:blank (:params request))
-                                [:p.error "All fields are required"])
-                              ;; If the request contains "nomatch=true" this means that the user
-                              ;; entered two passwords that don't match.
                               (when (:nomatch (:params request))
                                 [:p.error "Passwords do not match"])]
                              [:hr]
                              [:p
-                              ;; if the request contains "signup=true" then don't select the returning
-                              ;; user radio button, otherwise do.
-                              (if (:signup (:params request))
-                                [:input.returning_user_radio {:name "user" :type "radio"}]
-                                [:input.returning_user_radio {:name "user" :type "radio" :checked true}])
+                              [:input#returning_user_radio {:name "user" :type "radio" :checked true
+                                                            :onclick "toggle_login_form(0)"}]
                               [:label "I am a returning user"]
-                              [:label.returning_user_info "&nbsp;and my password is&nbsp;"
-                               [:input {:name "password" :type "password"
-                                        :value "placeholder"}]]
+                              [:label#returning_user_passwd "&nbsp;and my password is&nbsp;"
+                               [:input#returning_user_passwd_input
+                                {:name "password" :type "password"
+                                 :value "placeholder" :required true}]]
                               [:br]
                               [:br]
-                              [:input.returning_user_info {:type "submit" :value "Sign in securely"}]
+                              [:input#returning_user_submit {:type "submit"
+                                                             :value "Sign in securely"}]
                               [:span#login-status.status
-                               ;; If the request contains "notfound=true" then the user tried to login
-                               ;; with an unrecognised email address
+                               ;; If the request contains "notfound=true" then the user tried to
+                               ;; login with an unrecognised email address
                                (when (:notfound (:params request))
                                  [:p.error "User not found"])
                                ;; If the request contains "wrongpw=true" then the user tried to login
@@ -548,7 +544,46 @@
                                  [:p.error "Incorrect password"])]
                               [:br][:br]
                               ;; TODO: IMPLEMENT THIS:
-                              [:a.returning_user_info {:href "/"} "Forgot your password?"]]]]]
+                              [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
+                           [:script
+                            "var toggle_login_form = function(section) {
+                               if (section === 0) {
+                                 document.getElementById(\"returning_user_passwd_input\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_name\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_band\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_city\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_province\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_country\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_new_passwd\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_retyped_passwd\")
+                                   .removeAttribute(\"required\");
+                               }
+                               else if (section === 1) {
+                                 document.getElementById(\"returning_user_passwd_input\")
+                                   .removeAttribute(\"required\");
+                                 document.getElementById(\"new_user_name\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_band\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_city\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_province\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_country\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_new_passwd\")
+                                   .setAttribute(\"required\", \"\");
+                                 document.getElementById(\"new_user_retyped_passwd\")
+                                   .setAttribute(\"required\", \"\");
+                               }
+                             };"]]
                 :charts [:div#charts]
                 :users [:div#users]}))
 
@@ -573,20 +608,14 @@
      country "country" new_password "new_password"
      retyped_password "retyped_password"} :form-params
     session :session :as req}]
-  (cond
-    ;; If one of the fields is blank, or if the passwords do not match, redirect back to
-    ;; the login page:
-    (some string/blank?
-          [email name band_name city
-           province country
-           new_password retyped_password]) (redirect "/login/?signup=true&blank=true")
-    (not= retyped_password new_password) (redirect "/login/?signup=true&nomatch=true")
-    :else (do
-            ;; TODO: INSTEAD OF CREATING IMMEDIATELY, A NEW FORM NEEDS TO BE PRESENTED ASKING
-            ;; IF YOU WOULD LIKE TO SIGN UP TO THE NEWSLETTER. THEN AN EMAIL MUST BE SENT TO THE USER
-            ;; WITH AN 'ACTIVATE' LINK ETC.
-            (data/create-user new_password name band_name city province country "555-555-5555" email 1 0)
-            (redirect "/login/"))))
+  (if-not (= retyped_password new_password)
+    (redirect "/login/?signup=true&nomatch=true")
+    (do
+      ;; TODO: INSTEAD OF CREATING IMMEDIATELY, A NEW FORM NEEDS TO BE PRESENTED ASKING
+      ;; IF YOU WOULD LIKE TO SIGN UP TO THE NEWSLETTER. THEN AN EMAIL MUST BE SENT TO THE USER
+      ;; WITH AN 'ACTIVATE' LINK ETC.
+      (data/create-user new_password name band_name city province country "555-555-5555" email 1 0)
+      (redirect "/login/"))))
 
 (defn post-logout
   [{session :session}]
