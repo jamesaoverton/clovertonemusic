@@ -54,7 +54,7 @@
   "Returns a number 1 larger than the largest user id in the db"
   [user-db]
   (->> user-db
-       (map (fn [idstring] (Integer/parseInt (:ID idstring))))
+       (map (fn [idstring] (Integer/parseInt (:userid idstring))))
        (apply max)
        (inc)))
 

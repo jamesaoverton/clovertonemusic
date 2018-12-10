@@ -48,9 +48,9 @@
            (restrict user-routes {:handler is-authenticated}))
 
   (GET "/login/" [] html/render-login)
+  (GET "/logout/" [] html/get-logout)
   (POST "/login/" [] html/post-login)
   (POST "/signup/" [] html/post-signup)
-  (POST "/logout" [] html/post-logout)
 
   (GET "/about/:page" [page search]
        (if search

@@ -9,7 +9,7 @@
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
-  [{title :title, sorting :sorting, contents :contents, charts :charts}]
+  [{title :title, sorting :sorting, contents :contents, charts :charts, status :status}]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (page/html
@@ -31,7 +31,8 @@
              [:div#clover-box.left
               [:a {:href "/"} [:img {:width "105", :height "90", :src "/assets/clover.png"}]]]
              [:div#banner-box.right [:a {:href "/"}] [:h1 "Clovertone Music"]]
-             [:div#status-box.right [:ul#status-menu]]
+             ;; The status function parameter goes here:
+             [:div#status-box.right [:ul#status-menu] status]
              [:div#rule]
              [:div#nav-box.right
               [:ul.top-menu
@@ -44,7 +45,7 @@
              [:div#search-box.box.left
               [:form
                [:input#search {:type "text", :name "search", :placeholder "Search"}]]]
-             ;; The contents, sorting, and charts parameters passed to this function go here:
+             ;; The contents, sorting, and charts function parameters go here:
              [:div#main.right contents sorting charts]
              [:div#audio-box]
              [:div#catalogue-box.box.left
@@ -74,13 +75,21 @@
               [:ul
                [:li [:a {:href "/about/podcast"} "Podcast"]]
                "<!--li: a RSS-->"
-               [:li [:a {:href "http://www.facebook.com/pages/Clovertone-Music/148289658545365"} "Facebook\n"]]
+               [:li [:a {:href "http://www.facebook.com/pages/Clovertone-Music/148289658545365"}
+                     "Facebook\n"]]
                [:li [:a {:href "http://www.twitter.com/clovertone"} "Twitter\n"]]]]
              [:div#footer
               [:ul
                [:li [:a {:href "/about/privacy-policy"} "Privacy Policy\n"]]
                [:li "© 2017 Clovertone Music"]]]]
             ]])})
+
+(defn user-status
+  [user]
+  (if user
+    ;; TODO: IMPLEMENT ACCOUNT MANAGEMENT
+    [:ul [:li [:a {:href "/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
+    [:ul [:li [:a {:href "/login/"} "Log In / Sign Up"]]]))
 
 (defn get-sorting
   ([page-params]
@@ -282,7 +291,8 @@
                     (filter search-string-in-chart)
                     (sort-charts (:sort (:params request)))
                     (map chart-to-html)
-                    (conj [:div#list]))]})))
+                    (conj [:div#list]))]
+      :status (user-status (:user request))})))
 
 (defn tweak-about-page
   [page-component]
@@ -294,7 +304,7 @@
       page-component)))
 
 (defn generate-about-contents
-  [about-page]
+  [about-page user-info]
   (let [contents (->> about-page
                       (data/get-about-page-contents)
                       (m2h/md->hiccup)
@@ -308,13 +318,14 @@
     {:title (str title " - Clovertone Music")
      :sorting [:div#sorting]
      :contents contents
-     :charts [:div#charts]}))
+     :charts [:div#charts]
+     :status (user-status user-info)}))
 
 (defn render-about
   [request]
   (let [about-page (:page (:params request))]
     (try
-      (render-html (generate-about-contents about-page))
+      (render-html (generate-about-contents about-page (:user request)))
       ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
       (catch java.io.FileNotFoundException ex))))
 
@@ -335,7 +346,8 @@
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-        :charts [:div#charts]})
+        :charts [:div#charts]
+        :status (user-status (:user request))})
       (when (nil? chart)
         (render-html
          {:title "All Charts - Clovertone Music"
@@ -349,7 +361,8 @@
                         (:charts)
                         (sort-charts (:sort (:params request)))
                         (map chart-to-html)
-                        (conj [:div#list]))]})))))
+                        (conj [:div#list]))]
+          :status (user-status (:user request))})))))
 
 (defn render-composers
   [request]
@@ -373,7 +386,8 @@
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]})
+                      (conj [:div#list]))]
+        :status (user-status (:user request))})
       (when (nil? composer)
         (render-html
          {:title "Composers - Clovertone Music"
@@ -393,7 +407,8 @@
                                         :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
                                      [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
-          :charts [:div#charts]})))))
+          :charts [:div#charts]
+          :status (user-status (:user request))})))))
 
 (defn render-genres
   [request]
@@ -416,7 +431,8 @@
                       (filter #(= (:filename genre-catentry) (:category %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]}))))
+                      (conj [:div#list]))]
+        :status (user-status (:user request))}))))
 
 (defn render-grades
   [request]
@@ -439,7 +455,8 @@
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]}))))
+                      (conj [:div#list]))]
+        :status (user-status (:user request))}))))
 
 (defn render-root
   [request]
@@ -459,7 +476,8 @@
                       (sort-by #(Integer/parseInt (:featured %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
-                      (conj [:div#list]))]}))))
+                      (conj [:div#list]))]
+        :status (user-status (:user request))}))))
 
 (defn render-user
   [request]
@@ -537,45 +555,47 @@
                               ;; TODO: IMPLEMENT THIS:
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
                            [:script
-                            "var toggle_login_form = function(section) {
-                               if (section === 0) {
-                                 document.getElementById(\"returning_user_passwd_input\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_name\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_band\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_city\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_province\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_country\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_new_passwd\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_retyped_passwd\")
-                                   .removeAttribute(\"required\");
-                               }
-                               else if (section === 1) {
-                                 document.getElementById(\"returning_user_passwd_input\")
-                                   .removeAttribute(\"required\");
-                                 document.getElementById(\"new_user_name\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_band\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_city\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_province\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_country\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_new_passwd\")
-                                   .setAttribute(\"required\", \"\");
-                                 document.getElementById(\"new_user_retyped_passwd\")
-                                   .setAttribute(\"required\", \"\");
-                               }
-                             };"]]
-                :charts [:div#charts]}))
+                            (str
+                             "var toggle_login_form = function(section) {"
+                             "  if (section === 0) {"
+                             "    document.getElementById(\"returning_user_passwd_input\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_name\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_band\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_city\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_province\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_country\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_new_passwd\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_retyped_passwd\")"
+                             "      .removeAttribute(\"required\");"
+                             "  }"
+                             "  else if (section === 1) {"
+                             "    document.getElementById(\"returning_user_passwd_input\")"
+                             "      .removeAttribute(\"required\");"
+                             "    document.getElementById(\"new_user_name\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_band\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_city\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_province\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_country\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_new_passwd\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "    document.getElementById(\"new_user_retyped_passwd\")"
+                             "      .setAttribute(\"required\", \"\");"
+                             "  }"
+                             "};")]]
+                :charts [:div#charts]
+                :status (user-status (:user request))}))
 
 (defn post-login
   [{{username "email" password "password"} :form-params
@@ -607,7 +627,7 @@
       (data/create-user new_password name band_name city province country "555-555-5555" email 1 0)
       (redirect "/login/"))))
 
-(defn post-logout
+(defn get-logout
   [{session :session}]
   (assoc (redirect "/login/")
          :session (dissoc session :identity)))
