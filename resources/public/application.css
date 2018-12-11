@@ -288,6 +288,22 @@ table {
     -ms-text-size-adjust: none;
     -webkit-text-size-adjust: none;
   }
+  #new_user_form_table {
+    font-size: 85%;
+  }
+  .new_user_info {
+    font-size: 85%;
+    width: 100px;
+    text-overflow: ellipsis;
+  }
+  #login_email {
+    display: block;
+    text-align: left;
+  }
+  #returning_user_info {
+    display: block;
+    text-align: left;
+  }
 }
 body {
   font-family: museo-sans, helvetica, sans-serif;
@@ -851,10 +867,10 @@ input[type="password"] {
   margin-left: 5px;
   margin-right: 5px;
 }
-#new_user_info {
+#new_user_form_table {
     display: none;
 }
-#new_user_radio:checked ~ #new_user_info {
+#new_user_radio:checked ~ #new_user_form_table {
   display: inline-block;
   text-align: left;
 }

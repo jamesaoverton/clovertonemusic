@@ -485,14 +485,16 @@
 
 (defn generate-country-dropdown
   []
-  [:select#new_user_country.select {:name "country"}
+  [:select#new_user_country.select.new_user_info
+   {:name "country" :onchange "enable_or_disable_other_field(\"new_user_country_other\", this.value);"}
    [:option {:value "Canada" :selected "selected"} "Canada"]
    [:option {:value "USA"} "USA"]
    [:option {:value "Other"} "Other"]])
 
 (defn generate-province-dropdown
   []
-  [:select#new_user_province.select {:name "province"}
+  [:select#new_user_province.select.new_user_info
+   {:name "province" :onchange "enable_or_disable_other_field(\"new_user_province_other\", this.value);"}
    [:option {:value "Other"} "Other"]
    [:option {:value "Alberta" :selected "selected"} "Alberta"]
    [:option {:value "British Columbia"} "British Columbia"]
@@ -564,40 +566,47 @@
   (str
    "var toggle_login_form = function(section) {"
    "  if (section === 0) {"
-   "    document.getElementById(\"returning_user_passwd_input\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_name\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_band\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_city\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_province\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_country\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_new_passwd\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_retyped_passwd\")"
-   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"returning_user_passwd_input\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_name\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_band\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_city\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_province\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_country\").removeAttribute(\"required\");"
+   "    if (document.getElementById(\"new_user_province\").value === \"Other\") {"
+   "      document.getElementById(\"new_user_province_other\").removeAttribute(\"required\");"
+   "    }"
+   "    if (document.getElementById(\"new_user_country\").value === \"Other\") {"
+   "      document.getElementById(\"new_user_country_other\").removeAttribute(\"required\");"
+   "    }"
+   "    document.getElementById(\"new_user_new_passwd\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_retyped_passwd\").removeAttribute(\"required\");"
    "  }"
    "  else if (section === 1) {"
-   "    document.getElementById(\"returning_user_passwd_input\")"
-   "      .removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_name\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_band\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_city\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_province\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_country\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_new_passwd\")"
-   "      .setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_retyped_passwd\")"
-   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"returning_user_passwd_input\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_name\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_band\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_city\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_province\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_country\").setAttribute(\"required\", \"\");"
+   "    if (document.getElementById(\"new_user_province\").value === \"Other\") {"
+   "      document.getElementById(\"new_user_province_other\").setAttribute(\"required\", \"\");"
+   "    }"
+   "    if (document.getElementById(\"new_user_country\").value === \"Other\") {"
+   "      document.getElementById(\"new_user_country_other\").setAttribute(\"required\", \"\");"
+   "    }"
+   "    document.getElementById(\"new_user_new_passwd\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_retyped_passwd\").setAttribute(\"required\", \"\");"
+   "  }"
+   "};"
+   ""
+   "var enable_or_disable_other_field = function(field, selected_option) {"
+   "  if (selected_option === \"Other\") {"
+   "    document.getElementById(field).removeAttribute(\"disabled\");"
+   "    document.getElementById(field).setAttribute(\"required\", \"\");"
+   "  }"
+   "  else {"
+   "    document.getElementById(field).setAttribute(\"disabled\", \"\");"
+   "    document.getElementById(field).removeAttribute(\"required\");"
    "  }"
    "};"))
 
@@ -609,7 +618,7 @@
                 :contents [:div#login.window
                            [:h2 "Log In or Sign Up"]
                            [:form.login_form {:action "/login/" :method "post"}
-                            [:p
+                            [:p#login_email
                              [:label "My email address is *"]
                              [:input {:name "email" :type "email" :required true}]]
                             [:p
@@ -617,45 +626,47 @@
                                                      :onclick "toggle_login_form(1)"}]
                              [:label "I am a new user"]
                              [:br]
-                             [:table#new_user_info
+                             [:table#new_user_form_table
                               [:tr [:th] [:td [:br]]]
                               [:tr
                                [:td "Country *"]
                                [:td (generate-country-dropdown)]]
                               [:tr
                                [:td]
-                               [:td [:input {:name "country_other" :type "text"
-                                             :placeholder "Specify if Other"}]]]
+                               [:td [:input#new_user_country_other.new_user_info
+                                     {:name "country_other" :type "text" :disabled true
+                                      :placeholder "Specify if Other"}]]]
                               [:tr
-                               [:td "Province *"]
+                               [:td "Province/State *"]
                                [:td (generate-province-dropdown)]]
                               [:tr
                                [:td]
-                               [:td [:input {:name "province_other" :type "text"
-                                             :placeholder "Specify if Other"}]]]
+                               [:td [:input#new_user_province_other.new_user_info
+                                     {:name "province_other" :type "text" :disabled true
+                                      :placeholder "Specify if Other"}]]]
                               [:tr
                                [:td "City *"]
-                               [:td [:input#new_user_city {:name "city" :type "text"}]]]
+                               [:td [:input#new_user_city.new_user_info {:name "city" :type "text"}]]]
                               [:tr
                                [:td "Name *"]
-                               [:td [:input#new_user_name {:name "name" :type "text"}]]]
+                               [:td [:input#new_user_name.new_user_info {:name "name" :type "text"}]]]
                               [:tr
                                [:td "School or band name *"]
-                               [:td [:input#new_user_band {:name "band_name" :type "text"}]]]
+                               [:td [:input#new_user_band.new_user_info {:name "band_name" :type "text"}]]]
                               [:tr
                                [:td "Phone number"]
-                               [:td [:input#new_user_phone {:name "phone" :type "text"}]]]
+                               [:td [:input#new_user_phone.new_user_info {:name "phone" :type "text"}]]]
                               [:tr
                                [:td "Enter a new password *"]
-                               [:td [:input#new_user_new_passwd
+                               [:td [:input#new_user_new_passwd.new_user_info
                                      {:name "new_password" :type "password"}]]]
                               [:tr
                                [:td "Re-type password *"]
-                               [:td [:input#new_user_retyped_passwd
+                               [:td [:input#new_user_retyped_passwd.new_user_info
                                      {:name "retyped_password" :type "password"}]]]
                               [:tr
                                [:td "Sign up to our newsletter"]
-                               [:td [:select#new_user_newsletter.select {:name "newsletter"}
+                               [:td [:select#new_user_newsletter.select.new_user_info {:name "newsletter"}
                                      [:option {:value "0"} "No"]
                                      [:option {:value "1" :selected "selected"} "Yes"]]]]
                               [:tr [:td] [:td [:br]]]
@@ -666,7 +677,7 @@
                               (when (:nomatch (:params request))
                                 [:p.error "Passwords do not match"])]
                              [:hr]
-                             [:p
+                             [:p#returning_user_info
                               [:input#returning_user_radio {:name "user" :type "radio" :checked true
                                                             :onclick "toggle_login_form(0)"}]
                               [:label "I am a returning user"]
@@ -710,15 +721,21 @@
                  (assoc (redirect "/") :session)))))
 
 (defn post-signup
-  [{{email "email" name "name" band_name "band_name" city "city" province "province"
-     country "country" new_password "new_password" retyped_password "retyped_password"
+  [{{email "email" name "name" band_name "band_name" city "city"
+     province "province" province_other "province_other"
+     country "country" country_other "country_other"
+     new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params
     session :session :as req}]
   (if-not (= retyped_password new_password)
     (redirect "/login/?signup=true&nomatch=true")
-    (do
+    (letfn [(get-region [region region-other]
+              (if (= region "Other")
+                region-other
+                region))]
       ;; TODO: AN EMAIL MUST BE SENT TO THE USER WITH AN 'ACTIVATE' LINK ETC.
-      (data/create-user new_password name band_name city province country phone email newsletter 0)
+      (data/create-user new_password name band_name city (get-region province province_other)
+                        (get-region country country_other) phone email newsletter 0)
       (redirect "/login/"))))
 
 (defn get-logout
