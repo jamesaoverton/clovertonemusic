@@ -859,7 +859,8 @@ input[type="password"] {
   text-align: left;
 }
 #new_user_province,
-#new_user_country {
+#new_user_country,
+#new_user_newsletter {
   display: inline-block;
   margin: auto;
   margin-left: 5px;

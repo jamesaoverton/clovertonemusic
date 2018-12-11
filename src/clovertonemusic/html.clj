@@ -603,13 +603,14 @@
 
 (defn render-login
   [request]
+  ;; TODO: MAKE THIS PAGE MOBILE FRIENDLY (NOTE, IN FIREFOX HIT CTRL-SHIFT-M)
   (render-html {:title "Log In or Sign Up - Clovertone Music"
                 :sorting [:div#sorting]
                 :contents [:div#login.window
                            [:h2 "Log In or Sign Up"]
                            [:form.login_form {:action "/login/" :method "post"}
                             [:p
-                             [:label "My email address is"]
+                             [:label "My email address is *"]
                              [:input {:name "email" :type "email" :required true}]]
                             [:p
                              [:input#new_user_radio {:name "user" :type "radio"
@@ -619,39 +620,47 @@
                              [:table#new_user_info
                               [:tr [:th] [:td [:br]]]
                               [:tr
-                               [:th "Country"]
+                               [:td "Country *"]
                                [:td (generate-country-dropdown)]]
                               [:tr
-                               [:th]
+                               [:td]
                                [:td [:input {:name "country_other" :type "text"
                                              :placeholder "Specify if Other"}]]]
                               [:tr
-                               [:th "Province"]
+                               [:td "Province *"]
                                [:td (generate-province-dropdown)]]
                               [:tr
-                               [:th]
+                               [:td]
                                [:td [:input {:name "province_other" :type "text"
                                              :placeholder "Specify if Other"}]]]
                               [:tr
-                               [:th "City"]
+                               [:td "City *"]
                                [:td [:input#new_user_city {:name "city" :type "text"}]]]
                               [:tr
-                               [:th "Name"]
+                               [:td "Name *"]
                                [:td [:input#new_user_name {:name "name" :type "text"}]]]
                               [:tr
-                               [:th "School or band name"]
+                               [:td "School or band name *"]
                                [:td [:input#new_user_band {:name "band_name" :type "text"}]]]
                               [:tr
-                               [:th "Enter a new password"]
+                               [:td "Phone number"]
+                               [:td [:input#new_user_phone {:name "phone" :type "text"}]]]
+                              [:tr
+                               [:td "Enter a new password *"]
                                [:td [:input#new_user_new_passwd
                                      {:name "new_password" :type "password"}]]]
                               [:tr
-                               [:th "Re-type password"]
+                               [:td "Re-type password *"]
                                [:td [:input#new_user_retyped_passwd
                                      {:name "retyped_password" :type "password"}]]]
-                              [:tr [:th] [:td [:br]]]
                               [:tr
-                               [:th [:input {:type "submit" :formaction "/signup/"
+                               [:td "Sign up to our newsletter"]
+                               [:td [:select#new_user_newsletter.select {:name "newsletter"}
+                                     [:option {:value "0"} "No"]
+                                     [:option {:value "1" :selected "selected"} "Yes"]]]]
+                              [:tr [:td] [:td [:br]]]
+                              [:tr
+                               [:td [:input {:type "submit" :formaction "/signup/"
                                              :value "Sign up securely"}]]
                                [:td]]
                               (when (:nomatch (:params request))
@@ -702,16 +711,14 @@
 
 (defn post-signup
   [{{email "email" name "name" band_name "band_name" city "city" province "province"
-     country "country" new_password "new_password"
-     retyped_password "retyped_password"} :form-params
+     country "country" new_password "new_password" retyped_password "retyped_password"
+     phone "phone" newsletter "newsletter"} :form-params
     session :session :as req}]
   (if-not (= retyped_password new_password)
     (redirect "/login/?signup=true&nomatch=true")
     (do
-      ;; TODO: INSTEAD OF CREATING IMMEDIATELY, A NEW FORM NEEDS TO BE PRESENTED ASKING
-      ;; IF YOU WOULD LIKE TO SIGN UP TO THE NEWSLETTER. THEN AN EMAIL MUST BE SENT TO THE USER
-      ;; WITH AN 'ACTIVATE' LINK ETC.
-      (data/create-user new_password name band_name city province country "555-555-5555" email 1 0)
+      ;; TODO: AN EMAIL MUST BE SENT TO THE USER WITH AN 'ACTIVATE' LINK ETC.
+      (data/create-user new_password name band_name city province country phone email newsletter 0)
       (redirect "/login/"))))
 
 (defn get-logout
