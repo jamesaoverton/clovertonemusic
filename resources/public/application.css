@@ -858,6 +858,13 @@ input[type="password"] {
   display: inline-block;
   text-align: left;
 }
+#new_user_province,
+#new_user_country {
+  display: inline-block;
+  margin: auto;
+  margin-left: 5px;
+  margin-right: 5px;
+}
 #returning_user_passwd,
 #returning_user_submit,
 #returning_user_forgot {

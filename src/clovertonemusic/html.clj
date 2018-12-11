@@ -483,6 +483,124 @@
   [request]
   request)
 
+(defn generate-country-dropdown
+  []
+  [:select#new_user_country.select {:name "country"}
+   [:option {:value "Canada" :selected "selected"} "Canada"]
+   [:option {:value "USA"} "USA"]
+   [:option {:value "Other"} "Other"]])
+
+(defn generate-province-dropdown
+  []
+  [:select#new_user_province.select {:name "province"}
+   [:option {:value "Other"} "Other"]
+   [:option {:value "Alberta" :selected "selected"} "Alberta"]
+   [:option {:value "British Columbia"} "British Columbia"]
+   [:option {:value "Manitoba"} "Manitoba"]
+   [:option {:value "New Brunswick"} "New Brunswick"]
+   [:option {:value "Newfoundland and Labrador"} "Newfoundland and Labrador"]
+   [:option {:value "Nova Scotia"} "Nova Scotia"]
+   [:option {:value "Northwest Territories"} "Northwest Territories"]
+   [:option {:value "Nunavut"} "Nunavut"]
+   [:option {:value "Ontario"} "Ontario"]
+   [:option {:value "Prince Edward Island"} "Prince Edward Island"]
+   [:option {:value "Quebec"} "Quebec"]
+   [:option {:value "Saskatchewan"} "Saskatchewan"]
+   [:option {:value "Yukon"} "Yukon"]
+   [:option {:value "Alabama"} "Alabama"]
+   [:option {:value "Alaska"} "Alaska"]
+   [:option {:value "Arizona"} "Arizona"]
+   [:option {:value "Arkansas"} "Arkansas"]
+   [:option {:value "California"} "California"]
+   [:option {:value "Colorado"} "Colorado"]
+   [:option {:value "Connecticut"} "Connecticut"]
+   [:option {:value "Delaware"} "Delaware"]
+   [:option {:value "District Of Columbia"} "District Of Columbia"]
+   [:option {:value "Florida"} "Florida"]
+   [:option {:value "Georgia"} "Georgia"]
+   [:option {:value "Hawaii"} "Hawaii"]
+   [:option {:value "Idaho"} "Idaho"]
+   [:option {:value "Illinois"} "Illinois"]
+   [:option {:value "Indiana"} "Indiana"]
+   [:option {:value "Iowa"} "Iowa"]
+   [:option {:value "Kansas"} "Kansas"]
+   [:option {:value "Kentucky"} "Kentucky"]
+   [:option {:value "Louisiana"} "Louisiana"]
+   [:option {:value "Maine"} "Maine"]
+   [:option {:value "Maryland"} "Maryland"]
+   [:option {:value "Massachusetts"} "Massachusetts"]
+   [:option {:value "Michigan"} "Michigan"]
+   [:option {:value "Minnesota"} "Minnesota"]
+   [:option {:value "Mississippi"} "Mississippi"]
+   [:option {:value "Missouri"} "Missouri"]
+   [:option {:value "Montana"} "Montana"]
+   [:option {:value "Nebraska"} "Nebraska"]
+   [:option {:value "Nevada"} "Nevada"]
+   [:option {:value "New Hampshire"} "New Hampshire"]
+   [:option {:value "New Jersey"} "New Jersey"]
+   [:option {:value "New Mexico"} "New Mexico"]
+   [:option {:value "New York"} "New York"]
+   [:option {:value "North Carolina"} "North Carolina"]
+   [:option {:value "North Dakota"} "North Dakota"]
+   [:option {:value "Ohio"} "Ohio"]
+   [:option {:value "Oklahoma"} "Oklahoma"]
+   [:option {:value "Oregon"} "Oregon"]
+   [:option {:value "Pennsylvania"} "Pennsylvania"]
+   [:option {:value "Rhode Island"} "Rhode Island"]
+   [:option {:value "South Carolina"} "South Carolina"]
+   [:option {:value "South Dakota"} "South Dakota"]
+   [:option {:value "Tennessee"} "Tennessee"]
+   [:option {:value "Texas"} "Texas"]
+   [:option {:value "Utah"} "Utah"]
+   [:option {:value "Vermont"} "Vermont"]
+   [:option {:value "Virginia"} "Virginia"]
+   [:option {:value "Washington"} "Washington"]
+   [:option {:value "West Virginia"} "West Virginia"]
+   [:option {:value "Wisconsin"} "Wisconsin"]
+   [:option {:value "Wyoming"} "Wyoming"]])
+
+(defn generate-toggle-login-form-script
+  []
+  (str
+   "var toggle_login_form = function(section) {"
+   "  if (section === 0) {"
+   "    document.getElementById(\"returning_user_passwd_input\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_name\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_band\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_city\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_province\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_country\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_new_passwd\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_retyped_passwd\")"
+   "      .removeAttribute(\"required\");"
+   "  }"
+   "  else if (section === 1) {"
+   "    document.getElementById(\"returning_user_passwd_input\")"
+   "      .removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_name\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_band\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_city\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_province\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_country\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_new_passwd\")"
+   "      .setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_retyped_passwd\")"
+   "      .setAttribute(\"required\", \"\");"
+   "  }"
+   "};"))
+
 (defn render-login
   [request]
   (render-html {:title "Log In or Sign Up - Clovertone Music"
@@ -501,20 +619,28 @@
                              [:table#new_user_info
                               [:tr [:th] [:td [:br]]]
                               [:tr
+                               [:th "Country"]
+                               [:td (generate-country-dropdown)]]
+                              [:tr
+                               [:th]
+                               [:td [:input {:name "country_other" :type "text"
+                                             :placeholder "Specify if Other"}]]]
+                              [:tr
+                               [:th "Province"]
+                               [:td (generate-province-dropdown)]]
+                              [:tr
+                               [:th]
+                               [:td [:input {:name "province_other" :type "text"
+                                             :placeholder "Specify if Other"}]]]
+                              [:tr
+                               [:th "City"]
+                               [:td [:input#new_user_city {:name "city" :type "text"}]]]
+                              [:tr
                                [:th "Name"]
                                [:td [:input#new_user_name {:name "name" :type "text"}]]]
                               [:tr
                                [:th "School or band name"]
                                [:td [:input#new_user_band {:name "band_name" :type "text"}]]]
-                              [:tr
-                               [:th "City"]
-                               [:td [:input#new_user_city {:name "city" :type "text"}]]]
-                              [:tr
-                               [:th "Province"]
-                               [:td [:input#new_user_province {:name "province" :type "text"}]]]
-                              [:tr
-                               [:th "Country"]
-                               [:td [:input#new_user_country {:name "country" :type "text"}]]]
                               [:tr
                                [:th "Enter a new password"]
                                [:td [:input#new_user_new_passwd
@@ -554,46 +680,7 @@
                               [:br][:br]
                               ;; TODO: IMPLEMENT THIS:
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
-                           [:script
-                            (str
-                             "var toggle_login_form = function(section) {"
-                             "  if (section === 0) {"
-                             "    document.getElementById(\"returning_user_passwd_input\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_name\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_band\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_city\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_province\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_country\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_new_passwd\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_retyped_passwd\")"
-                             "      .removeAttribute(\"required\");"
-                             "  }"
-                             "  else if (section === 1) {"
-                             "    document.getElementById(\"returning_user_passwd_input\")"
-                             "      .removeAttribute(\"required\");"
-                             "    document.getElementById(\"new_user_name\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_band\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_city\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_province\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_country\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_new_passwd\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "    document.getElementById(\"new_user_retyped_passwd\")"
-                             "      .setAttribute(\"required\", \"\");"
-                             "  }"
-                             "};")]]
+                           [:script (generate-toggle-login-form-script)]]
                 :charts [:div#charts]
                 :status (user-status (:user request))}))
 
