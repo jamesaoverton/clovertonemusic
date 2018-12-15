@@ -561,7 +561,7 @@
    [:option {:value "Wisconsin"} "Wisconsin"]
    [:option {:value "Wyoming"} "Wyoming"]])
 
-(defn generate-toggle-login-form-script
+(defn generate-javascript-functions
   []
   (str
    "var toggle_login_form = function(section) {"
@@ -612,7 +612,6 @@
 
 (defn render-login
   [request]
-  ;; TODO: MAKE THIS PAGE MOBILE FRIENDLY (NOTE, IN FIREFOX HIT CTRL-SHIFT-M)
   (render-html {:title "Log In or Sign Up - Clovertone Music"
                 :sorting [:div#sorting]
                 :contents [:div#login.window
@@ -700,7 +699,7 @@
                               [:br][:br]
                               ;; TODO: IMPLEMENT THIS:
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
-                           [:script (generate-toggle-login-form-script)]]
+                           [:script (generate-javascript-functions)]]
                 :charts [:div#charts]
                 :status (user-status (:user request))}))
 
@@ -729,14 +728,31 @@
     session :session :as req}]
   (if-not (= retyped_password new_password)
     (redirect "/login/?signup=true&nomatch=true")
-    (letfn [(get-region [region region-other]
-              (if (= region "Other")
-                region-other
-                region))]
-      ;; TODO: AN EMAIL MUST BE SENT TO THE USER WITH AN 'ACTIVATE' LINK ETC.
-      (data/create-user new_password name band_name city (get-region province province_other)
-                        (get-region country country_other) phone email newsletter 0)
-      (redirect "/login/"))))
+    (let [get-region (fn [region region-other]
+                       (if (= region "Other")
+                         region-other
+                         region))
+          activation-id (data/create-user! new_password name band_name city
+                                           (get-region province province_other)
+                                           (get-region country country_other)
+                                           phone email newsletter)]
+      (render-html {:title "Activation - Clovertone Music"
+                    :sorting [:div#sorting]
+                    :contents [:div#contents
+                               [:div#login.window
+                                [:h2 (str "Activation page for " name)]
+                                [:p "An email has just been sent to "
+                                 [:a {:href (str "mailto:" email)} email]
+                                 " with a link to activate your account. Once activated, you will "
+                                 "be able to login. THE LINK IS " [:a {:href (str "/activation/" activation-id)}
+                                                                   "THIS."]]]]
+                    :charts [:div#charts]
+                    :status [:div#status]}))))
+
+(defn process-and-render-activation
+  [request]
+  (let [activation-id (:activation-id (:params request))]
+    (data/activate-user! activation-id)))
 
 (defn get-logout
   [{session :session}]

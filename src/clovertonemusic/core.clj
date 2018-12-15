@@ -52,6 +52,8 @@
   (POST "/login/" [] html/post-login)
   (POST "/signup/" [] html/post-signup)
 
+  (GET "/activation/:activation-id" [] html/process-and-render-activation)
+
   (GET "/about/:page" [page search]
        (if search
          html/render-search

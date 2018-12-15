@@ -47,12 +47,21 @@
   of zipmaps for each user record"
   []
   (with-open [reader (io/reader users-file)]
-    (let [[header & data-rows] (doall (csv/read-csv reader))]
-      (map #(zipmap (map keyword header) %) data-rows))))
+    (let [[header & data-rows] (doall (csv/read-csv reader))
+          header-keywords (map keyword header)
+          ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
+          ;; that will keep the columns in the original order that they were in in the file.
+          generate-array-map (fn [row] (->> row
+                                            (map vector header-keywords)
+                                            (flatten)
+                                            (apply array-map)))]
+      (map generate-array-map data-rows))))
 
 (defn get-next-user-id
-  "Returns a number 1 larger than the largest user id in the db"
+  "Returns a number 1 larger than the largest user id in the db."
   [user-db]
+  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
+  ;; save processing if the caller needs to call this and other similar functions repeatedly.
   (->> user-db
        (map (fn [idstring] (Integer/parseInt (:userid idstring))))
        (apply max)
@@ -60,6 +69,8 @@
 
 (defn get-user-by-id
   "Finds and returns the user in the db corresponding to the given userid"
+  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
+  ;; save processing if the caller needs to call this and other similar functions repeatedly.
   [user-db userid]
   (->> user-db
        (filter #(= (:userid %) userid))
@@ -68,13 +79,17 @@
 (defn get-user-by-email
   "Finds and returns the user in the db corresponding to the given email"
   [user-db email]
+  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
+  ;; save processing if the caller needs to call this and other similar functions repeatedly.
   (->> user-db
        (filter #(= (:email %) email))
        (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn check-password
+  "Returns true if the password is correct, false if not correct, and nil if the user isn't found."
   [user-db email passwd]
-  ;; Returns true if the password is correct, false if not correct, and nil if the user isn't found.
+  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
+  ;; save processing if the caller needs to call this and other similar functions repeatedly.
   (->> email
        (get-user-by-email user-db)
        :password
@@ -85,21 +100,57 @@
   or false if the password is incorrect, or nil if the username isn't found. The username is
   just the user's email address."
   [user-db email passwd]
+  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
+  ;; save processing if the caller needs to call this and other similar functions repeatedly.
   (let [password-ok (check-password user-db email passwd)]
     (cond
       (nil? password-ok) nil
       (not password-ok) false
       password-ok (get-user-by-email user-db email))))
 
-(defn create-user
+(defn create-user!
   "Creates a user with the given informatoin and writes the record to the csv file"
-  [passwd name band city province country phone email newsletter activated]
+  [passwd name band city province country phone email newsletter]
+  ;; Since this function will actually write to the user-db, it is best to fetch it internally
+  ;; rather than accept it as a parameter from the caller.
   (let [user-db (get-user-db)
         today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-        userid (get-next-user-id user-db)]
+        userid (get-next-user-id user-db)
+        ;; Activation id is composed of the epoch time in ms appended to a randomly generated UUID:
+        activation-id (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
+    ;; Write the user record to the CSV file, indicating the user is not yet activated by placing
+    ;; a 0 in the activated field, and writing an activation id which will be used for later
+    ;; activation. The activation id is then returned to the caller as a convenience.
     (with-open [writer (io/writer users-file :append true)]
       (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
-                              city province country phone email newsletter activated]]))))
+                              city province country phone email newsletter 0 activation-id]]))
+    activation-id))
+
+(defn activate-user!
+  "Activates the user corresponding to the given activation id"
+  [activation-id]
+  ;; Since this function will actually write to the user-db, it is best to fetch it internally
+  ;; rather than accept it as a parameter from the caller.
+  (let [user-db (get-user-db)
+        colnames (->> user-db (first) (keys) (map name))
+        only-vals (fn [user-rec] (for [col colnames]
+                                   ((keyword col) user-rec)))
+        matches-activation-id (fn [row] (and
+                                         (= (:activated row) "0")
+                                         (= (:activationid row) activation-id)))
+        ;; There will always only ever be one matching user:
+        {matching-user-recs true, other-user-recs false} (->> user-db
+                                                              (group-by matches-activation-id))
+        ;; We will it as activated and delete the activation id:
+        new-user-record (merge (first matching-user-recs) {:activated 1 :activationid nil})]
+
+    (when (> (count matching-user-recs) 0)
+      ;; Write everything back to the CSV file:
+      (with-open [writer (io/writer users-file)]
+        (csv/write-csv writer [colnames])
+        (doseq [user-rec other-user-recs]
+          (csv/write-csv writer [(only-vals user-rec)]))
+        (csv/write-csv writer [(only-vals new-user-record)])))))
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
