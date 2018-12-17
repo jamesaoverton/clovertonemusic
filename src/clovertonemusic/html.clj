@@ -729,7 +729,10 @@
                                              :value "Sign up securely"}]]
                                [:td]]
                               (when (:nomatch (:params request))
-                                [:p.error "Passwords do not match"])]
+                                [:p.error "Passwords do not match"])
+                              (when (:already-exists (:params request))
+                                [:p.error (str (:already-exists (:params request))
+                                               " is already associated with an account")])]
                              [:hr]
                              [:p#returning_user_info
                               [:input#returning_user_radio {:name "user" :type "radio" :checked true
@@ -801,40 +804,57 @@
                        (if (= region "Other")
                          region-other
                          region))
-          ;; TODO: need to check if the user already exists
           activation-id (data/create-user! new_password name band_name city
                                            (get-region province province_other)
                                            (get-region country country_other)
                                            phone email newsletter)]
-      (send-activation-email email name (get (:headers req) "host") activation-id)
+      (if-not activation-id
+        ;; If activation id is nil it is because the email already exists in the db. In this case
+        ;; just redirect to the login page:
+        (redirect (str "/login/?already-exists=" email))
+        ;; Otherwise, send the activation email and tell the user to look for it:
+        (do
+          (send-activation-email email name (get (:headers req) "host") activation-id)
+          (render-html
+           {:title "Activation - Clovertone Music"
+            :sorting [:div#sorting]
+            :contents [:div#contents
+                       [:div#login.window
+                        [:h2 (str "Activation in progress for " name)]
+                        [:p "An email has just been sent to "
+                         [:a {:href (str "mailto:" email)} email]
+                         " with a link to activate your account. Once activated, you "
+                         "will be able to login. If you do not receive the email, "
+                         "please contact us at "
+                         ;; TODO: Define this email address somewhere central
+                         ;; (e.g., a markdown page)
+                         [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+            :charts [:div#charts]
+            :status [:div#status]}))))))
+
+(defn process-and-render-activation
+  [request]
+  (let [activation-id (:activation-id (:params request))]
+    (if (data/activate-user! activation-id)
+      ;; If the activation was successful, direct the user to login:
       (render-html {:title "Activation - Clovertone Music"
                     :sorting [:div#sorting]
                     :contents [:div#contents
                                [:div#login.window
-                                [:h2 (str "Activation page for " name)]
-                                [:p "An email has just been sent to "
-                                 [:a {:href (str "mailto:" email)} email]
-                                 " with a link to activate your account. Once activated, you will "
-                                 "be able to login. If you do not receive the email, please "
-                                 ;; TODO: Define this email address somewhere central (e.g., a markdown page)
-                                 "contact us at "
+                                [:h2 "Your account has been successfully activated."]
+                                [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
+                    :charts [:div#charts]
+                    :status [:div#status]})
+      ;; Otherwise inform her of the bad request:
+      (render-html {:title "Invalid Activation ID - Clovertone Music"
+                    :sorting [:div#sorting]
+                    :contents [:div#contents
+                               [:div#login.window
+                                [:h2 "The submitted activation ID is invalid."]
+                                [:p "For assistance, send an email to "
                                  [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
                     :charts [:div#charts]
                     :status [:div#status]}))))
-
-(defn process-and-render-activation
-  [request]
-  ;; TODO: We need some exception handling and logging
-  (let [activation-id (:activation-id (:params request))]
-    (data/activate-user! activation-id))
-  (render-html {:title "Activation - Clovertone Music"
-                :sorting [:div#sorting]
-                :contents [:div#contents
-                           [:div#login.window
-                            [:h2 "Your account has been successfully activated."]
-                            [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
-                :charts [:div#charts]
-                :status [:div#status]}))
 
 (defn post-login
   [{{email "email" password "password"} :form-params

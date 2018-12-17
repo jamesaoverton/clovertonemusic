@@ -7,6 +7,9 @@
             [clojure.string :as string]
             [java-time :as jtime]))
 
+;; TODO: safeguard against race conditions in accessing the data between multiple sessions
+;; reading/writing to it at the same time.
+
 (def about-path "data/about")
 (def indices-path "data/indices")
 (def email-path "data/email")
@@ -108,22 +111,27 @@
       password-ok (get-user-by-email user-db email))))
 
 (defn create-user!
-  "Creates a user with the given informatoin and writes the record to the csv file"
+  "Creates a user with the given informatoin and writes the record to the csv file. If the user
+  already exists, return nothing, otherwise return an activation id that will be used to activate
+  the user"
   [passwd name band city province country phone email newsletter]
   ;; Since this function will actually write to the user-db, it is best to fetch it internally
   ;; rather than accept it as a parameter from the caller.
   (let [user-db (get-user-db)
-        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-        userid (get-next-user-id user-db)
-        ;; Activation id is composed of the epoch time in ms appended to a randomly generated UUID:
-        activation-id (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
-    ;; Write the user record to the CSV file, indicating the user is not yet activated by placing
-    ;; a 0 in the activated field, and writing an activation id which will be used for later
-    ;; activation. The activation id is then returned to the caller as a convenience.
-    (with-open [writer (io/writer users-file :append true)]
-      (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
-                              city province country phone email newsletter 0 activation-id]]))
-    activation-id))
+        existing-user (get-user-by-email user-db email)]
+    ;; Only create the user if a record associated with the email doesn't already exist:
+    (when-not existing-user
+      (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+            userid (get-next-user-id user-db)
+            ;; Activation id is composed of the epoch time in ms appended to a randomly generated UUID:
+            activation-id (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
+        ;; Write the user record to the CSV file, indicating the user is not yet activated by placing
+        ;; a 0 in the activated field, and writing an activation id which will be used for later
+        ;; activation. The activation id is then returned to the caller as a convenience.
+        (with-open [writer (io/writer users-file :append true)]
+          (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
+                                  city province country phone email newsletter 0 activation-id]]))
+        activation-id))))
 
 (defn activate-user!
   "Activates the user corresponding to the given activation id"
@@ -132,24 +140,29 @@
   ;; rather than accept it as a parameter from the caller.
   (let [user-db (get-user-db)
         colnames (->> user-db (first) (keys) (map name))
-        only-vals (fn [user-rec] (for [col colnames]
-                                   ((keyword col) user-rec)))
+        get-values-from-rec (fn [user-rec] (for [col colnames]
+                                             ((keyword col) user-rec)))
         matches-activation-id (fn [row] (and
                                          (= (:activated row) "0")
                                          (= (:activationid row) activation-id)))
-        ;; There will always only ever be one matching user:
+        ;; There will always only ever be one matching user at most:
         {matching-user-recs true, other-user-recs false} (->> user-db
                                                               (group-by matches-activation-id))
-        ;; We will it as activated and delete the activation id:
+        ;; We will mark it as activated and delete the activation id:
         new-user-record (merge (first matching-user-recs) {:activated 1 :activationid nil})]
 
-    (when (> (count matching-user-recs) 0)
-      ;; Write everything back to the CSV file:
-      (with-open [writer (io/writer users-file)]
-        (csv/write-csv writer [colnames])
-        (doseq [user-rec other-user-recs]
-          (csv/write-csv writer [(only-vals user-rec)]))
-        (csv/write-csv writer [(only-vals new-user-record)])))))
+    (if (= (count matching-user-recs) 0)
+      ;; If there are no matching records, return false
+      false
+      (do
+        ;; Otherwise, write everything back to the CSV file; first the header, then the non-matching
+        ;; records, then the new record. Finally, return true:
+        (with-open [writer (io/writer users-file)]
+          (csv/write-csv writer [colnames])
+          (doseq [user-rec other-user-recs]
+            (csv/write-csv writer [(get-values-from-rec user-rec)]))
+          (csv/write-csv writer [(get-values-from-rec new-user-record)]))
+        true))))
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
