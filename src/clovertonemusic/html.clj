@@ -13,59 +13,17 @@
  :pattern "%d - %p %m%n"
  :level :info)
 
-(defn render-404
-  [request]
-  {:status 404
-   :headers {"Content-Type" "text/html"}
-   :body (page/html
-          [:html
-           {:lang "en-us"}
-           [:head
-            [:title "Page Not Found"]
-            [:meta {:http-equiv "content-type", :content "text/html; charset=utf-8"}]
-            [:meta {:name "description", :content "Clovertone Music"}]
-            "<!-- meta(name=\"author\", content=\"James A. Overton, james@overton.ca\")-->"
-            [:meta {:name "viewport", :content "width=device-width, initial-scale=1.0"}]
-            [:link {:rel "shortcut icon", :type "image/x-icon", :href "/favicon.ico"}]
-            [:link {:rel "stylesheet", :type "text/css", :href "/application.css"}]
-            [:script {:type "text/javascript", :src "https://use.typekit.com/uzg4nir.js"}]
-            [:script "try{Typekit.load();}catch(e){}"]]
-           [:body
-             [:h1 "Page Not Found"]
-             [:p "The requested resource could not be found.."
-              [:br]
-              [:p "For assistance, send an email to "
-               [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]])})
-
-(defn render-500
-  [message]
-  {:status 500
-   :headers {"Content-Type" "text/html"}
-   :body (page/html
-          [:html
-           {:lang "en-us"}
-           [:head
-            [:title "Internal server error"]
-            [:meta {:http-equiv "content-type", :content "text/html; charset=utf-8"}]
-            [:meta {:name "description", :content "Clovertone Music"}]
-            "<!-- meta(name=\"author\", content=\"James A. Overton, james@overton.ca\")-->"
-            [:meta {:name "viewport", :content "width=device-width, initial-scale=1.0"}]
-            [:link {:rel "shortcut icon", :type "image/x-icon", :href "/favicon.ico"}]
-            [:link {:rel "stylesheet", :type "text/css", :href "/application.css"}]
-            [:script {:type "text/javascript", :src "https://use.typekit.com/uzg4nir.js"}]
-            [:script "try{Typekit.load();}catch(e){}"]]
-           [:body
-            [:h1 "Internal Server Error"]
-            [:p "The server encountered the following error while processing your request:"]
-            [:p [:code message]]
-            [:p "For assistance, send an email to "
-             [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]])})
-
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
-  [{title :title, sorting :sorting, contents :contents, charts :charts, status :status}]
-  {:status 200
+  [{title :title, sorting :sorting, contents :contents, charts :charts, user-status :user-status,
+    page-status :page-status, :or {sorting [:div#sorting]
+                                   contents [:div#contents]
+                                   charts [:div#charts]
+                                   user-status [:div#status]
+                                   page-status 200}}]
+  ;; page-status parameter goes here:
+  {:status page-status
    :headers {"Content-Type" "text/html"}
    :body (page/html
           [:html
@@ -86,8 +44,8 @@
              [:div#clover-box.left
               [:a {:href "/"} [:img {:width "105", :height "90", :src "/assets/clover.png"}]]]
              [:div#banner-box.right [:a {:href "/"}] [:h1 "Clovertone Music"]]
-             ;; The status function parameter goes here:
-             [:div#status-box.right [:ul#status-menu] status]
+             ;; The user-status function parameter goes here:
+             [:div#status-box.right [:ul#status-menu] user-status]
              [:div#rule]
              [:div#nav-box.right
               [:ul.top-menu
@@ -347,7 +305,7 @@
                     (sort-charts (:sort (:params request)))
                     (map chart-to-html)
                     (conj [:div#list]))]
-      :status (user-status (:user request))})))
+      :user-status (user-status (:user request))})))
 
 (defn tweak-about-page
   [page-component]
@@ -371,10 +329,8 @@
                    (m2h/hiccup-in contents)
                    (last))]
     {:title (str title " - Clovertone Music")
-     :sorting [:div#sorting]
      :contents contents
-     :charts [:div#charts]
-     :status (user-status user-info)}))
+     :user-status (user-status user-info)}))
 
 (defn render-about
   [request]
@@ -394,15 +350,13 @@
     (if-not (nil? chart-catentry)
       (render-html
        {:title (str (:chart-name chart-catentry) " - Clovertone Music")
-        :sorting [:div#sorting]
         :contents [:div#contents
                    (->> data/catalogue
                         :charts
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-        :charts [:div#charts]
-        :status (user-status (:user request))})
+        :user-status (user-status (:user request))})
       (when (nil? chart)
         (render-html
          {:title "All Charts - Clovertone Music"
@@ -417,7 +371,7 @@
                         (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-          :status (user-status (:user request))})))))
+          :user-status (user-status (:user request))})))))
 
 (defn render-composers
   [request]
@@ -442,7 +396,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :status (user-status (:user request))})
+        :user-status (user-status (:user request))})
       (when (nil? composer)
         (render-html
          {:title "Composers - Clovertone Music"
@@ -462,8 +416,7 @@
                                         :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
                                      [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
-          :charts [:div#charts]
-          :status (user-status (:user request))})))))
+          :user-status (user-status (:user request))})))))
 
 (defn render-genres
   [request]
@@ -487,7 +440,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :status (user-status (:user request))}))))
+        :user-status (user-status (:user request))}))))
 
 (defn render-grades
   [request]
@@ -511,7 +464,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :status (user-status (:user request))}))))
+        :user-status (user-status (:user request))}))))
 
 (defn render-root
   [request]
@@ -532,7 +485,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :status (user-status (:user request))}))))
+        :user-status (user-status (:user request))}))))
 
 (defn render-user
   [request]
@@ -668,7 +621,6 @@
 (defn render-login
   [request]
   (render-html {:title "Log In or Sign Up - Clovertone Music"
-                :sorting [:div#sorting]
                 :contents [:div#login.window
                            [:h2 "Log In or Sign Up"]
                            [:form.login_form {:action "/login/" :method "post"}
@@ -758,8 +710,7 @@
                               ;; TODO: Implement forgot my password
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
                            [:script (generate-javascript-functions)]]
-                :charts [:div#charts]
-                :status (user-status (:user request))}))
+                :user-status (user-status (:user request))}))
 
 (defn send-activation-email
   [email name server activation-id]
@@ -793,7 +744,7 @@
      country "country" country_other "country_other"
      new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params
-    session :session :as req}]
+    session :session :as request}]
   (if-not (= retyped_password new_password)
     ;; If the submitted passwords do not match, then just redirect to the login page, adding a
     ;; parameter to the URL to indicate the nature of the problem:
@@ -814,10 +765,9 @@
         (redirect (str "/login/?already-exists=" email))
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
-          (send-activation-email email name (get (:headers req) "host") activation-id)
+          (send-activation-email email name (get (:headers request) "host") activation-id)
           (render-html
            {:title "Activation - Clovertone Music"
-            :sorting [:div#sorting]
             :contents [:div#contents
                        [:div#login.window
                         [:h2 (str "Activation in progress for " name)]
@@ -829,8 +779,7 @@
                          ;; TODO: Define this email address somewhere central
                          ;; (e.g., a markdown page)
                          [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-            :charts [:div#charts]
-            :status [:div#status]}))))))
+            :user-status (user-status (:user request))}))))))
 
 (defn process-and-render-activation
   [request]
@@ -838,23 +787,20 @@
     (if (data/activate-user! activation-id)
       ;; If the activation was successful, direct the user to login:
       (render-html {:title "Activation - Clovertone Music"
-                    :sorting [:div#sorting]
                     :contents [:div#contents
                                [:div#login.window
                                 [:h2 "Your account has been successfully activated."]
                                 [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
-                    :charts [:div#charts]
-                    :status [:div#status]})
+                    :user-status (user-status (:user request))})
       ;; Otherwise inform her of the bad request:
       (render-html {:title "Invalid Activation ID - Clovertone Music"
-                    :sorting [:div#sorting]
                     :contents [:div#contents
                                [:div#login.window
                                 [:h2 "The submitted activation ID is invalid."]
                                 [:p "For assistance, send an email to "
                                  [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-                    :charts [:div#charts]
-                    :status [:div#status]}))))
+                    :page-status 400
+                    :user-status (user-status (:user request))}))))
 
 (defn post-login
   [{{email "email" password "password"} :form-params

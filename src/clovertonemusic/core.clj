@@ -42,7 +42,15 @@
         (let [error-summary (.getMessage ex)
               detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
           (log/error detailed-error)
-          (html/render-500 error-summary))))))
+          (html/render-html
+           {:title "Internal Server Error"
+            :contents [:div#contents
+                       [:h1 "Internal Server Error"]
+                       [:p "The server encountered an error while processing your request:"]
+                       [:p [:code error-summary]]
+                       [:p "For assistance, send an email to "
+                        [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
+            :page-status 500}))))))
 
 (defroutes user-routes
   (GET "/" [] html/render-user))
@@ -109,7 +117,16 @@
          html/render-root))
 
   (route/resources "") ; this will grab anything in the public/ directory
-  (route/not-found html/render-404)) ; all other, return 404
+
+  ;; all other, return 404
+  (route/not-found (html/render-html
+                    {:title "Page Not Found"
+                     :contents [:div#contents
+                                [:h1 "Page Not Found"]
+                                [:p "The requested resource could not be found."]
+                                [:p "For assistance, send an email to "
+                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
+                     :page-status 404})))
 
 (def backend (session-backend))
 (def app
