@@ -98,7 +98,7 @@
          html/render-root))
 
   (route/resources "") ; this will grab anything in the public/ directory
-  (route/not-found "<h1>Page not found</h1>")) ; all other, return 404
+  (route/not-found html/render-404)) ; all other, return 404
 
 (def backend (session-backend))
 (def app

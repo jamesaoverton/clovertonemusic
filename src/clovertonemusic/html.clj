@@ -13,6 +13,54 @@
  :pattern "%d - %p %m%n"
  :level :info)
 
+(defn render-404
+  [request]
+  {:status 404
+   :headers {"Content-Type" "text/html"}
+   :body (page/html
+          [:html
+           {:lang "en-us"}
+           [:head
+            [:title "Page Not Found"]
+            [:meta {:http-equiv "content-type", :content "text/html; charset=utf-8"}]
+            [:meta {:name "description", :content "Clovertone Music"}]
+            "<!-- meta(name=\"author\", content=\"James A. Overton, james@overton.ca\")-->"
+            [:meta {:name "viewport", :content "width=device-width, initial-scale=1.0"}]
+            [:link {:rel "shortcut icon", :type "image/x-icon", :href "/favicon.ico"}]
+            [:link {:rel "stylesheet", :type "text/css", :href "/application.css"}]
+            [:script {:type "text/javascript", :src "https://use.typekit.com/uzg4nir.js"}]
+            [:script "try{Typekit.load();}catch(e){}"]]
+           [:body
+             [:h1 "Page Not Found"]
+             [:p "The requested resource could not be found.."
+              [:br]
+              [:p "For assistance, send an email to "
+               [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]])})
+
+(defn render-500
+  [message]
+  {:status 500
+   :headers {"Content-Type" "text/html"}
+   :body (page/html
+          [:html
+           {:lang "en-us"}
+           [:head
+            [:title "Internal server error"]
+            [:meta {:http-equiv "content-type", :content "text/html; charset=utf-8"}]
+            [:meta {:name "description", :content "Clovertone Music"}]
+            "<!-- meta(name=\"author\", content=\"James A. Overton, james@overton.ca\")-->"
+            [:meta {:name "viewport", :content "width=device-width, initial-scale=1.0"}]
+            [:link {:rel "shortcut icon", :type "image/x-icon", :href "/favicon.ico"}]
+            [:link {:rel "stylesheet", :type "text/css", :href "/application.css"}]
+            [:script {:type "text/javascript", :src "https://use.typekit.com/uzg4nir.js"}]
+            [:script "try{Typekit.load();}catch(e){}"]]
+           [:body
+            [:h1 "Internal Server Error"]
+            [:p "The server encountered the following error while processing your request:"]
+            [:p [:code message]]
+            [:p "For assistance, send an email to "
+             [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]])})
+
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
   page in Clovertone."
@@ -710,24 +758,9 @@
                 :charts [:div#charts]
                 :status (user-status (:user request))}))
 
-(defn post-login
-  [{{username "email" password "password"} :form-params
-    session :session :as req}]
-  (let [user-db (data/get-user-db)
-        user (data/get-user-by-username-and-password user-db username password)]
-    (cond
-      (nil? user) (redirect "/login/?notfound=true")
-      (= user false) (redirect "/login/?wrongpw=true")
-      :else (->> user
-                 ;; If the credentials are ok, associate a session to the request that
-                 ;; incorporates an :identity field associated with the user, and redirect
-                 ;; to the home page:
-                 :userid
-                 (assoc session :identity)
-                 (assoc (redirect "/") :session)))))
-
 (defn send-activation-email
   [email name server activation-id]
+  ;; TODO: Get the contents of the activation email from a markdown file.
   (let [body (str "Dear " name ",\n\n"
                   "Please click on the link below to verify your email address and activate your "
                   "Clovertone account. If you cannot click on the link, please copy and paste it "
@@ -762,32 +795,38 @@
     ;; If the submitted passwords do not match, then just redirect to the login page, adding a
     ;; parameter to the URL to indicate the nature of the problem:
     (redirect "/login/?nomatch=true")
-    ;; Otherwise, create the user, email the activation id that was thereby generated to the user,
-    ;; and then inform the user of what is happening:
-    (let [get-region (fn [region region-other]
-                       (if (= region "Other")
-                         region-other
-                         region))
-          ;; TODO: We need some exception handling and logging
-          activation-id (data/create-user! new_password name band_name city
-                                           (get-region province province_other)
-                                           (get-region country country_other)
-                                           phone email newsletter)]
-      (send-activation-email email name (get (:headers req) "host") activation-id)
-      (render-html {:title "Activation - Clovertone Music"
-                    :sorting [:div#sorting]
-                    :contents [:div#contents
-                               [:div#login.window
-                                [:h2 (str "Activation page for " name)]
-                                [:p "An email has just been sent to "
-                                 [:a {:href (str "mailto:" email)} email]
-                                 " with a link to activate your account. Once activated, you will "
-                                 "be able to login. If you do not receive the email, please "
-                                 ;; TODO: Define this email address somewhere central (e.g., a markdown page)
-                                 "contact us at "
-                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-                    :charts [:div#charts]
-                    :status [:div#status]}))))
+    ;; Otherwise, create the user, email the activation id that was generated during creation to
+    ;; the user, and then inform the user of what is happening:
+    (try
+      (let [get-region (fn [region region-other]
+                         (if (= region "Other")
+                           region-other
+                           region))
+            ;; TODO: need to check if the user already exists
+            activation-id (data/create-user! new_password name band_name city
+                                             (get-region province province_other)
+                                             (get-region country country_other)
+                                             phone email newsletter)]
+        (send-activation-email email name (get (:headers req) "host") activation-id)
+        (render-html {:title "Activation - Clovertone Music"
+                      :sorting [:div#sorting]
+                      :contents [:div#contents
+                                 [:div#login.window
+                                  [:h2 (str "Activation page for " name)]
+                                  [:p "An email has just been sent to "
+                                   [:a {:href (str "mailto:" email)} email]
+                                   " with a link to activate your account. Once activated, you will "
+                                   "be able to login. If you do not receive the email, please "
+                                   ;; TODO: Define this email address somewhere central (e.g., a markdown page)
+                                   "contact us at "
+                                   [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+                      :charts [:div#charts]
+                      :status [:div#status]}))
+      (catch Exception ex
+        (let [error-summary (.getMessage ex)
+              detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
+          (log/error detailed-error)
+          (render-500 error-summary))))))
 
 (defn process-and-render-activation
   [request]
@@ -802,6 +841,22 @@
                             [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
                 :charts [:div#charts]
                 :status [:div#status]}))
+
+(defn post-login
+  [{{email "email" password "password"} :form-params
+    session :session :as req}]
+  (let [user-db (data/get-user-db)
+        user (data/get-user-by-email-and-password user-db email password)]
+    (cond
+      (nil? user) (redirect "/login/?notfound=true")
+      (= user false) (redirect "/login/?wrongpw=true")
+      :else (->> user
+                 ;; If the credentials are ok, associate a session to the request that
+                 ;; incorporates an :identity field associated with the user, and redirect
+                 ;; to the home page:
+                 :userid
+                 (assoc session :identity)
+                 (assoc (redirect "/") :session)))))
 
 (defn get-logout
   [{session :session}]

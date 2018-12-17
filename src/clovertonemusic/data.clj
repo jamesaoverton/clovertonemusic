@@ -95,10 +95,9 @@
        :password
        (hashers/check passwd)))
 
-(defn get-user-by-username-and-password
-  "Returns the record corresponding to the given username if the password is correct,
-  or false if the password is incorrect, or nil if the username isn't found. The username is
-  just the user's email address."
+(defn get-user-by-email-and-password
+  "Returns the record corresponding to the given email if the password is correct,
+  or false if the password is incorrect, or nil if the email isn't found."
   [user-db email passwd]
   ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
   ;; save processing if the caller needs to call this and other similar functions repeatedly.
