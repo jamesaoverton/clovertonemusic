@@ -33,6 +33,17 @@
            (assoc req :user)
            (handler)))))
 
+(defn wrap-exception-handling
+  [handler]
+  (fn [request]
+    (try
+      (handler request)
+      (catch Exception ex
+        (let [error-summary (.getMessage ex)
+              detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
+          (log/error detailed-error)
+          (html/render-500 error-summary))))))
+
 (defroutes user-routes
   (GET "/" [] html/render-user))
 
@@ -107,7 +118,8 @@
       (wrap-authentication backend)
       (wrap-authorization backend)
       (wrap-session)
-      (wrap-params)))
+      (wrap-params)
+      (wrap-exception-handling)))
 
 (defn -main
   [& args]

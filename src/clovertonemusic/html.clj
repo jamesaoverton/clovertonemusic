@@ -797,36 +797,30 @@
     (redirect "/login/?nomatch=true")
     ;; Otherwise, create the user, email the activation id that was generated during creation to
     ;; the user, and then inform the user of what is happening:
-    (try
-      (let [get-region (fn [region region-other]
-                         (if (= region "Other")
-                           region-other
-                           region))
-            ;; TODO: need to check if the user already exists
-            activation-id (data/create-user! new_password name band_name city
-                                             (get-region province province_other)
-                                             (get-region country country_other)
-                                             phone email newsletter)]
-        (send-activation-email email name (get (:headers req) "host") activation-id)
-        (render-html {:title "Activation - Clovertone Music"
-                      :sorting [:div#sorting]
-                      :contents [:div#contents
-                                 [:div#login.window
-                                  [:h2 (str "Activation page for " name)]
-                                  [:p "An email has just been sent to "
-                                   [:a {:href (str "mailto:" email)} email]
-                                   " with a link to activate your account. Once activated, you will "
-                                   "be able to login. If you do not receive the email, please "
-                                   ;; TODO: Define this email address somewhere central (e.g., a markdown page)
-                                   "contact us at "
-                                   [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-                      :charts [:div#charts]
-                      :status [:div#status]}))
-      (catch Exception ex
-        (let [error-summary (.getMessage ex)
-              detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
-          (log/error detailed-error)
-          (render-500 error-summary))))))
+    (let [get-region (fn [region region-other]
+                       (if (= region "Other")
+                         region-other
+                         region))
+          ;; TODO: need to check if the user already exists
+          activation-id (data/create-user! new_password name band_name city
+                                           (get-region province province_other)
+                                           (get-region country country_other)
+                                           phone email newsletter)]
+      (send-activation-email email name (get (:headers req) "host") activation-id)
+      (render-html {:title "Activation - Clovertone Music"
+                    :sorting [:div#sorting]
+                    :contents [:div#contents
+                               [:div#login.window
+                                [:h2 (str "Activation page for " name)]
+                                [:p "An email has just been sent to "
+                                 [:a {:href (str "mailto:" email)} email]
+                                 " with a link to activate your account. Once activated, you will "
+                                 "be able to login. If you do not receive the email, please "
+                                 ;; TODO: Define this email address somewhere central (e.g., a markdown page)
+                                 "contact us at "
+                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+                    :charts [:div#charts]
+                    :status [:div#status]}))))
 
 (defn process-and-render-activation
   [request]
