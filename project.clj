@@ -15,6 +15,7 @@
                  [hiccup "1.0.5"]
                  [markdown-to-hiccup "0.3.0"]
                  [compojure "1.1.6"]
+                 [com.draines/postal "2.0.3"]
                  [clojure.java-time "0.3.2"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"

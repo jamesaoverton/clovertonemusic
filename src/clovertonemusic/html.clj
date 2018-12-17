@@ -1,10 +1,17 @@
 (ns clovertonemusic.html
-  (:require [hiccup.core :as page]
+  (:require [clojure.tools.logging :as log]
+            [clj-logging-config.log4j :as log-config]
+            [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
             [ring.util.codec :as codec]
             [ring.util.response :refer [response redirect]]
+            [postal.core :refer [send-message]]
             [clojure.string :as string]
             [clovertonemusic.data :as data]))
+
+(log-config/set-logger!
+ :pattern "%d - %p %m%n"
+ :level :info)
 
 (defn render-html
   "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
@@ -87,7 +94,7 @@
 (defn user-status
   [user]
   (if user
-    ;; TODO: IMPLEMENT ACCOUNT MANAGEMENT
+    ;; TODO: Implement account management
     [:ul [:li [:a {:href "/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
     [:ul [:li [:a {:href "/login/"} "Log In / Sign Up"]]]))
 
@@ -162,7 +169,7 @@
           (reverse ascending-charts)
           ascending-charts)))))
 
-(defn construct-email
+(defn construct-email-to-clovertone
   [email chart-name]
   (let [email-contents (data/get-email-contents email)]
     (str "mailto:" (->> :to email-contents
@@ -208,7 +215,7 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       {:href (construct-email "purchase" (:chart-name chart))}
+       {:href (construct-email-to-clovertone "purchase" (:chart-name chart))}
        [:div.blank]
        [:div.price
         [:span.dollar-sign "$"]
@@ -225,7 +232,7 @@
          "Preview\n"]]
        [:li
         [:a
-         {:href (construct-email "customize" (:chart-name chart))}
+         {:href (construct-email-to-clovertone "customize" (:chart-name chart))}
          "Customize\n"]]]
       (:notes chart)]
      [:table.details
@@ -697,7 +704,7 @@
                                (when (:wrongpw (:params request))
                                  [:p.error "Incorrect password"])]
                               [:br][:br]
-                              ;; TODO: IMPLEMENT THIS:
+                              ;; TODO: Implement forgot my password
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
                            [:script (generate-javascript-functions)]]
                 :charts [:div#charts]
@@ -719,6 +726,31 @@
                  (assoc session :identity)
                  (assoc (redirect "/") :session)))))
 
+(defn send-activation-email
+  [email name server activation-id]
+  (let [body (str "Dear " name ",\n\n"
+                  "Please click on the link below to verify your email address and activate your "
+                  "Clovertone account. If you cannot click on the link, please copy and paste it "
+                  "into your browser.\n\n"
+                  ;; TODO: Change this to https eventually:
+                  "http://" server "/activation/" activation-id "\n\n"
+                  "If you did not request to sign up for a Clovertone account, you can safely "
+                  "ignore this message.\n\n"
+                  "Sincerely,\n"
+                  "The Clovertone team")
+        ;; TODO: Right now the message is sent locally through UNIX sendmail on my system. To send
+        ;; the email via an email server, an extra argument (conn) needs to be provided to
+        ;; send-message: (send-message [conn] <message>), where conn is a map defining the
+        ;; connection options and credentials required to connect to the email server.
+        ;; See: https://github.com/drewr/postal and http://www.rkn.io/2014/03/20/clojure-cookbook-email/
+        send-status (send-message {:from "activation@clovertonemusic.com"
+                                   :to [email]
+                                   :reply-to "info@clovertonemusic.com"
+                                   :subject "Activate your clovertonemusic.com account"
+                                   :body body})]
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of email to" email "did not succeed (" send-status ")"))))
+
 (defn post-signup
   [{{email "email" name "name" band_name "band_name" city "city"
      province "province" province_other "province_other"
@@ -727,15 +759,21 @@
      phone "phone" newsletter "newsletter"} :form-params
     session :session :as req}]
   (if-not (= retyped_password new_password)
-    (redirect "/login/?signup=true&nomatch=true")
+    ;; If the submitted passwords do not match, then just redirect to the login page, adding a
+    ;; parameter to the URL to indicate the nature of the problem:
+    (redirect "/login/?nomatch=true")
+    ;; Otherwise, create the user, email the activation id that was thereby generated to the user,
+    ;; and then inform the user of what is happening:
     (let [get-region (fn [region region-other]
                        (if (= region "Other")
                          region-other
                          region))
+          ;; TODO: We need some exception handling and logging
           activation-id (data/create-user! new_password name band_name city
                                            (get-region province province_other)
                                            (get-region country country_other)
                                            phone email newsletter)]
+      (send-activation-email email name (get (:headers req) "host") activation-id)
       (render-html {:title "Activation - Clovertone Music"
                     :sorting [:div#sorting]
                     :contents [:div#contents
@@ -744,15 +782,26 @@
                                 [:p "An email has just been sent to "
                                  [:a {:href (str "mailto:" email)} email]
                                  " with a link to activate your account. Once activated, you will "
-                                 "be able to login. THE LINK IS " [:a {:href (str "/activation/" activation-id)}
-                                                                   "THIS."]]]]
+                                 "be able to login. If you do not receive the email, please "
+                                 ;; TODO: Define this email address somewhere central (e.g., a markdown page)
+                                 "contact us at "
+                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
                     :charts [:div#charts]
                     :status [:div#status]}))))
 
 (defn process-and-render-activation
   [request]
+  ;; TODO: We need some exception handling and logging
   (let [activation-id (:activation-id (:params request))]
-    (data/activate-user! activation-id)))
+    (data/activate-user! activation-id))
+  (render-html {:title "Activation - Clovertone Music"
+                :sorting [:div#sorting]
+                :contents [:div#contents
+                           [:div#login.window
+                            [:h2 "Your account has been successfully activated."]
+                            [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
+                :charts [:div#charts]
+                :status [:div#status]}))
 
 (defn get-logout
   [{session :session}]
