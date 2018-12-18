@@ -882,12 +882,12 @@ input[type="password"] {
   margin-left: 5px;
   margin-right: 5px;
 }
-#returning_user_passwd,
+#returning_user_password,
 #returning_user_submit,
 #returning_user_forgot {
   display: none;
 }
-#returning_user_radio:checked ~ #returning_user_passwd {
+#returning_user_radio:checked ~ #returning_user_password {
   display: inline-block;
 }
 #returning_user_radio:checked ~ #returning_user_submit {

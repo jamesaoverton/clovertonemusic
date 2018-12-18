@@ -7,7 +7,8 @@
             [ring.util.response :refer [response redirect]]
             [postal.core :refer [send-message]]
             [clojure.string :as string]
-            [clovertonemusic.data :as data]))
+            [clovertonemusic.data :as data]
+            [clovertonemusic.utils :as utils]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -153,12 +154,12 @@
               (->> :price chart
                    (re-matches #"\$(\d+\.\d\d)")
                    (second)
-                   (Float/parseFloat)))
+                   (utils/parse-number)))
             (get-numeric-duration [chart]
               (->> :duration chart
                    (re-matches #"(\d+)s")
                    (second)
-                   (Integer/parseInt)))]
+                   (utils/parse-number)))]
 
       (let [sort-key (keyword (first (string/split sort-param #":")))
             sort-dir (second (string/split sort-param #":"))
@@ -168,7 +169,7 @@
               (= sort-key :price) (sort-by get-numeric-price < charts)
               (= sort-key :duration) (sort-by get-numeric-duration < charts)
               ;; Sorting is done numerically for :grade and :tempo:
-              (some #(= sort-key %) [:grade :tempo]) (sort-by #(Integer/parseInt (sort-key %)) < charts)
+              (some #(= sort-key %) [:grade :tempo]) (sort-by #(utils/parse-number (sort-key %)) < charts)
               ;; Sort is done in the default way in all other cases:
               :else (sort-by sort-key charts))]
         (if (= sort-dir "desc")
@@ -188,7 +189,7 @@
 (defn construct-readable-duration
   [seconds-string]
   ;; We can assume that the duration ends in 's'
-  (let [total-seconds (Integer/parseInt (string/replace seconds-string #"s$" ""))
+  (let [total-seconds (utils/parse-number (string/replace seconds-string #"s$" ""))
         minutes (quot total-seconds 60)
         seconds (mod total-seconds 60)]
     (format "%d:%02d" minutes seconds)))
@@ -481,7 +482,7 @@
                  (->> data/catalogue
                       :charts
                       (filter #(not= (:featured %) "0"))
-                      (sort-by #(Integer/parseInt (:featured %)))
+                      (sort-by #(utils/parse-number (:featured %)))
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
@@ -574,7 +575,7 @@
   (str
    "var toggle_login_form = function(section) {"
    "  if (section === 0) {"
-   "    document.getElementById(\"returning_user_passwd_input\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"returning_user_password_input\").setAttribute(\"required\", \"\");"
    "    document.getElementById(\"new_user_name\").removeAttribute(\"required\");"
    "    document.getElementById(\"new_user_band\").removeAttribute(\"required\");"
    "    document.getElementById(\"new_user_city\").removeAttribute(\"required\");"
@@ -586,11 +587,11 @@
    "    if (document.getElementById(\"new_user_country\").value === \"Other\") {"
    "      document.getElementById(\"new_user_country_other\").removeAttribute(\"required\");"
    "    }"
-   "    document.getElementById(\"new_user_new_passwd\").removeAttribute(\"required\");"
-   "    document.getElementById(\"new_user_retyped_passwd\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_new_password\").removeAttribute(\"required\");"
+   "    document.getElementById(\"new_user_retyped_password\").removeAttribute(\"required\");"
    "  }"
    "  else if (section === 1) {"
-   "    document.getElementById(\"returning_user_passwd_input\").removeAttribute(\"required\");"
+   "    document.getElementById(\"returning_user_password_input\").removeAttribute(\"required\");"
    "    document.getElementById(\"new_user_name\").setAttribute(\"required\", \"\");"
    "    document.getElementById(\"new_user_band\").setAttribute(\"required\", \"\");"
    "    document.getElementById(\"new_user_city\").setAttribute(\"required\", \"\");"
@@ -602,8 +603,8 @@
    "    if (document.getElementById(\"new_user_country\").value === \"Other\") {"
    "      document.getElementById(\"new_user_country_other\").setAttribute(\"required\", \"\");"
    "    }"
-   "    document.getElementById(\"new_user_new_passwd\").setAttribute(\"required\", \"\");"
-   "    document.getElementById(\"new_user_retyped_passwd\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_new_password\").setAttribute(\"required\", \"\");"
+   "    document.getElementById(\"new_user_retyped_password\").setAttribute(\"required\", \"\");"
    "  }"
    "};"
    ""
@@ -664,11 +665,11 @@
                                [:td [:input#new_user_phone.new_user_info {:name "phone" :type "text"}]]]
                               [:tr
                                [:td "Enter a new password *"]
-                               [:td [:input#new_user_new_passwd.new_user_info
+                               [:td [:input#new_user_new_password.new_user_info
                                      {:name "new_password" :type "password"}]]]
                               [:tr
                                [:td "Re-type password *"]
-                               [:td [:input#new_user_retyped_passwd.new_user_info
+                               [:td [:input#new_user_retyped_password.new_user_info
                                      {:name "retyped_password" :type "password"}]]]
                               [:tr
                                [:td "Sign up to our newsletter"]
@@ -690,8 +691,8 @@
                               [:input#returning_user_radio {:name "user" :type "radio" :checked true
                                                             :onclick "toggle_login_form(0)"}]
                               [:label "I am a returning user"]
-                              [:label#returning_user_passwd "&nbsp;and my password is&nbsp;"
-                               [:input#returning_user_passwd_input
+                              [:label#returning_user_password "&nbsp;and my password is&nbsp;"
+                               [:input#returning_user_password_input
                                 {:name "password" :type "password" :required true}]]
                               [:br]
                               [:br]
@@ -713,14 +714,14 @@
                 :user-status (user-status (:user request))}))
 
 (defn send-activation-email
-  [email name server activation-id]
+  [email name server activationid]
   ;; TODO: Get the contents of the activation email from a markdown file.
   (let [body (str "Dear " name ",\n\n"
                   "Please click on the link below to verify your email address and activate your "
                   "Clovertone account. If you cannot click on the link, please copy and paste it "
                   "into your browser.\n\n"
                   ;; TODO: Change this to https eventually:
-                  "http://" server "/activation/" activation-id "\n\n"
+                  "http://" server "/activation/" activationid "\n\n"
                   "If you did not request to sign up for a Clovertone account, you can safely "
                   "ignore this message.\n\n"
                   "Sincerely,\n"
@@ -755,17 +756,17 @@
                        (if (= region "Other")
                          region-other
                          region))
-          activation-id (data/create-user! new_password name band_name city
-                                           (get-region province province_other)
-                                           (get-region country country_other)
-                                           phone email newsletter)]
-      (if-not activation-id
+          activationid (data/create-user! new_password name band_name city
+                                          (get-region province province_other)
+                                          (get-region country country_other)
+                                          phone email newsletter)]
+      (if-not activationid
         ;; If activation id is nil it is because the email already exists in the db. In this case
         ;; just redirect to the login page:
         (redirect (str "/login/?already-exists=" email))
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
-          (send-activation-email email name (get (:headers request) "host") activation-id)
+          (send-activation-email email name (get (:headers request) "host") activationid)
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents
@@ -774,8 +775,8 @@
                         [:p "An email has just been sent to "
                          [:a {:href (str "mailto:" email)} email]
                          " with a link to activate your account. Once activated, you "
-                         "will be able to login. If you do not receive the email, "
-                         "please contact us at "
+                         "will be able to login. Note: the email may have gone to your \"junk\" "
+                         "email folder. If you do not receive the email, please contact us at "
                          ;; TODO: Define this email address somewhere central
                          ;; (e.g., a markdown page)
                          [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
@@ -783,8 +784,8 @@
 
 (defn process-and-render-activation
   [request]
-  (let [activation-id (:activation-id (:params request))]
-    (if (data/activate-user! activation-id)
+  (let [activationid (:activationid (:params request))]
+    (if (data/activate-user! activationid)
       ;; If the activation was successful, direct the user to login:
       (render-html {:title "Activation - Clovertone Music"
                     :contents [:div#contents
@@ -805,8 +806,7 @@
 (defn post-login
   [{{email "email" password "password"} :form-params
     session :session :as req}]
-  (let [user-db (data/get-user-db)
-        user (data/get-user-by-email-and-password user-db email password)]
+  (let [user (data/get-user-by-email-and-password email password)]
     (cond
       (nil? user) (redirect "/login/?notfound=true")
       (= user false) (redirect "/login/?wrongpw=true")

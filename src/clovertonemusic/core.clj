@@ -27,11 +27,10 @@
   "Adds complete information for the user to the request"
   [handler]
   (fn [{userid :identity :as req}]
-    (let [user-db (data/get-user-db)]
-      (->> userid
-           (data/get-user-by-id user-db)
-           (assoc req :user)
-           (handler)))))
+    (->> userid
+         (data/get-user-by-id)
+         (assoc req :user)
+         (handler))))
 
 (defn wrap-exception-handling
   [handler]
@@ -41,7 +40,7 @@
       (catch Exception ex
         (let [error-summary (.getMessage ex)
               detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
-          (log/error detailed-error)
+          (log/error error-summary "\n" detailed-error)
           (html/render-html
            {:title "Internal Server Error"
             :contents [:div#contents
@@ -71,7 +70,7 @@
   (POST "/login/" [] html/post-login)
   (POST "/signup/" [] html/post-signup)
 
-  (GET "/activation/:activation-id" [] html/process-and-render-activation)
+  (GET "/activation/:activationid" [] html/process-and-render-activation)
 
   (GET "/about/:page" [page search]
        (if search

@@ -2,10 +2,12 @@
   (:require [buddy.hashers :as hashers]
             [clojure.tools.logging :as log]
             [clj-logging-config.log4j :as log-config]
+            [clojure.data :refer [diff]]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.string :as string]
-            [java-time :as jtime]))
+            [java-time :as jtime]
+            [clovertonemusic.utils :as utils]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -172,7 +174,7 @@
 
 (def users-file "data/users/users.csv")
 
-(defn get-user-db
+(defn extract-user-db-from-csv
   "Reads the contents of the CSV file containing user information and returns a sequence
   of zipmaps for each user record"
   []
@@ -187,115 +189,142 @@
                                             (apply array-map)))]
       (map generate-array-map data-rows))))
 
+;; Initialize the user database. Note that the user database may change while the server is running,
+;; so we make it an atom. The way this works is as follows:
+;; - We read it from disk into memory at server startup
+;; - All subsequent read accesses are to the memory instance.
+;; - When an update is made (e.g., through create-user! or activate-user!), we update the atom, and
+;;   then write a backup of the atom to disk. Apart from these occasional writes, the .csv file on
+;;   disk is never accessed except the one time at startup.
+(def user-db (atom (extract-user-db-from-csv)))
+
+;; Verify that the user database is in a good state at server startup; fail otherwise:
+(when-not (->> user-db
+               (deref)
+               (map #(:email %))
+               (apply distinct?))
+  (fail "User database contains duplicate emails"))
+
 (defn get-next-user-id
-  "Returns a number 1 larger than the largest user id in the db."
-  [user-db]
-  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
-  ;; save processing if the caller needs to call this and other similar functions repeatedly.
+  "Returns a number 1 larger than the largest user id in the db, in string format"
+  []
   (->> user-db
-       (map (fn [idstring] (Integer/parseInt (:userid idstring))))
+       (deref)
+       (map (fn [idstring] (utils/parse-number (:userid idstring))))
        (apply max)
-       (inc)))
+       (inc)
+       (str)))
 
 (defn get-user-by-id
   "Finds and returns the user in the db corresponding to the given userid"
-  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
-  ;; save processing if the caller needs to call this and other similar functions repeatedly.
-  [user-db userid]
+  [userid]
   (->> user-db
+       (deref)
        (filter #(= (:userid %) userid))
        (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn get-user-by-email
   "Finds and returns the user in the db corresponding to the given email"
-  [user-db email]
-  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
-  ;; save processing if the caller needs to call this and other similar functions repeatedly.
+  [email]
   (->> user-db
+       (deref)
        (filter #(= (:email %) email))
        (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn check-password
   "Returns true if the password is correct, false if not correct, and nil if the user isn't found."
-  [user-db email passwd]
-  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
-  ;; save processing if the caller needs to call this and other similar functions repeatedly.
+  [email password]
   (->> email
-       (get-user-by-email user-db)
+       (get-user-by-email)
        :password
-       (hashers/check passwd)))
+       (hashers/check password)))
 
 (defn get-user-by-email-and-password
   "Returns the record corresponding to the given email if the password is correct,
   or false if the password is incorrect, or nil if the email isn't found."
-  [user-db email passwd]
-  ;; We pass in the user-db from the caller, rather than generating it internally, to potentially
-  ;; save processing if the caller needs to call this and other similar functions repeatedly.
-  (let [password-ok (check-password user-db email passwd)]
+  [email password]
+  (let [password-ok (check-password email password)]
     (cond
       (nil? password-ok) nil
       (not password-ok) false
-      password-ok (get-user-by-email user-db email))))
+      password-ok (get-user-by-email email))))
+
+(defn write-user-db-to-csv
+  []
+  (let [colkeys (->> user-db
+                     (deref)
+                     (first)
+                     (keys))
+        get-values-from-rec (fn [user-rec]
+                              (for [colkey colkeys]
+                                (colkey user-rec)))]
+    (with-open [writer (io/writer users-file)]
+      ;; Write the header row:
+      (csv/write-csv writer [(map name colkeys)])
+      ;; Write the data rows:
+      (doseq [rec (deref user-db)]
+        (csv/write-csv writer [(get-values-from-rec rec)])))))
 
 (defn create-user!
-  "Creates a user with the given informatoin and writes the record to the csv file. If the user
-  already exists, return nothing, otherwise return an activation id that will be used to activate
-  the user"
-  [passwd name band city province country phone email newsletter]
-  ;; Since this function will actually write to the user-db, it is best to fetch it internally
-  ;; rather than accept it as a parameter from the caller.
-  (let [user-db (get-user-db)
-        existing-user (get-user-by-email user-db email)]
+  "Creates a user with the given information and writes the record to the csv file. If the user
+  already exists, returns nothing, otherwise returns an activation id that can be later used to
+  activate the user."
+  [password name band city province country phone email newsletter]
+  (let [existing-user (get-user-by-email email)]
     ;; Only create the user if a record associated with the email doesn't already exist:
     (when-not existing-user
       (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-            userid (get-next-user-id user-db)
-            ;; Activation id is composed of the epoch time in ms appended to a randomly generated UUID:
-            activation-id (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
-        ;; Write the user record to the CSV file, indicating the user is not yet activated by placing
-        ;; a 0 in the activated field, and writing an activation id which will be used for later
-        ;; activation. The activation id is then returned to the caller as a convenience.
-        (with-open [writer (io/writer users-file :append true)]
-          (csv/write-csv writer [[userid nil today (hashers/derive passwd) name band
-                                  city province country phone email newsletter 0 activation-id]]))
-        activation-id))))
+            userid (get-next-user-id)
+            ;; Activation id is the epoch time in ms appended to a randomly generated UUID:
+            activationid (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
+        ;; Write the user record to the user db, indicating the user is not yet activated by placing
+        ;; "0" in the activated field, and writing an activation id which will be used for later
+        ;; activation. The activation id is then returned to the caller as a convenience. We use an
+        ;; array map to keep the fields in the same order in which they were inserted:
+        (swap! user-db conj (array-map
+                             :userid userid :lastaccessed nil :dateadded today
+                             :password (hashers/derive password) :name name :band band :city city
+                             :province province :country country :phone phone :email email
+                             :newsletter newsletter :activated "0" :activationid activationid))
+        ;; Persist the user-db to disk (in case of a crash):
+        (write-user-db-to-csv)
+        ;; Finally return the activation id:
+        activationid))))
 
 (defn activate-user!
-  "Activates the user corresponding to the given activation id"
-  [activation-id]
-  ;; Since this function will actually write to the user-db, it is best to fetch it internally
-  ;; rather than accept it as a parameter from the caller.
-  (let [user-db (get-user-db)
-        colnames (->> user-db (first) (keys) (map name))
-        get-values-from-rec (fn [user-rec] (for [col colnames]
-                                             ((keyword col) user-rec)))
-        matches-activation-id (fn [row] (and
-                                         (= (:activated row) "0")
-                                         (= (:activationid row) activation-id)))
-        ;; There will always only ever be one matching user at most:
-        {matching-user-recs true, other-user-recs false} (->> user-db
-                                                              (group-by matches-activation-id))
-        ;; We will mark it as activated and delete the activation id:
-        new-user-record (merge (first matching-user-recs) {:activated 1 :activationid nil})]
+  "Activates the user corresponding to the given activation id. If the user is activated, returns
+  true, otherwise if the activation id is not found, returns false."
+  [activationid]
+  (let [matches-activationid (fn [row]
+                               (and (= (:activated row) "0")
+                                    (= (:activationid row) activationid)))
+        mark-as-activated (fn [dereferenced-user-db]
+                            (let [{matching-user-recs true, other-user-recs false}
+                                  (->> user-db
+                                       (deref)
+                                       (group-by matches-activationid))
+                                  ;; There will always only ever be one matching user at most:
+                                  potential-new-user-record (merge
+                                                             (first matching-user-recs)
+                                                             {:activated "1" :activationid nil})]
+                              ;; Return the database records including the modified record
+                              ;; if it exists:
+                              (if (= (count matching-user-recs) 0)
+                                other-user-recs
+                                (conj other-user-recs potential-new-user-record))))
+        old-db-contents (deref user-db)]
 
-    (if (= (count matching-user-recs) 0)
-      ;; If there are no matching records, return false
-      false
-      (do
-        ;; Otherwise, write everything back to the CSV file; first the header, then the non-matching
-        ;; records, then the new record. Finally, return true:
-        (with-open [writer (io/writer users-file)]
-          (csv/write-csv writer [colnames])
-          (doseq [user-rec other-user-recs]
-            (csv/write-csv writer [(get-values-from-rec user-rec)]))
-          (csv/write-csv writer [(get-values-from-rec new-user-record)]))
-        true))))
-
-
-;; Verify that the user database is in a good state:
-(let [user-db (get-user-db)]
-(when-not (apply distinct? (map #(:email %) user-db))
-  (fail "User database contains duplicate emails")))
+    ;; Update the user db to mark the user as activated:
+    (swap! user-db mark-as-activated)
+    ;; Now compare the old and new db contents. If there are differences, persist the database to
+    ;; disk and return true; otherwise return false. If there is no difference this is because
+    ;; the activation id was not found.
+    (let [differences (diff (sort-by :userid old-db-contents) (sort-by :userid (deref user-db)))]
+      (if (or (first differences) (second differences))
+        (do
+          (write-user-db-to-csv)
+          true)
+        false))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory
