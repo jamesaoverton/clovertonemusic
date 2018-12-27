@@ -726,16 +726,17 @@
                   "ignore this message.\n\n"
                   "Sincerely,\n"
                   "The Clovertone team")
-        ;; TODO: Right now the message is sent locally through UNIX sendmail on my system. To send
-        ;; the email via an email server, an extra argument (conn) needs to be provided to
-        ;; send-message: (send-message [conn] <message>), where conn is a map defining the
-        ;; connection options and credentials required to connect to the email server.
+        ;; conn holds the connection parameters for the smtp server. Setting it to nil results in
+        ;; delivery through the local mail system.
+        ;; TODO: the SMTP server parameters should be set inside a config or markdown file and
+        ;; pulled from there.
         ;; See: https://github.com/drewr/postal and http://www.rkn.io/2014/03/20/clojure-cookbook-email/
-        send-status (send-message {:from "activation@clovertonemusic.com"
-                                   :to [email]
-                                   :reply-to "info@clovertonemusic.com"
-                                   :subject "Activate your clovertonemusic.com account"
-                                   :body body})]
+        conn nil
+        send-status (send-message conn {:from "activation@clovertonemusic.com"
+                                        :to [email]
+                                        :reply-to "info@clovertonemusic.com"
+                                        :subject "Activate your clovertonemusic.com account"
+                                        :body body})]
     (when (not= (:error send-status) :SUCCESS)
       (log/error "Sending of email to" email "did not succeed (" send-status ")"))))
 
@@ -813,8 +814,10 @@
       :else (->> user
                  ;; If the credentials are ok, associate a session to the request that
                  ;; incorporates an :identity field associated with the user, and redirect
-                 ;; to the home page:
+                 ;; to the home page. The contents of the :identity field are whatever is returned
+                 ;; by data/update-user-last-accessed-time!
                  :userid
+                 (data/update-user-last-accessed-time!)
                  (assoc session :identity)
                  (assoc (redirect "/") :session)))))
 

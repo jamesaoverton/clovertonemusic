@@ -300,8 +300,7 @@
                                     (= (:activationid row) activationid)))
         mark-as-activated (fn [dereferenced-user-db]
                             (let [{matching-user-recs true, other-user-recs false}
-                                  (->> user-db
-                                       (deref)
+                                  (->> dereferenced-user-db
                                        (group-by matches-activationid))
                                   ;; There will always only ever be one matching user at most:
                                   potential-new-user-record (merge
@@ -325,6 +324,31 @@
           (write-user-db-to-csv)
           true)
         false))))
+
+(defn update-user-last-accessed-time!
+  "Updates the last accessed time of the user in the db with the given userid"
+  [userid]
+  (let [current-time (->> (jtime/offset-date-time) (jtime/format "yyyy-MM-dd HH:mmZ"))
+        update-access-time (fn [dereferenced-user-db]
+                             (let [{matching-user-recs true, other-user-recs false}
+                                   (->> dereferenced-user-db
+                                        (group-by (fn [row] (= userid (:userid row)))))
+                                   ;; There will always only ever be one matching user at most:
+                                   potential-new-user-record (merge
+                                                              (first matching-user-recs)
+                                                              {:lastaccessed current-time})]
+                               ;; Return the database records including the modified record if it
+                               ;; exists:
+                               (if (= (count matching-user-recs) 0)
+                                 other-user-recs
+                                 (conj other-user-recs potential-new-user-record))))
+        old-db-contents (deref user-db)]
+
+    ;; Update the user db with the current time as the last accessed time
+    (swap! user-db update-access-time))
+  ;; Persist the database to disk, and then return the userid back to the caller:
+  (write-user-db-to-csv)
+  userid)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory
