@@ -51,8 +51,11 @@
                         [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
             :page-status 500}))))))
 
-(defroutes user-routes
-  (GET "/" [] html/render-user))
+;; Subroutes for account and purchase management:
+(defroutes account-routes
+  (GET "/" [] html/render-account))
+(defroutes purchases-routes
+  (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 
 (defroutes all-routes
   ;; To test authentication:
@@ -60,10 +63,13 @@
   ;;                                                          "password" "jim"}})
   ;; This yields the output: {:status 302, :headers {"Location" "/", "Set-Cookie" ("<...>")}, :body ""}
   ;; Then send:
-  ;; (app {:request-method :get :uri "/user/" :headers {"cookie" "<...>"}}))
+  ;; (app {:request-method :get :uri "/account/" :headers {"cookie" "<...>"}}))
 
-  (context "/user" []
-           (restrict user-routes {:handler is-authenticated}))
+  ;; Account and purchases pages are protected; only authenticated users may access them:
+  (context "/account" []
+           (restrict account-routes {:handler is-authenticated}))
+  (context "/purchases" []
+           (restrict purchases-routes {:handler is-authenticated}))
 
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)

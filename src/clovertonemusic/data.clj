@@ -19,6 +19,20 @@
   (log/fatal errorstr)
   (System/exit 1))
 
+(defn simple-extract-db-from-csv
+  "Reads the contents of the given CSV file and returns a sequence of array maps for each record"
+  [csv-file]
+  (with-open [reader (io/reader csv-file)]
+    (let [[header & data-rows] (doall (csv/read-csv reader))
+          header-keywords (map keyword header)
+          ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
+          ;; that will keep the columns in the original order that they were in in the file.
+          generate-array-map (fn [row] (->> row
+                                            (map vector header-keywords)
+                                            (flatten)
+                                            (apply array-map)))]
+      (map generate-array-map data-rows))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the charts catalogue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -174,21 +188,6 @@
 
 (def users-file "data/users/users.csv")
 
-(defn extract-user-db-from-csv
-  "Reads the contents of the CSV file containing user information and returns a sequence
-  of zipmaps for each user record"
-  []
-  (with-open [reader (io/reader users-file)]
-    (let [[header & data-rows] (doall (csv/read-csv reader))
-          header-keywords (map keyword header)
-          ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
-          ;; that will keep the columns in the original order that they were in in the file.
-          generate-array-map (fn [row] (->> row
-                                            (map vector header-keywords)
-                                            (flatten)
-                                            (apply array-map)))]
-      (map generate-array-map data-rows))))
-
 ;; Initialize the user database. Note that the user database may change while the server is running,
 ;; so we make it an atom. The way this works is as follows:
 ;; - We read it from disk into memory at server startup
@@ -196,7 +195,7 @@
 ;; - When an update is made (e.g., through create-user! or activate-user!), we update the atom, and
 ;;   then write a backup of the atom to disk. Apart from these occasional writes, the .csv file on
 ;;   disk is never accessed except the one time at startup.
-(def user-db (atom (extract-user-db-from-csv)))
+(def user-db (atom (simple-extract-db-from-csv users-file)))
 
 ;; Verify that the user database is in a good state at server startup; fail otherwise:
 (when-not (->> user-db
@@ -349,6 +348,37 @@
   ;; Persist the database to disk, and then return the userid back to the caller:
   (write-user-db-to-csv)
   userid)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to purchases in the data directory
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def purchases-path "data/purchases")
+(def purchases-db-file (str purchases-path "/purchases.csv"))
+
+;; Initialize the purchases database. Note that the user database may change while the server is
+;; running, so we make it an atom. Updates are handled similarly to the users database (see above)
+(def purchases-db (atom (simple-extract-db-from-csv purchases-db-file)))
+
+(defn get-user-purchases
+  "Returns a sequence of maps for each of the given user's purchases, containing the fields :userid,
+  :uuid, and :epoch-ms, which are obtained by parsing the directory names in the purchases/
+  directory. Each directory name is of the form '<userid>:<uuid>:<epoch-ms>' where <userid> is
+  the user's id, <uuid> is randomly generated when the purchase is made, and <epoch-ms> is the
+  epoch time in milliseconds at the time the purchase was made."
+  [userid]
+  (->> purchases-db
+       (deref)
+       (filter #(= (:userid %) userid))))
+
+
+(defn get-full-purchase-path
+  "If the given relative path of a purchase can be found in the purchases directory, then return
+  its absolute path, otherwise return nil"
+  [purchase-dir purchase-file]
+  (let [full-purchase-path (str purchases-path "/" purchase-dir "/" purchase-file)]
+    (when (.exists (io/as-file full-purchase-path))
+      full-purchase-path)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory

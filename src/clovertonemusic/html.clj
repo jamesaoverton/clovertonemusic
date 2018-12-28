@@ -4,7 +4,7 @@
             [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
             [ring.util.codec :as codec]
-            [ring.util.response :refer [response redirect]]
+            [ring.util.response :refer [file-response redirect]]
             [postal.core :refer [send-message]]
             [clojure.string :as string]
             [clovertonemusic.data :as data]
@@ -95,14 +95,13 @@
              [:div#footer
               [:ul
                [:li [:a {:href "/about/privacy-policy"} "Privacy Policy\n"]]
-               [:li "© 2017 Clovertone Music"]]]]
+               [:li "© 2019 Clovertone Music"]]]]
             ]])})
 
 (defn user-status
   [user]
   (if user
-    ;; TODO: Implement account management
-    [:ul [:li [:a {:href "/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
+    [:ul [:li [:a {:href "/account/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
     [:ul [:li [:a {:href "/login/"} "Log In / Sign Up"]]]))
 
 (defn get-sorting
@@ -488,9 +487,60 @@
                       (conj [:div#list]))]
         :user-status (user-status (:user request))}))))
 
-(defn render-user
+(defn render-account
   [request]
-  request)
+  (let [user-purchases (->> request
+                            :user
+                            :userid
+                            data/get-user-purchases
+                            (sort-by #(:date %))
+                            (reverse))
+        make-purchase-row (fn [purchase]
+                           (let [chart (->> data/catalogue
+                                            :charts
+                                            (filter #(= (:filename %) (:chart purchase)))
+                                            (first))
+                                 composer (->> data/catalogue
+                                               :composers
+                                               (filter #(= (:composer-name %) (:composer chart)))
+                                               (first))
+                                 grade (->> data/catalogue
+                                            :grades
+                                            (filter #(= (:grade-number %) (:grade chart)))
+                                            (first))]
+                             [:tr
+                              [:td (:date purchase)]
+                              [:td [:a {:href (str "/charts/" (:filename chart))}
+                                    (:chart-name chart)]]
+                              [:td [:a {:href (str "/composers/" (:filename composer))}
+                                    (:composer chart)]]
+                              [:td (:grade-name grade)]
+                              [:td (:subgenre chart)]
+                              [:td [:table
+                                    [:tr
+                                     [:td
+                                      [:span.download
+                                       [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                       (:filename chart) ".score.pdf")} "Score"]]
+                                      [:span.download
+                                       [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                       (:filename chart) ".parts.pdf")} "Parts"]]]]]]]))]
+
+    (render-html
+     {:title "Account - Clovertone Music"
+      :contents [:div#account.window
+                 [:h2 "Account Information"]
+                 [:h3 "Purchase History"]
+                 [:div#purchase_history
+                  [:table (map make-purchase-row user-purchases)]]]
+      :user-status (user-status (:user request))})))
+
+(defn render-purchase-file
+  "Render the requested purchase file if it exists"
+  [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
+  (let [full-purchase-path (data/get-full-purchase-path purchase-dir purchase-file)]
+    (when full-purchase-path
+      (file-response full-purchase-path))))
 
 (defn generate-country-dropdown
   []

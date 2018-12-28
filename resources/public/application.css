@@ -912,6 +912,14 @@ input[type="password"] {
   margin-left: 10px;
   margin-right: 10px;
 }
+#purchase_history {
+  overflow-x:auto;
+}
+#purchase_history th, td {
+  text-align: left;
+  padding-top: .25em;
+  padding-bottom: .25em;
+}
 #purchases {
   width: 90%;
   margin: 0 auto;
