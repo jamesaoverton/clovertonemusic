@@ -677,10 +677,18 @@
                            [:form.login_form {:action "/login/" :method "post"}
                             [:p#login_email
                              [:label "My email address is *"]
-                             [:input {:name "email" :type "email" :required true}]]
+                             [:input {:name "email" :type "email" :required true
+                                      ;; Suppress enter in this input element. This is because there
+                                      ;; are two submit buttons in this form, and we want to force
+                                      ;; the user to explicitly click or press enter on one of them.
+                                      ;; If we allow enter in other fields, it will select the first
+                                      ;; one which may not be the one we want.
+                                      :onkeydown "return (event.keyCode!=13);"}]]
                             [:p
-                             [:input#new_user_radio {:name "user" :type "radio"
-                                                     :onclick "toggle_login_form(1)"}]
+                             [:input#new_user_radio
+                              {:name "user" :type "radio" :onclick "toggle_login_form(1)"
+                               ;; suppress enter in this input element (see above):
+                               :onkeydown "return (event.keyCode!=13);"}]
                              [:label "I am a new user"]
                              [:br]
                              [:table#new_user_form_table
@@ -692,7 +700,9 @@
                                [:td]
                                [:td [:input#new_user_country_other.new_user_info
                                      {:name "country_other" :type "text" :disabled true
-                                      :placeholder "Specify if Other"}]]]
+                                      :placeholder "Specify if Other"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Province/State *"]
                                [:td (generate-province-dropdown)]]
@@ -700,27 +710,45 @@
                                [:td]
                                [:td [:input#new_user_province_other.new_user_info
                                      {:name "province_other" :type "text" :disabled true
-                                      :placeholder "Specify if Other"}]]]
+                                      :placeholder "Specify if Other"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "City *"]
-                               [:td [:input#new_user_city.new_user_info {:name "city" :type "text"}]]]
+                               [:td [:input#new_user_city.new_user_info
+                                     {:name "city" :type "text"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Name *"]
-                               [:td [:input#new_user_name.new_user_info {:name "name" :type "text"}]]]
+                               [:td [:input#new_user_name.new_user_info
+                                     {:name "name" :type "text"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "School or band name *"]
-                               [:td [:input#new_user_band.new_user_info {:name "band_name" :type "text"}]]]
+                               [:td [:input#new_user_band.new_user_info
+                                     {:name "band_name" :type "text"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Phone number"]
-                               [:td [:input#new_user_phone.new_user_info {:name "phone" :type "text"}]]]
+                               [:td [:input#new_user_phone.new_user_info
+                                     {:name "phone" :type "text"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Enter a new password *"]
                                [:td [:input#new_user_new_password.new_user_info
-                                     {:name "new_password" :type "password"}]]]
+                                     {:name "new_password" :type "password"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Re-type password *"]
                                [:td [:input#new_user_retyped_password.new_user_info
-                                     {:name "retyped_password" :type "password"}]]]
+                                     {:name "retyped_password" :type "password"
+                                      ;; suppress enter in this input element (see above):
+                                      :onkeydown "return (event.keyCode!=13);"}]]]
                               [:tr
                                [:td "Sign up to our newsletter"]
                                [:td [:select#new_user_newsletter.select.new_user_info {:name "newsletter"}
@@ -738,12 +766,16 @@
                                                " is already associated with an account")])]
                              [:hr]
                              [:p#returning_user_info
-                              [:input#returning_user_radio {:name "user" :type "radio" :checked true
-                                                            :onclick "toggle_login_form(0)"}]
+                              [:input#returning_user_radio
+                               {:name "user" :type "radio" :checked true :onclick "toggle_login_form(0)"
+                                ;; suppress enter in this input element (see above):
+                                :onkeydown "return (event.keyCode!=13);"}]
                               [:label "I am a returning user"]
                               [:label#returning_user_password "&nbsp;and my password is&nbsp;"
                                [:input#returning_user_password_input
-                                {:name "password" :type "password" :required true}]]
+                                {:name "password" :type "password" :required true
+                                 ;; suppress enter in this input element:
+                                 :onkeydown "return (event.keyCode!=13);"}]]
                               [:br]
                               [:br]
                               [:input#returning_user_submit {:type "submit"
