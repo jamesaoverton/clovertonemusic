@@ -15,8 +15,8 @@
  :level :info)
 
 (defn render-html
-  "Wraps the four parameters passed as arguments in the generic HTML code that is used for every
-  page in Clovertone."
+  "Main template for HTML page generation. Wraps the four parameters passed as arguments in the
+  generic HTML code that is used for every page in Clovertone."
   [{title :title, sorting :sorting, contents :contents, charts :charts, user-status :user-status,
     page-status :page-status, :or {sorting [:div#sorting]
                                    contents [:div#contents]
@@ -99,12 +99,17 @@
             ]])})
 
 (defn user-status
+  "Generates the 'user status' links on clovertone pages. Depending on whether the given user
+  parameter is nil or not, either links to the account and logout routes are generated, or a
+  link to the login page."
   [user]
   (if user
     [:ul [:li [:a {:href "/account/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
     [:ul [:li [:a {:href "/login/"} "Log In / Sign Up"]]]))
 
 (defn get-sorting
+  "Generates the links and arrows used for sorting entries on clovertone pages. If page-params is
+  supplied, then these are appended to each of the sort links as URL parameters."
   ([page-params]
    ;; page-params (optional) is a list representing whatever other page parameters were present
    ;; prior to the sort request (e.g. ["search=searchstr" "president=Trump" ...])
@@ -144,6 +149,8 @@
    (get-sorting nil)))
 
 (defn sort-charts
+  "Sorts the given sequence of charts by the given sort parameter, where the latter is of the form
+  <param>:<asc|desc>. E.g. tempo:asc to sort by tempo in ascending order."
   [sort-param charts]
   (if-not sort-param
     ;; If no sort-parameter has been given, just return the charts back as is:
@@ -176,6 +183,8 @@
           ascending-charts)))))
 
 (defn construct-email-to-clovertone
+  "Constructs an email inquiring about the given chart, using the email parameter as a key for
+  searching through the markdown pages for the template corresponding to that parameter."
   [email chart-name]
   (let [email-contents (data/get-email-contents email)]
     (str "mailto:" (->> :to email-contents
@@ -186,6 +195,7 @@
                        (codec/url-encode)))))
 
 (defn construct-readable-duration
+  "Converts a string of the form Ns (e.g. 120s) to one of the form MM:ss (e.g. 2:00)."
   [seconds-string]
   ;; We can assume that the duration ends in 's'
   (let [total-seconds (utils/parse-number (string/replace seconds-string #"s$" ""))
@@ -194,6 +204,7 @@
     (format "%d:%02d" minutes seconds)))
 
 (defn chart-to-html
+  "Converts a given chart catalogue entry to a HTML div"
   [chart]
   (let [number (:chart-number chart)
         price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
@@ -260,6 +271,7 @@
         [:td (:tempo chart)]]]]]))
 
 (defn render-search
+  "Renders the results of a search request"
   [request]
   (let [search-string (:search (:params request))
         search-string-in-chart
@@ -307,18 +319,20 @@
                     (conj [:div#list]))]
       :user-status (user-status (:user request))})))
 
-(defn tweak-about-page
-  [page-component]
-  (if (= page-component :div)
-    (keyword "div#content")
-    (if (= (first page-component) :h1)
-      (let [[h1 & rest] page-component]
-        (vec (concat [(keyword (str "h1" ".title"))] rest)))
-      page-component)))
-
 (defn generate-about-contents
+  "Generates the contents of the given about page based on the markdown file in the data directory
+  corresponding to that page."
   [about-page user-info]
-  (let [contents (->> about-page
+  (let [tweak-about-page (fn [page-component]
+                           ;; If the given page component is a H1 element, then assign it the
+                           ;; class 'title'.
+                           (if (= page-component :div)
+                             (keyword "div#content")
+                             (if (= (first page-component) :h1)
+                               (let [[h1 & rest] page-component]
+                                 (vec (concat [(keyword (str "h1" ".title"))] rest)))
+                               page-component)))
+        contents (->> about-page
                       (data/get-about-page-contents)
                       (m2h/md->hiccup)
                       (m2h/component)
@@ -333,6 +347,8 @@
      :user-status (user-status user-info)}))
 
 (defn render-about
+  "Renders the about page specified in the request. If the page is not found, return nil which
+  should result in a 404."
   [request]
   (let [about-page (:page (:params request))]
     (try
@@ -341,12 +357,14 @@
       (catch java.io.FileNotFoundException ex))))
 
 (defn render-charts
+  "Generates the charts page, for either all charts or for a specific chart."
   [request]
   (let [chart (:page (:params request))
         chart-catentry (->> data/catalogue
                             :charts
                             (filter #(= (:filename %) chart))
                             (first))]
+    ;; If a catalogue entry is found for the requested chart, then render it:
     (if-not (nil? chart-catentry)
       (render-html
        {:title (str (:chart-name chart-catentry) " - Clovertone Music")
@@ -357,6 +375,8 @@
                         (map chart-to-html)
                         (conj [:div#list]))]
         :user-status (user-status (:user request))})
+      ;; Otherwise if there was no requested chart, render all charts. If, on the other hand, there
+      ;; was a requested chart but no corresponding catalogue entry, then the result will be a 404.
       (when (nil? chart)
         (render-html
          {:title "All Charts - Clovertone Music"
@@ -374,12 +394,15 @@
           :user-status (user-status (:user request))})))))
 
 (defn render-composers
+  "Renders the composers page, either for a specific composer, or for all of them."
   [request]
   (let [composer (:page (:params request))
         composer-catentry (->> data/catalogue
                                (:composers)
                                (filter #(= (:filename %) composer))
                                (first))]
+    ;; If the composer is found in the catalogue, render it. Otherwise if no composer was specified
+    ;; render all composers, otherwise a 404 will be returned.
     (if-not (nil? composer-catentry)
       (render-html
        {:title (str (:composer-name composer-catentry) " - Clovertone Music")
@@ -419,6 +442,7 @@
           :user-status (user-status (:user request))})))))
 
 (defn render-genres
+  "Render the genres page for the genre specified in the request."
   [request]
   (let [genre (:page (:params request))
         genre-catentry (->> data/catalogue
@@ -443,6 +467,7 @@
         :user-status (user-status (:user request))}))))
 
 (defn render-grades
+  "Render the grades page for the grade specified in the request."
   [request]
   (let [grade (:page (:params request))
         grade-catentry (->> data/catalogue
@@ -467,6 +492,7 @@
         :user-status (user-status (:user request))}))))
 
 (defn render-root
+  "Renders the root page whenever either no route or the /index route is specified"
   [request]
   (let [rootpg (:page (:params request))]
     (when (or (nil? rootpg) (= "index" rootpg))
@@ -487,140 +513,56 @@
                       (conj [:div#list]))]
         :user-status (user-status (:user request))}))))
 
-(defn render-account
-  [request]
-  (let [user-purchases (->> request
-                            :user
-                            :userid
-                            data/get-user-purchases
-                            (sort-by #(:date %))
-                            (reverse))
-        make-purchase-row (fn [purchase]
-                           (let [chart (->> data/catalogue
-                                            :charts
-                                            (filter #(= (:filename %) (:chart purchase)))
-                                            (first))
-                                 composer (->> data/catalogue
-                                               :composers
-                                               (filter #(= (:composer-name %) (:composer chart)))
-                                               (first))
-                                 grade (->> data/catalogue
-                                            :grades
-                                            (filter #(= (:grade-number %) (:grade chart)))
-                                            (first))]
-                             [:tr
-                              [:td (:date purchase)]
-                              [:td [:a {:href (str "/charts/" (:filename chart))}
-                                    (:chart-name chart)]]
-                              [:td [:a {:href (str "/composers/" (:filename composer))}
-                                    (:composer chart)]]
-                              [:td (:grade-name grade)]
-                              [:td (:subgenre chart)]
-                              [:td [:table
-                                    [:tr
-                                     [:td
-                                      [:span.download
-                                       [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                       (:filename chart) ".score.pdf")} "Score"]]
-                                      [:span.download
-                                       [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                       (:filename chart) ".parts.pdf")} "Parts"]]]]]]]))]
-
-    (render-html
-     {:title "Account - Clovertone Music"
-      :contents [:div#account.window
-                 [:h2 "Account Information"]
-                 [:h3 "Purchase History"]
-                 [:div#purchase_history
-                  [:table (map make-purchase-row user-purchases)]]]
-      :user-status (user-status (:user request))})))
-
-(defn render-purchase-file
-  "Render the requested purchase file if it exists"
-  [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
-  (let [full-purchase-path (data/get-full-purchase-path purchase-dir purchase-file)]
-    (when full-purchase-path
-      (file-response full-purchase-path))))
+(def countries ["Canada" "USA"])
+(def provinces ["Alberta" "British Columbia" "Manitoba" "New Brunswick" "Newfoundland and Labrador"
+                "Nova Scotia" "Northwest Territories" "Nunavut" "Ontario" "Quebec" "Saskatchewan"
+                "Yukon" "Alabama" "Alaska" "Arizona" "Arkansas" "California" "Colorado"
+                "Connecticut" "Delaware" "District Of Columbia" "Florida" "Georgia" "Hawaii"
+                "Idaho" "Illinois" "Indiana" "Iowa" "Kansas" "Kentucky" "Louisiana" "Maine"
+                "Maryland" "Massachusetts" "Michigan" "Minnesota" "Mississippi" "Missouri" "Montana"
+                "Nebraska" "Nevada" "New Hampshire" "New Jersey" "New Mexico" "New York"
+                "North Carolina" "North Dakota" "Ohio" "Oklahoma" "Oregon" "Pennsylvania"
+                "Rhode Island" "South Carolina" "South Dakota" "Tennessee" "Texas" "Utah"
+                "Vermont" "Virginia" "Washington" "West Virginia" "Wisconsin""Wyoming"])
 
 (defn generate-country-dropdown
-  []
-  [:select#new_user_country.select.new_user_info
-   {:name "country" :onchange "enable_or_disable_other_field(\"new_user_country_other\", this.value);"}
-   [:option {:value "Canada" :selected "selected"} "Canada"]
-   [:option {:value "USA"} "USA"]
-   [:option {:value "Other"} "Other"]])
+  "Generates a select box with dropdown for Country. If 'Other' is specified this triggers
+  activation of an optional additional field (specified elsewhere). Note that this requires that
+  you add a [:script] tag to the HTML page which defines the javascript function used to activate
+  the additional field. If called with the optional current-country parameter, then that country
+  is selected by default."
+  ([type current-country]
+   (let [select-tag (keyword (str "select#" type "_country.select." type "_info"))
+         action (str "enable_or_disable_other_field(\"" type "_country_other\", this.value);")]
+     [select-tag
+      {:name "country" :onchange action}
+      [:option {:value "" :disabled true :selected (nil? current-country)}]
+      [:option {:value "Other" :selected (not-any? #(= current-country %) countries)} "Other"]
+      (for [country countries]
+        [:option {:value country :selected (= current-country country)} country])]))
+  ([type]
+   (generate-country-dropdown type nil)))
 
 (defn generate-province-dropdown
-  []
-  [:select#new_user_province.select.new_user_info
-   {:name "province" :onchange "enable_or_disable_other_field(\"new_user_province_other\", this.value);"}
-   [:option {:value "Other"} "Other"]
-   [:option {:value "Alberta" :selected "selected"} "Alberta"]
-   [:option {:value "British Columbia"} "British Columbia"]
-   [:option {:value "Manitoba"} "Manitoba"]
-   [:option {:value "New Brunswick"} "New Brunswick"]
-   [:option {:value "Newfoundland and Labrador"} "Newfoundland and Labrador"]
-   [:option {:value "Nova Scotia"} "Nova Scotia"]
-   [:option {:value "Northwest Territories"} "Northwest Territories"]
-   [:option {:value "Nunavut"} "Nunavut"]
-   [:option {:value "Ontario"} "Ontario"]
-   [:option {:value "Prince Edward Island"} "Prince Edward Island"]
-   [:option {:value "Quebec"} "Quebec"]
-   [:option {:value "Saskatchewan"} "Saskatchewan"]
-   [:option {:value "Yukon"} "Yukon"]
-   [:option {:value "Alabama"} "Alabama"]
-   [:option {:value "Alaska"} "Alaska"]
-   [:option {:value "Arizona"} "Arizona"]
-   [:option {:value "Arkansas"} "Arkansas"]
-   [:option {:value "California"} "California"]
-   [:option {:value "Colorado"} "Colorado"]
-   [:option {:value "Connecticut"} "Connecticut"]
-   [:option {:value "Delaware"} "Delaware"]
-   [:option {:value "District Of Columbia"} "District Of Columbia"]
-   [:option {:value "Florida"} "Florida"]
-   [:option {:value "Georgia"} "Georgia"]
-   [:option {:value "Hawaii"} "Hawaii"]
-   [:option {:value "Idaho"} "Idaho"]
-   [:option {:value "Illinois"} "Illinois"]
-   [:option {:value "Indiana"} "Indiana"]
-   [:option {:value "Iowa"} "Iowa"]
-   [:option {:value "Kansas"} "Kansas"]
-   [:option {:value "Kentucky"} "Kentucky"]
-   [:option {:value "Louisiana"} "Louisiana"]
-   [:option {:value "Maine"} "Maine"]
-   [:option {:value "Maryland"} "Maryland"]
-   [:option {:value "Massachusetts"} "Massachusetts"]
-   [:option {:value "Michigan"} "Michigan"]
-   [:option {:value "Minnesota"} "Minnesota"]
-   [:option {:value "Mississippi"} "Mississippi"]
-   [:option {:value "Missouri"} "Missouri"]
-   [:option {:value "Montana"} "Montana"]
-   [:option {:value "Nebraska"} "Nebraska"]
-   [:option {:value "Nevada"} "Nevada"]
-   [:option {:value "New Hampshire"} "New Hampshire"]
-   [:option {:value "New Jersey"} "New Jersey"]
-   [:option {:value "New Mexico"} "New Mexico"]
-   [:option {:value "New York"} "New York"]
-   [:option {:value "North Carolina"} "North Carolina"]
-   [:option {:value "North Dakota"} "North Dakota"]
-   [:option {:value "Ohio"} "Ohio"]
-   [:option {:value "Oklahoma"} "Oklahoma"]
-   [:option {:value "Oregon"} "Oregon"]
-   [:option {:value "Pennsylvania"} "Pennsylvania"]
-   [:option {:value "Rhode Island"} "Rhode Island"]
-   [:option {:value "South Carolina"} "South Carolina"]
-   [:option {:value "South Dakota"} "South Dakota"]
-   [:option {:value "Tennessee"} "Tennessee"]
-   [:option {:value "Texas"} "Texas"]
-   [:option {:value "Utah"} "Utah"]
-   [:option {:value "Vermont"} "Vermont"]
-   [:option {:value "Virginia"} "Virginia"]
-   [:option {:value "Washington"} "Washington"]
-   [:option {:value "West Virginia"} "West Virginia"]
-   [:option {:value "Wisconsin"} "Wisconsin"]
-   [:option {:value "Wyoming"} "Wyoming"]])
+  "Generates a select box with dropdown for Province/State. If 'Other' is specified this triggers
+  activation of an optional additional field (specified elsewhere). Note that this requires that
+  you add a [:script] tag to the HTML page which defines the javascript function used to activate
+  the additional field. If called with the optional current-province parameter, then that province
+  is selected by default."
+  ([type current-province]
+   (let [select-tag (keyword (str "select#" type "_province.select." type "_info"))
+         action (str "enable_or_disable_other_field(\"" type "_province_other\", this.value);")]
+     [select-tag
+      {:name "province" :onchange action}
+      [:option {:value "" :disabled true :selected (nil? current-province)}]
+      [:option {:value "Other" :selected (not-any? #(= current-province %) provinces)} "Other"]
+      (for [province provinces]
+        [:option {:value province :selected (= current-province province)} province])]))
+  ([type]
+   (generate-province-dropdown type nil)))
 
-(defn generate-javascript-functions
+(defn js-toggle-login-form
+  "Generates a javascript function to toggle the login form between new and returning user modes"
   []
   (str
    "var toggle_login_form = function(section) {"
@@ -656,7 +598,13 @@
    "    document.getElementById(\"new_user_new_password\").setAttribute(\"required\", \"\");"
    "    document.getElementById(\"new_user_retyped_password\").setAttribute(\"required\", \"\");"
    "  }"
-   "};"
+   "};"))
+
+(defn js-enable-or-disable-other-field
+  "Generates the javascript to enable the optional 'Other' field when 'Other' is specified in the
+  Country or Province dropdowns."
+  []
+  (str
    ""
    "var enable_or_disable_other_field = function(field, selected_option) {"
    "  if (selected_option === \"Other\") {"
@@ -664,12 +612,19 @@
    "    document.getElementById(field).setAttribute(\"required\", \"\");"
    "  }"
    "  else {"
+   "    document.getElementById(field).value = \"\";"
    "    document.getElementById(field).setAttribute(\"disabled\", \"\");"
    "    document.getElementById(field).removeAttribute(\"required\");"
    "  }"
    "};"))
 
+(defn js-suppress-enter
+  "Generates javascript code to suppress the enter key in an input element"
+  []
+  (str "return (event.keyCode!=13);"))
+
 (defn render-login
+  "Renders the login/signup form"
   [request]
   (render-html {:title "Log In or Sign Up - Clovertone Music"
                 :contents [:div#login.window
@@ -678,82 +633,68 @@
                             [:p#login_email
                              [:label "My email address is *"]
                              [:input {:name "email" :type "email" :required true
-                                      ;; Suppress enter in this input element. This is because there
-                                      ;; are two submit buttons in this form, and we want to force
-                                      ;; the user to explicitly click or press enter on one of them.
-                                      ;; If we allow enter in other fields, it will select the first
-                                      ;; one which may not be the one we want.
-                                      :onkeydown "return (event.keyCode!=13);"}]]
+                                      :onkeydown (js-suppress-enter)}]]
                             [:p
                              [:input#new_user_radio
                               {:name "user" :type "radio" :onclick "toggle_login_form(1)"
-                               ;; suppress enter in this input element (see above):
-                               :onkeydown "return (event.keyCode!=13);"}]
+                               :onkeydown (js-suppress-enter)}]
                              [:label "I am a new user"]
                              [:br]
                              [:table#new_user_form_table
                               [:tr [:th] [:td [:br]]]
                               [:tr
                                [:td "Country *"]
-                               [:td (generate-country-dropdown)]]
+                               [:td (generate-country-dropdown "new_user")]]
                               [:tr
                                [:td]
                                [:td [:input#new_user_country_other.new_user_info
                                      {:name "country_other" :type "text" :disabled true
                                       :placeholder "Specify if Other"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Province/State *"]
-                               [:td (generate-province-dropdown)]]
+                               [:td (generate-province-dropdown "new_user")]]
                               [:tr
                                [:td]
                                [:td [:input#new_user_province_other.new_user_info
                                      {:name "province_other" :type "text" :disabled true
                                       :placeholder "Specify if Other"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "City *"]
                                [:td [:input#new_user_city.new_user_info
                                      {:name "city" :type "text"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Name *"]
                                [:td [:input#new_user_name.new_user_info
                                      {:name "name" :type "text"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "School or band name *"]
                                [:td [:input#new_user_band.new_user_info
                                      {:name "band_name" :type "text"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Phone number"]
                                [:td [:input#new_user_phone.new_user_info
                                      {:name "phone" :type "text"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Enter a new password *"]
                                [:td [:input#new_user_new_password.new_user_info
                                      {:name "new_password" :type "password"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Re-type password *"]
                                [:td [:input#new_user_retyped_password.new_user_info
                                      {:name "retyped_password" :type "password"
-                                      ;; suppress enter in this input element (see above):
-                                      :onkeydown "return (event.keyCode!=13);"}]]]
+                                      :onkeydown (js-suppress-enter)}]]]
                               [:tr
                                [:td "Sign up to our newsletter"]
                                [:td [:select#new_user_newsletter.select.new_user_info {:name "newsletter"}
                                      [:option {:value "0"} "No"]
-                                     [:option {:value "1" :selected "selected"} "Yes"]]]]
+                                     [:option {:value "1" :selected true} "Yes"]]]]
                               [:tr [:td] [:td [:br]]]
                               [:tr
                                [:td [:input {:type "submit" :formaction "/signup/"
@@ -768,14 +709,12 @@
                              [:p#returning_user_info
                               [:input#returning_user_radio
                                {:name "user" :type "radio" :checked true :onclick "toggle_login_form(0)"
-                                ;; suppress enter in this input element (see above):
-                                :onkeydown "return (event.keyCode!=13);"}]
+                                :onkeydown (js-suppress-enter)}]
                               [:label "I am a returning user"]
                               [:label#returning_user_password "&nbsp;and my password is&nbsp;"
                                [:input#returning_user_password_input
                                 {:name "password" :type "password" :required true
-                                 ;; suppress enter in this input element:
-                                 :onkeydown "return (event.keyCode!=13);"}]]
+                                 :onkeydown (js-suppress-enter)}]]
                               [:br]
                               [:br]
                               [:input#returning_user_submit {:type "submit"
@@ -792,10 +731,11 @@
                               [:br][:br]
                               ;; TODO: Implement forgot my password
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
-                           [:script (generate-javascript-functions)]]
+                           [:script (str (js-toggle-login-form) "\n" (js-enable-or-disable-other-field))]]
                 :user-status (user-status (:user request))}))
 
 (defn send-activation-email
+  "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name server activationid]
   ;; TODO: Get the contents of the activation email from a markdown file.
   (let [body (str "Dear " name ",\n\n"
@@ -823,6 +763,9 @@
       (log/error "Sending of email to" email "did not succeed (" send-status ")"))))
 
 (defn post-signup
+  "Handles the posting of the contents of the signup form. If the data is valid, a new user is
+  created in the user db and an activation email is sent to the user containing a randomly generated
+  activation id in a link for her to click on."
   [{{email "email" name "name" band_name "band_name" city "city"
      province "province" province_other "province_other"
      country "country" country_other "country_other"
@@ -866,6 +809,7 @@
             :user-status (user-status (:user request))}))))))
 
 (defn process-and-render-activation
+  "Processes an activation request, and renders the HTML containing the result."
   [request]
   (let [activationid (:activationid (:params request))]
     (if (data/activate-user! activationid)
@@ -887,6 +831,7 @@
                     :user-status (user-status (:user request))}))))
 
 (defn post-login
+  "Handles the posting of data when an existing user attempts to login to the system."
   [{{email "email" password "password"} :form-params
     session :session :as req}]
   (let [user (data/get-user-by-email-and-password email password)]
@@ -904,6 +849,151 @@
                  (assoc (redirect "/") :session)))))
 
 (defn get-logout
+  "Handles a logout request by stripping the :identity field from the session parameters and
+  redirecting the user to the login page."
   [{session :session}]
   (assoc (redirect "/login/")
          :session (dissoc session :identity)))
+
+(defn render-purchase-file
+  "Render the requested purchase file (a non-HTML resource) if it exists."
+  [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
+  (let [full-purchase-path (data/get-full-purchase-path purchase-dir purchase-file)]
+    (when full-purchase-path
+      (file-response full-purchase-path))))
+
+(defn render-account
+  "Renders the account page for a given user, displaying the user's purchase history and allowing
+  the user to modify his/her personal information."
+  [request]
+  (let [make-purchase-row (fn [purchase]
+                            (let [chart (->> data/catalogue
+                                             :charts
+                                             (filter #(= (:filename %) (:chart purchase)))
+                                             (first))
+                                  composer (->> data/catalogue
+                                                :composers
+                                                (filter #(= (:composer-name %) (:composer chart)))
+                                                (first))
+                                  grade (->> data/catalogue
+                                             :grades
+                                             (filter #(= (:grade-number %) (:grade chart)))
+                                             (first))]
+                              [:tr
+                               [:td (:date purchase)]
+                               [:td [:a {:href (str "/charts/" (:filename chart))}
+                                     (:chart-name chart)]]
+                               [:td [:a {:href (str "/composers/" (:filename composer))}
+                                     (:composer chart)]]
+                               [:td (:grade-name grade)]
+                               [:td (:subgenre chart)]
+                               [:td
+                                [:table
+                                 [:tr
+                                  [:td
+                                   [:span.download
+                                    [:a
+                                     {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                 (:filename chart) ".score.pdf")} "Score"]]
+                                   [:span.download
+                                    [:a
+                                     {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                 (:filename chart) ".parts.pdf")} "Parts"]]]]]]]))
+        user-purchases (->> request
+                            :user
+                            :userid
+                            data/get-user-purchases
+                            (sort-by #(:date %))
+                            (reverse))
+        user-province (:province (:user request))
+        user-country (:country (:user request))]
+
+    (render-html
+     {:title "Account - Clovertone Music"
+      :contents [:div#account.window
+                 [:h2 "Account Information"]
+                 [:br]
+                 ;; TODO: implement account change:
+                 [:form {:action "/accountchange/" :method "post"}
+                  [:p
+                   [:label "Email&nbsp;"]
+                   [:b (:email (:user request))]
+                   [:br]
+                   ;; TODO: implement email address change:
+                   [:a {:href "/accountemailchange/"} [:small "Change my email address"]]]
+                  [:table#account_form_table
+                   [:tr
+                    [:td "Country"]
+                    [:td (generate-country-dropdown "account" user-country)]]
+                   [:tr
+                    [:td]
+                    [:td [:input#account_country_other.account_info
+                          (merge {:name "country_other" :type "text" :placeholder "Specify if Other"
+                                  :onkeydown (js-suppress-enter)
+                                  :disabled (some #(= user-country %) countries)}
+                                 (when (not-any? #(= user-country %) countries)
+                                   {:value user-country}))]]]
+                   [:tr
+                    [:td "Province/State"]
+                    [:td (generate-province-dropdown "account" user-province)]]
+                   [:tr
+                    [:td]
+                    [:td [:input#account_province_other.account_info
+                          (merge {:name "province_other" :type "text" :placeholder "Specify if Other"
+                                  :onkeydown (js-suppress-enter)
+                                  :disabled (some #(= user-province %) provinces)}
+                                 (when (not-any? #(= user-province %) provinces)
+                                   {:value user-province}))]]]
+                   [:tr
+                    [:td "City"]
+                    [:td [:input#account_city.account_info
+                          {:name "city" :type "text"
+                           :onkeydown (js-suppress-enter) :value (:city (:user request))}]]]
+                   [:tr
+                    [:td "Name"]
+                    [:td [:input#account_name.account_info
+                          {:name "name" :type "text"
+                           :onkeydown (js-suppress-enter) :value (:name (:user request))}]]]
+                   [:tr
+                    [:td "School or band name"]
+                    [:td [:input#account_band.account_info
+                          {:name "band_name" :type "text"
+                           :onkeydown (js-suppress-enter):value (:band (:user request))}]]]
+                   [:tr
+                    [:td "Phone number"]
+                    [:td [:input#account_phone.account_info
+                          {:name "phone" :type "text"
+                           :onkeydown (js-suppress-enter):value (:phone (:user request))}]]]
+                   [:tr
+                    [:td "Current password"]
+                    [:td [:input#account_current_password.account_info
+                          {:name "current_password" :type "password"
+                           :onkeydown (js-suppress-enter)}]]]
+                   [:tr
+                    [:td "New password"]
+                    [:td [:input#account_new_password.account_info
+                          {:name "new_password" :type "password"
+                           :onkeydown (js-suppress-enter)}]]]
+                   [:tr
+                    [:td "Re-type new password"]
+                    [:td [:input#account_retyped_password.account_info
+                          {:name "retyped_password" :type "password"
+                           :onkeydown (js-suppress-enter)}]]]
+                   [:tr
+                    [:td "Sign up to our newsletter"]
+                    [:td [:select#account_newsletter.select.account_info {:name "newsletter"}
+                          [:option {:value "0"
+                                    :selected (= (:newsletter (:user request)) "1")} "No"]
+                          [:option {:value "1"
+                                    :selected (= (:newsletter (:user request)) "1")} "Yes"]]]]
+                   [:tr [:td] [:td [:br]]]]
+                  [:input {:type "submit" :value "Modify account information"}]
+                  [:span#login-status.status]
+                  [:br][:br]]
+                 [:h3 "Purchase History"]
+                 [:div#purchase_history
+                  (if (> (utils/parse-number (count user-purchases)) 0)
+                    [:table (map make-purchase-row user-purchases)]
+                    [:p "You haven't made any purchases yet"])]
+                 [:script (js-enable-or-disable-other-field)]]
+      :user-status (user-status (:user request))})))

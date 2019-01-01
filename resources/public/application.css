@@ -288,10 +288,10 @@ table {
     -ms-text-size-adjust: none;
     -webkit-text-size-adjust: none;
   }
-  #new_user_form_table {
+  #new_user_form_table, #account_form_table {
     font-size: 85%;
   }
-  .new_user_info {
+  .new_user_info, .account_info {
     font-size: 85%;
     width: 100px;
     text-overflow: ellipsis;
@@ -874,6 +874,8 @@ input[type="password"] {
   display: inline-block;
   text-align: left;
 }
+#account_province,
+#account_country,
 #new_user_province,
 #new_user_country,
 #new_user_newsletter {
