@@ -264,6 +264,11 @@
       (doseq [rec (deref user-db)]
         (csv/write-csv writer [(get-values-from-rec rec)])))))
 
+(defn generate-activation-id
+  "Generate an activation id composed of the epoch time in ms appended to a randomly generated UUID"
+  []
+  (str (java.util.UUID/randomUUID) (System/currentTimeMillis)))
+
 (defn create-user!
   "Creates a user with the given information and writes the record to the csv file. If the user
   already exists, returns nothing, otherwise returns an activation id that can be later used to
@@ -274,8 +279,7 @@
     (when-not existing-user
       (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
             userid (get-next-user-id)
-            ;; Activation id is the epoch time in ms appended to a randomly generated UUID:
-            activationid (str (java.util.UUID/randomUUID) (System/currentTimeMillis))]
+            activationid (generate-activation-id)]
         ;; Write the user record to the user db, indicating the user is not yet activated by placing
         ;; "0" in the activated field, and writing an activation id which will be used for later
         ;; activation. The activation id is then returned to the caller as a convenience. We use an

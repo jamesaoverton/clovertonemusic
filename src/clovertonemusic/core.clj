@@ -56,6 +56,10 @@
   (GET "/" [] html/render-account))
 (defroutes account-change-routes
   (POST "/" [] html/post-account-change))
+(defroutes account-email-routes
+  (GET "/" [] html/render-account-email))
+(defroutes account-email-change-routes
+  (POST "/" [] html/post-account-email-change))
 (defroutes purchases-routes
   (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 
@@ -72,6 +76,10 @@
            (restrict account-routes {:handler is-authenticated}))
   (context "/account-change" []
            (restrict account-change-routes {:handler is-authenticated}))
+  (context "/account-email" []
+           (restrict account-email-routes {:handler is-authenticated}))
+  (context "/account-email-change" []
+           (restrict account-email-change-routes {:handler is-authenticated}))
   (context "/purchases" []
            (restrict purchases-routes {:handler is-authenticated}))
 

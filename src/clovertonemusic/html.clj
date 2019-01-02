@@ -186,6 +186,7 @@
   "Constructs an email inquiring about the given chart, using the email parameter as a key for
   searching through the markdown pages for the template corresponding to that parameter."
   [email chart-name]
+  ;; TODO: Fill in the from field with the user's email if the user happens to be logged in.
   (let [email-contents (data/get-email-contents email)]
     (str "mailto:" (->> :to email-contents
                         (codec/url-encode))
@@ -926,8 +927,7 @@
                    [:b (:email (:user request))
                     [:input {:type "hidden" :value (:email (:user request)) :name "email"}]]
                    [:br]
-                   ;; TODO: implement email address change:
-                   [:a {:href "/account-email-change/"} [:small "Change my email address"]]]
+                   [:a {:href "/account-email/"} [:small "Change my email address"]]]
                   [:table#account_form_table
                    [:tr
                     [:td "Country"]
@@ -1034,3 +1034,52 @@
                                       [:h3 "Your account details have been successfully changed."]]]
                           :user-status (user-status (:user request))}))))
 
+
+(defn render-account-email
+  "Renders the 'change email' page"
+  [request]
+  (render-html
+   {:title "Change Account Email - Clovertone Music"
+    :contents [:div#account.window
+               [:h2 "Change the email address associated with your account"]
+               (when (:nomatch (:params request))
+                 [:p.error "New and re-typed email addresses do not match."])
+               (when (:already-exists (:params request))
+                 [:p.error "That email address is already assigned"])
+               [:br]
+               [:p "Current email address:&nbsp;" [:b (:email (:user request))]]
+               [:form {:action "/account-email-change/" :method "post"}
+                [:div [:label "New email address"]]
+                [:div [:input {:name "new_email" :type "email" :onkeydown (js-suppress-enter)
+                               :required true}]]
+                [:div [:label "Re-type new email address"]]
+                [:div [:input {:name "retyped_email" :type "email" :onkeydown (js-suppress-enter)
+                               :required true}]]
+                [:br]
+                [:div [:input {:type "submit" :value "Submit"}]]
+                [:span#login-status.status]
+                [:br][:br]]
+               [:script (js-enable-or-disable-other-field)]]
+    :user-status (user-status (:user request))}))
+
+
+(defn post-account-email-change
+  "Handles the posting of data when the user modifies his/her email address."
+  [{{new-email "new_email" retyped-email "retyped_email"} :form-params
+    user :user
+    session :session :as request}]
+  (cond
+    ;; If the new and retyped emails don't match, then redirect to the change email page while
+    ;; indicating the problem:
+    (not= new-email retyped-email) (redirect "/account-email/?nomatch=true")
+    ;; If the new email already exists, redirect back while indicating the problem:
+    (data/get-user-by-email new-email) (redirect "/account-email/?already-exists=true")
+    ;; Otherwise process the request. Note that this is not fully implemented. Probably the best
+    ;; way to implement this will be to generate an email with an activation id to the new address
+    ;; similary to the way it is done when creating a new user.
+    :else (render-html
+           {:title "Not yet implemented"
+            :contents [:p.window "Online email modification is not yet implemented. If you would like to "
+                       "change the email address associated with your account, email us at "
+                       [:a {:href "mailto:info@clovertonemusic.com"} "info@clovertonemusic.com"]]
+            :user-status (user-status user)})))
