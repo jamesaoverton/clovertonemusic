@@ -537,7 +537,8 @@
      [select-tag
       {:name "country" :onchange action}
       [:option {:value "" :disabled true :selected (nil? current-country)}]
-      [:option {:value "Other" :selected (not-any? #(= current-country %) countries)} "Other"]
+      [:option {:value "Other" :selected (and (not (nil? current-country))
+                                              (not-any? #(= current-country %) countries))} "Other"]
       (for [country countries]
         [:option {:value country :selected (= current-country country)} country])]))
   ([type]
@@ -555,7 +556,9 @@
      [select-tag
       {:name "province" :onchange action}
       [:option {:value "" :disabled true :selected (nil? current-province)}]
-      [:option {:value "Other" :selected (not-any? #(= current-province %) provinces)} "Other"]
+      [:option {:value "Other" :selected (and
+                                          (not (nil? current-province))
+                                          (not-any? #(= current-province %) provinces))} "Other"]
       (for [province provinces]
         [:option {:value province :selected (= current-province province)} province])]))
   ([type]
@@ -912,15 +915,19 @@
      {:title "Account - Clovertone Music"
       :contents [:div#account.window
                  [:h2 "Account Information"]
+                 (when (:nomatch (:params request))
+                   [:p.error "New and re-typed passwords do not match."])
+                 (when (:wrongpw (:params request))
+                   [:p.error "Could not change password. Your current password is incorrect."])
                  [:br]
-                 ;; TODO: implement account change:
-                 [:form {:action "/accountchange/" :method "post"}
+                 [:form {:action "/account-change/" :method "post"}
                   [:p
                    [:label "Email&nbsp;"]
-                   [:b (:email (:user request))]
+                   [:b (:email (:user request))
+                    [:input {:type "hidden" :value (:email (:user request)) :name "email"}]]
                    [:br]
                    ;; TODO: implement email address change:
-                   [:a {:href "/accountemailchange/"} [:small "Change my email address"]]]
+                   [:a {:href "/account-email-change/"} [:small "Change my email address"]]]
                   [:table#account_form_table
                    [:tr
                     [:td "Country"]
@@ -990,10 +997,40 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 [:h3 "Purchase History"]
+                 [:h2 "Purchase History"]
                  [:div#purchase_history
                   (if (> (utils/parse-number (count user-purchases)) 0)
                     [:table (map make-purchase-row user-purchases)]
                     [:p "You haven't made any purchases yet"])]
                  [:script (js-enable-or-disable-other-field)]]
       :user-status (user-status (:user request))})))
+
+(defn post-account-change
+  "Handles the posting of data when the user modifies his/her account information."
+  [{{email "email" name "name" band_name "band_name" city "city"
+     province "province" province_other "province_other"
+     country "country" country_other "country_other" current_password "current_password"
+     new_password "new_password" retyped_password "retyped_password"
+     phone "phone" newsletter "newsletter"} :form-params
+    session :session :as request}]
+  (cond
+    ;; If the user has entered a new password but the retyped password does not match it, redirect
+    ;; back to the page while indicating the problem:
+    (and (not= "" new_password) (not (= retyped_password new_password)))
+    (redirect "/account/?nomatch=true")
+    ;; If the user has entered a new password but has not supplied the correct current password,
+    ;; redirect back to the page while indicating the problem:
+    (and (not= "" new_password)
+         (not (data/get-user-by-email-and-password email current_password)))
+    (redirect "/account/?wrongpw=true")
+    ;; In all other cases, post the data. If the user has entered a value for the current password
+    ;; and/or in the retyped password field, but no new password, then all of these will be ignored
+    ;; but the other data will be posted.
+    :else (do
+            (data/modify-account-information! (:form-params request))
+            (render-html {:title "Account - Clovertone Music"
+                          :contents [:div#contents
+                                     [:div#login.window
+                                      [:h3 "Your account details have been successfully changed."]]]
+                          :user-status (user-status (:user request))}))))
+

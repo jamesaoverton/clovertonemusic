@@ -54,6 +54,8 @@
 ;; Subroutes for account and purchase management:
 (defroutes account-routes
   (GET "/" [] html/render-account))
+(defroutes account-change-routes
+  (POST "/" [] html/post-account-change))
 (defroutes purchases-routes
   (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 
@@ -68,6 +70,8 @@
   ;; Account and purchases pages are protected; only authenticated users may access them:
   (context "/account" []
            (restrict account-routes {:handler is-authenticated}))
+  (context "/account-change" []
+           (restrict account-change-routes {:handler is-authenticated}))
   (context "/purchases" []
            (restrict purchases-routes {:handler is-authenticated}))
 

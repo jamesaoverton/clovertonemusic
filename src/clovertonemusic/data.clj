@@ -340,14 +340,66 @@
                                ;; exists:
                                (if (= (count matching-user-recs) 0)
                                  other-user-recs
-                                 (conj other-user-recs potential-new-user-record))))
-        old-db-contents (deref user-db)]
+                                 (conj other-user-recs potential-new-user-record))))]
 
     ;; Update the user db with the current time as the last accessed time
     (swap! user-db update-access-time))
   ;; Persist the database to disk, and then return the userid back to the caller:
   (write-user-db-to-csv)
   userid)
+
+(defn modify-account-information!
+  "Updates the user record in the database which corresponds to the given email with the
+  provided information."
+  [{email "email" name "name" band "band_name" city "city" province "province"
+    province_other "province_other" country "country" country_other "country_other"
+    password "new_password" phone "phone" newsletter "newsletter"}]
+  (let [get-updated-user-rec (fn [user]
+                               (merge
+                                user
+                                ;; Update any attributes which have been modified:
+                                (if (= country "Other")
+                                  (when (and (not= country_other "")
+                                             (not= country_other (:country user)))
+                                    {:country country_other})
+                                  (when (and (not= country "") (not= country (:country user)))
+                                    {:country country}))
+                                (if (= province "Other")
+                                  (when (and (not= province_other "")
+                                             (not= province_other (:province user)))
+                                    {:province province_other})
+                                  (when (and (not= province "") (not= province (:province user)))
+                                    {:province province}))
+                                (when (and (not= name "") (not= name (:name user)))
+                                  {:name name})
+                                (when (and (not= band "") (not= band (:band user)))
+                                  {:band band})
+                                (when (and (not= city "") (not= city (:city user)))
+                                  {:city city})
+                                (when (and (not= phone "") (not= phone (:phone user)))
+                                  {:phone phone})
+                                (when (and (not= newsletter "")
+                                           (not= newsletter (:newsletter user)))
+                                  {:newsletter newsletter})
+                                (when (not= password "")
+                                  {:password (hashers/derive password)})))
+        update-user-rec-in-db (fn [dereferenced-user-db]
+                                (let [{matching-user-recs true, other-user-recs false}
+                                      (->> dereferenced-user-db
+                                           (group-by (fn [row] (= email (:email row)))))
+                                      ;; Emails are unique, so only one record will match:
+                                      potential-new-user-record (get-updated-user-rec
+                                                                 (first matching-user-recs))]
+                                  ;; Return the database records including the modified one
+                                  ;; if it exists:
+                                  (if (= (count matching-user-recs) 0)
+                                    other-user-recs
+                                    (conj other-user-recs potential-new-user-record))))]
+
+    ;; Update the user db with the modified user record
+    (swap! user-db update-user-rec-in-db))
+  ;; Persist the db to disk:
+  (write-user-db-to-csv))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to purchases in the data directory
