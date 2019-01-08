@@ -890,10 +890,20 @@
                 :user-status (user-status user cart)
                 :contents [:div.window
                            [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
-
-
-
-                           ]}))
+                           [:br]
+                           [:div#shopping_cart
+                            [:table
+                             [:tr [:th "Name"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                             ;; Note that the sorting here is by filename since that is what
+                             ;; shopping cart items consist of:
+                             (for [item (sort cart)]
+                               (let [chart (->> data/catalogue
+                                                :charts
+                                                (filter #(= (:filename %) item))
+                                                (first))]
+                                 [:tr
+                                  [:td (:chart-name chart)] [:td (:composer chart)]
+                                  [:td (:grade chart)] [:td (:price chart)]]))]]]}))
                            
   
 

@@ -914,10 +914,10 @@ input[type="password"] {
   margin-left: 10px;
   margin-right: 10px;
 }
-#purchase_history {
+#purchase_history, #shopping_cart {
   overflow-x:auto;
 }
-#purchase_history th, td {
+#purchase_history, #shopping_cart th, td {
   text-align: left;
   padding-top: .25em;
   padding-bottom: .25em;
