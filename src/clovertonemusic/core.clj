@@ -104,6 +104,9 @@
          html/render-search
          html/render-charts))
 
+  (GET "/purchase/:chart" [chart]
+       html/purchase-chart)
+
   (GET "/composers/:page" [page search]
        (if search
          html/render-search

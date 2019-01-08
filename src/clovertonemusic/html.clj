@@ -4,7 +4,7 @@
             [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
             [ring.util.codec :as codec]
-            [ring.util.response :refer [file-response redirect]]
+            [ring.util.response :refer [response file-response redirect]]
             [postal.core :refer [send-message]]
             [clojure.string :as string]
             [clovertonemusic.data :as data]
@@ -99,13 +99,22 @@
             ]])})
 
 (defn user-status
-  "Generates the 'user status' links on clovertone pages. Depending on whether the given user
-  parameter is nil or not, either links to the account and logout routes are generated, or a
-  link to the login page."
+  "Generates the 'user status' links on clovertone pages. If the given user parameter is not nil,
+  then links to the user's account, shopping cart, and to the logout route are generated, otherwise
+  links to the shopping cart and to the login/signup page are generated."
   [user]
-  (if user
-    [:ul [:li [:a {:href "/account/"} "Account"]] [:li [:a {:href "/logout/"} "Log Out"]]]
-    [:ul [:li [:a {:href "/login/"} "Log In / Sign Up"]]]))
+  (let [cart-link-label (cond
+                          (empty? (:cart user)) "Cart Empty"
+                          (= 1 (count (:cart user))) "1 Item in Cart"
+                          (< 1 (count (:cart user))) (str (count (:cart user)) " Items in cart"))]
+    (if user
+      [:ul
+       [:li [:a {:href "/cart/"} cart-link-label]]
+       [:li [:a {:href "/account/"} "Account"]]
+       [:li [:a {:href "/logout/"} "Log Out"]]]
+      [:ul
+       [:li [:a {:href "/cart/"} cart-link-label]]
+       [:li [:a {:href "/login/"} "Log In / Sign Up"]]])))
 
 (defn get-sorting
   "Generates the links and arrows used for sorting entries on clovertone pages. If page-params is
@@ -186,7 +195,6 @@
   "Constructs an email inquiring about the given chart, using the email parameter as a key for
   searching through the markdown pages for the template corresponding to that parameter."
   [email chart-name]
-  ;; TODO: Fill in the from field with the user's email if the user happens to be logged in.
   (let [email-contents (data/get-email-contents email)]
     (str "mailto:" (->> :to email-contents
                         (codec/url-encode))
@@ -233,7 +241,7 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       {:href (construct-email-to-clovertone "purchase" (:chart-name chart))}
+       {:href (str "/purchase/" (:filename chart))}
        [:div.blank]
        [:div.price
         [:span.dollar-sign "$"]
@@ -859,6 +867,21 @@
   (assoc (redirect "/login/")
          :session (dissoc session :identity)))
 
+(defn purchase-chart
+  "Add the given chart to the shopping cart associated with the browser session."
+  [{{chart :chart, :as params} :params,
+    {prevpage "referer", :as headers} :headers,
+    session :session,
+    :as request}]
+  ;; Add the chart to the shopping cart, then navigate back to the previous page and refresh it:
+  (assoc (response (page/html [:html [:script "history.back(); reload();"]]))
+         :session (->> session
+                       :cart
+                       (set)
+                       (clojure.set/union #{chart})
+                       (assoc session :cart))))
+
+
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
   [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
@@ -1034,7 +1057,6 @@
                                       [:h3 "Your account details have been successfully changed."]]]
                           :user-status (user-status (:user request))}))))
 
-
 (defn render-account-email
   "Renders the 'change email' page"
   [request]
@@ -1061,7 +1083,6 @@
                 [:br][:br]]
                [:script (js-enable-or-disable-other-field)]]
     :user-status (user-status (:user request))}))
-
 
 (defn post-account-email-change
   "Handles the posting of data when the user modifies his/her email address."
