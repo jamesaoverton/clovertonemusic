@@ -104,8 +104,11 @@
          html/render-search
          html/render-charts))
 
-  (GET "/purchase/:chart" [chart]
-       html/purchase-chart)
+  (GET "/add-to-cart/:chart" [chart]
+       html/add-to-cart)
+
+  (GET "/remove-from-cart/:chart" [chart]
+       html/remove-from-cart)
 
   (GET "/cart/" [] html/render-shopping-cart)
 

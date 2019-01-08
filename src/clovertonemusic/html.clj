@@ -157,6 +157,22 @@
    ;; If no page parameters are passed, call thyself again with nil:
    (get-sorting nil)))
 
+(defn get-numeric-price
+  "Converts the price of the chart (in format '$00.00') to a number"
+  [chart]
+  (->> :price chart
+       (re-matches #"\$(\d+\.\d\d)")
+       (second)
+       (utils/parse-number)))
+
+(defn get-numeric-duration
+  "Converts the duration of a chart (in the format '00s') to a number"
+  [chart]
+  (->> :duration chart
+       (re-matches #"(\d+)s")
+       (second)
+       (utils/parse-number)))
+
 (defn sort-charts
   "Sorts the given sequence of charts by the given sort parameter, where the latter is of the form
   <param>:<asc|desc>. E.g. tempo:asc to sort by tempo in ascending order."
@@ -165,31 +181,20 @@
     ;; If no sort-parameter has been given, just return the charts back as is:
     charts
     ;; Otherwise:
-    (letfn [(get-numeric-price [chart]
-              (->> :price chart
-                   (re-matches #"\$(\d+\.\d\d)")
-                   (second)
-                   (utils/parse-number)))
-            (get-numeric-duration [chart]
-              (->> :duration chart
-                   (re-matches #"(\d+)s")
-                   (second)
-                   (utils/parse-number)))]
-
-      (let [sort-key (keyword (first (string/split sort-param #":")))
-            sort-dir (second (string/split sort-param #":"))
-            ascending-charts
-            (cond
-              ;; Keys for price and duration need to be parsed and converted to numbers before sorting:
-              (= sort-key :price) (sort-by get-numeric-price < charts)
-              (= sort-key :duration) (sort-by get-numeric-duration < charts)
-              ;; Sorting is done numerically for :grade and :tempo:
-              (some #(= sort-key %) [:grade :tempo]) (sort-by #(utils/parse-number (sort-key %)) < charts)
-              ;; Sort is done in the default way in all other cases:
-              :else (sort-by sort-key charts))]
-        (if (= sort-dir "desc")
-          (reverse ascending-charts)
-          ascending-charts)))))
+    (let [sort-key (keyword (first (string/split sort-param #":")))
+          sort-dir (second (string/split sort-param #":"))
+          ascending-charts
+          (cond
+            ;; Keys for price and duration need to be parsed and converted to numbers before sorting:
+            (= sort-key :price) (sort-by get-numeric-price < charts)
+            (= sort-key :duration) (sort-by get-numeric-duration < charts)
+            ;; Sorting is done numerically for :grade and :tempo:
+            (some #(= sort-key %) [:grade :tempo]) (sort-by #(utils/parse-number (sort-key %)) < charts)
+            ;; Sort is done in the default way in all other cases:
+            :else (sort-by sort-key charts))]
+      (if (= sort-dir "desc")
+        (reverse ascending-charts)
+        ascending-charts))))
 
 (defn construct-email-to-clovertone
   "Constructs an email inquiring about the given chart, using the email parameter as a key for
@@ -243,7 +248,8 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       {:href (str "/purchase/" (:filename chart))}
+       ;; TODO: this link should be disabled if the user already owns the record:
+       {:href (str "/add-to-cart/" (:filename chart))}
        [:div.blank]
        [:div.price
         [:span.dollar-sign "$"]
@@ -869,7 +875,7 @@
   (assoc (redirect "/login/")
          :session (dissoc session :identity)))
 
-(defn purchase-chart
+(defn add-to-cart
   "Add the given chart to the shopping cart associated with the browser session."
   [{{chart :chart, :as params} :params,
     {prevpage "referer", :as headers} :headers,
@@ -884,29 +890,97 @@
                        (clojure.set/union #{chart})
                        (assoc session :cart))))
 
-(defn render-shopping-cart
-  [{user :user, {cart :cart, :as session} :session, :as request}]
-  (render-html {:title "Shopping Cart - Clovertone Music"
-                :user-status (user-status user cart)
-                :contents [:div.window
-                           [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
-                           [:br]
-                           [:div#shopping_cart
-                            [:table
-                             [:tr [:th "Name"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                             ;; Note that the sorting here is by filename since that is what
-                             ;; shopping cart items consist of:
-                             (for [item (sort cart)]
-                               (let [chart (->> data/catalogue
-                                                :charts
-                                                (filter #(= (:filename %) item))
-                                                (first))]
-                                 [:tr
-                                  [:td (:chart-name chart)] [:td (:composer chart)]
-                                  [:td (:grade chart)] [:td (:price chart)]]))]]]}))
-                           
-  
+(defn remove-from-cart
+  "Removes the given chart from the shopping cart"
+  [{{chart :chart, :as params} :params,
+    {prevpage "referer", :as headers} :headers,
+    session :session,
+    :as request}]
+  (let [current-load (->> session
+                          :cart
+                          (set))]
+    ;; After removing the chart, navigate back to the previous page, which should be the shopping
+    ;; cart page.
+    (assoc (redirect prevpage)
+           :session (->> chart
+                         (disj current-load)
+                         (assoc session :cart)))))
 
+(defn render-shopping-cart
+  "Show the user's shopping cart."
+  [{user :user, {cart :cart, :as session} :session, :as request}]
+  ;; The shopping cart only contains chart filenames, so the first thing we do is get the details
+  ;; for every item in the cart:
+  (let [detailed-cart (->> data/catalogue
+                           :charts
+                           (filter (fn [chart] (some #(= (:filename chart) %) cart))))
+        subtotal (->> detailed-cart
+                      (map get-numeric-price)
+                      (reduce +)
+                      (double))
+        shopping-cart-div [:div#shopping_cart
+                           [:table
+                            [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                            (for [chart detailed-cart]
+                              [:tr
+                               [:td (:chart-name chart)] [:td (:composer chart)]
+                               [:td (:grade chart)] [:td (:price chart)]
+                               [:td [:a {:href (str "/remove-from-cart/" (:filename chart))}
+                                     "remove"]]])
+                            [:tr [:td] [:td] [:td] [:td [:hr]]]
+                            [:tr [:th] [:th] [:th "Subtotal"]
+                             [:td (format "$%.2f" subtotal)]]
+                            (if-not user
+                              ;; If the user is not logged in, just tell the user that taxes may
+                              ;; be applicable,
+                              [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
+                              ;; Otherwise determine the tax based on the user's location.
+                              [:div
+                               (cond
+                                 (and (= (:province user) "Ontario") (= (:country user) "Canada"))
+                                 (let [tax (* 0.13 subtotal)]
+                                   [:span
+                                    [:tr [:th] [:th] [:th "Ontario HST (13%)"]
+                                     [:td (format "$%.2f" tax)]]
+                                    [:tr [:th] [:th] [:th "Total"]
+                                     [:td (format "$%.2f" (+ tax subtotal))]]])
+                                 (= (:country user) "Canada")
+                                 (let [tax (* 0.05 subtotal)]
+                                   [:span
+                                    [:tr [:th] [:th] [:th "GST (5%)"]
+                                     [:td (format "$%.2f" tax)]]
+                                    [:tr [:th] [:th] [:th "Total"]
+                                     [:td (format "$%.2f" (+ tax subtotal))]]])
+                                 :else
+                                 [:span
+                                  [:tr [:th] [:th] [:th "Tax (0%)"] [:td "$0.00"]]
+                                  [:tr [:th] [:th] [:th "Total"]
+                                   [:td (format "$%.2f" subtotal)]]])])]
+                           [:br]
+                           (if-not user
+                             ;; If not logged in, suggest that the user do so:
+                             [:p "To continue with your purchase, please "
+                              [:a {:href "/login/"} "log in or sign up"] " for an account"]
+                             ;; Otherwise show this text:
+                             [:div
+                              [:p [:b "Important! "] "You are purchasing an electronic copy of the "
+                               "score and parts to these charts in "
+                               [:a {:href "https://get.adobe.com/reader" :target "__blank"}
+                                "Adobe PDF format"]
+                               ". When your purchase is complete your will immediately be emailed "
+                               "a link for downloading your files. Every page will be marked "
+                               "with your school or band name and address:"]
+                              [:p [:b (str "For use by " (:band user) ", " (:city user) ", "
+                                           (:province user) ", " (:country user) ".")]]])]]
+    (render-html {:title "Shopping Cart - Clovertone Music"
+                  :user-status (user-status user cart)
+                  :contents [:div.window
+                             [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
+                             [:br]
+                             (if-not (empty? cart)
+                               shopping-cart-div
+                               [:p "Your shopping cart is empty"])]})))
+                             
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
@@ -1046,6 +1120,8 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
+                 ;; TODO: This needs to be redone so as to make it possible to have more than one
+                 ;; chart associated with a purchase:
                  [:h2 "Purchase History"]
                  [:div#purchase_history
                   (if (> (utils/parse-number (count user-purchases)) 0)
@@ -1062,6 +1138,8 @@
      new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params
     session :session :as request}]
+  ;; TODO: "Normal" user information shouldn't be changeable either without supplying a
+  ;; current password.
   (cond
     ;; If the user has entered a new password but the retyped password does not match it, redirect
     ;; back to the page while indicating the problem:
