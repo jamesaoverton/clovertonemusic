@@ -107,6 +107,8 @@
   (GET "/purchase/:chart" [chart]
        html/purchase-chart)
 
+  (GET "/cart/" [] html/render-shopping-cart)
+
   (GET "/composers/:page" [page search]
        (if search
          html/render-search

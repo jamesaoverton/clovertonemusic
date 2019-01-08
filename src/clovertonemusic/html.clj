@@ -102,11 +102,11 @@
   "Generates the 'user status' links on clovertone pages. If the given user parameter is not nil,
   then links to the user's account, shopping cart, and to the logout route are generated, otherwise
   links to the shopping cart and to the login/signup page are generated."
-  [user]
+  [user cart]
   (let [cart-link-label (cond
-                          (empty? (:cart user)) "Cart Empty"
-                          (= 1 (count (:cart user))) "1 Item in Cart"
-                          (< 1 (count (:cart user))) (str (count (:cart user)) " Items in cart"))]
+                          (empty? cart) "Cart Empty"
+                          (= 1 (count cart)) "1 Item in Cart"
+                          (< 1 (count cart)) (str (count cart) " Items in cart"))]
     (if user
       [:ul
        [:li [:a {:href "/cart/"} cart-link-label]]
@@ -230,7 +230,9 @@
                            (str "/composers/"))]
     [(keyword (str "div#" number ".chart.grade" (:grade chart)))
      [:div.head
-      [:h2.title [:a {:href (str "/charts/" (:filename chart))} (:chart-name chart)]]
+      ;; Add a name to serve as an anchor for navigating back to this specific chart:
+      [:h2.title [:a {:name (:filename chart) :href (str "/charts/" (:filename chart))}
+                  (:chart-name chart)]]
       [:h3.name
        [:a
         {:href composer-path}
@@ -326,12 +328,12 @@
                     (sort-charts (:sort (:params request)))
                     (map chart-to-html)
                     (conj [:div#list]))]
-      :user-status (user-status (:user request))})))
+      :user-status (user-status (:user request) (:cart (:session request)))})))
 
 (defn generate-about-contents
   "Generates the contents of the given about page based on the markdown file in the data directory
   corresponding to that page."
-  [about-page user-info]
+  [about-page user-info cart-info]
   (let [tweak-about-page (fn [page-component]
                            ;; If the given page component is a H1 element, then assign it the
                            ;; class 'title'.
@@ -353,7 +355,7 @@
                    (last))]
     {:title (str title " - Clovertone Music")
      :contents contents
-     :user-status (user-status user-info)}))
+     :user-status (user-status user-info cart-info)}))
 
 (defn render-about
   "Renders the about page specified in the request. If the page is not found, return nil which
@@ -361,7 +363,7 @@
   [request]
   (let [about-page (:page (:params request))]
     (try
-      (render-html (generate-about-contents about-page (:user request)))
+      (render-html (generate-about-contents about-page (:user request) (:cart (:session request))))
       ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
       (catch java.io.FileNotFoundException ex))))
 
@@ -383,7 +385,7 @@
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-        :user-status (user-status (:user request))})
+        :user-status (user-status (:user request) (:cart (:session request)))})
       ;; Otherwise if there was no requested chart, render all charts. If, on the other hand, there
       ;; was a requested chart but no corresponding catalogue entry, then the result will be a 404.
       (when (nil? chart)
@@ -400,7 +402,7 @@
                         (sort-charts (:sort (:params request)))
                         (map chart-to-html)
                         (conj [:div#list]))]
-          :user-status (user-status (:user request))})))))
+          :user-status (user-status (:user request) (:cart (:session request)))})))))
 
 (defn render-composers
   "Renders the composers page, either for a specific composer, or for all of them."
@@ -428,7 +430,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :user-status (user-status (:user request))})
+        :user-status (user-status (:user request) (:cart (:session request)))})
       (when (nil? composer)
         (render-html
          {:title "Composers - Clovertone Music"
@@ -448,7 +450,7 @@
                                         :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
                                      [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
-          :user-status (user-status (:user request))})))))
+          :user-status (user-status (:user request) (:cart (:session request)))})))))
 
 (defn render-genres
   "Render the genres page for the genre specified in the request."
@@ -473,7 +475,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :user-status (user-status (:user request))}))))
+        :user-status (user-status (:user request) (:cart (:session request)))}))))
 
 (defn render-grades
   "Render the grades page for the grade specified in the request."
@@ -498,7 +500,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :user-status (user-status (:user request))}))))
+        :user-status (user-status (:user request) (:cart (:session request)))}))))
 
 (defn render-root
   "Renders the root page whenever either no route or the /index route is specified"
@@ -520,7 +522,7 @@
                       (sort-charts (:sort (:params request)))
                       (map chart-to-html)
                       (conj [:div#list]))]
-        :user-status (user-status (:user request))}))))
+        :user-status (user-status (:user request) (:cart (:session request)))}))))
 
 (def countries ["Canada" "USA"])
 (def provinces ["Alberta" "British Columbia" "Manitoba" "New Brunswick" "Newfoundland and Labrador"
@@ -744,7 +746,7 @@
                               ;; TODO: Implement forgot my password
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
                            [:script (str (js-toggle-login-form) "\n" (js-enable-or-disable-other-field))]]
-                :user-status (user-status (:user request))}))
+                :user-status (user-status (:user request) (:cart (:session request)))}))
 
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
@@ -818,7 +820,7 @@
                          ;; TODO: Define this email address somewhere central
                          ;; (e.g., a markdown page)
                          [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-            :user-status (user-status (:user request))}))))))
+            :user-status (user-status (:user request) (:cart (:session request)))}))))))
 
 (defn process-and-render-activation
   "Processes an activation request, and renders the HTML containing the result."
@@ -831,7 +833,7 @@
                                [:div#login.window
                                 [:h2 "Your account has been successfully activated."]
                                 [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
-                    :user-status (user-status (:user request))})
+                    :user-status (user-status (:user request) (:cart (:session request)))})
       ;; Otherwise inform her of the bad request:
       (render-html {:title "Invalid Activation ID - Clovertone Music"
                     :contents [:div#contents
@@ -840,7 +842,7 @@
                                 [:p "For assistance, send an email to "
                                  [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
                     :page-status 400
-                    :user-status (user-status (:user request))}))))
+                    :user-status (user-status (:user request) (:cart (:session request)))}))))
 
 (defn post-login
   "Handles the posting of data when an existing user attempts to login to the system."
@@ -873,13 +875,27 @@
     {prevpage "referer", :as headers} :headers,
     session :session,
     :as request}]
-  ;; Add the chart to the shopping cart, then navigate back to the previous page and refresh it:
-  (assoc (response (page/html [:html [:script "history.back(); reload();"]]))
+  ;; Add the chart to the shopping cart, then navigate back to the anchor for the chart on the
+  ;; previous page:
+  (assoc (redirect (str prevpage "#" chart))
          :session (->> session
                        :cart
                        (set)
                        (clojure.set/union #{chart})
                        (assoc session :cart))))
+
+(defn render-shopping-cart
+  [{user :user, {cart :cart, :as session} :session, :as request}]
+  (render-html {:title "Shopping Cart - Clovertone Music"
+                :user-status (user-status user cart)
+                :contents [:div.window
+                           [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
+
+
+
+                           ]}))
+                           
+  
 
 
 (defn render-purchase-file
@@ -1026,7 +1042,7 @@
                     [:table (map make-purchase-row user-purchases)]
                     [:p "You haven't made any purchases yet"])]
                  [:script (js-enable-or-disable-other-field)]]
-      :user-status (user-status (:user request))})))
+      :user-status (user-status (:user request) (:cart (:session request)))})))
 
 (defn post-account-change
   "Handles the posting of data when the user modifies his/her account information."
@@ -1055,7 +1071,7 @@
                           :contents [:div#contents
                                      [:div#login.window
                                       [:h3 "Your account details have been successfully changed."]]]
-                          :user-status (user-status (:user request))}))))
+                          :user-status (user-status (:user request) (:cart (:session request)))}))))
 
 (defn render-account-email
   "Renders the 'change email' page"
@@ -1082,7 +1098,7 @@
                 [:span#login-status.status]
                 [:br][:br]]
                [:script (js-enable-or-disable-other-field)]]
-    :user-status (user-status (:user request))}))
+    :user-status (user-status (:user request) (:cart (:session request)))}))
 
 (defn post-account-email-change
   "Handles the posting of data when the user modifies his/her email address."
@@ -1103,4 +1119,4 @@
             :contents [:p.window "Online email modification is not yet implemented. If you would like to "
                        "change the email address associated with your account, email us at "
                        [:a {:href "mailto:info@clovertonemusic.com"} "info@clovertonemusic.com"]]
-            :user-status (user-status user)})))
+            :user-status (user-status user (:cart session))})))
