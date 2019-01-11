@@ -51,7 +51,7 @@
                         [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
             :page-status 500}))))))
 
-;; Subroutes for account and purchase management:
+;; Subroutes which require authentication:
 (defroutes account-routes
   (GET "/" [] html/render-account))
 (defroutes account-change-routes
@@ -62,6 +62,8 @@
   (POST "/" [] html/post-account-email-change))
 (defroutes purchases-routes
   (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
+(defroutes buy-cart-routes
+  (POST "/" [] html/post-buy-cart))
 
 (defroutes all-routes
   ;; To test authentication:
@@ -82,6 +84,8 @@
            (restrict account-email-change-routes {:handler is-authenticated}))
   (context "/purchases" []
            (restrict purchases-routes {:handler is-authenticated}))
+  (context "/buy-cart" []
+           (restrict buy-cart-routes {:handler is-authenticated}))
 
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)

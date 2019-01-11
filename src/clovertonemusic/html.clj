@@ -966,10 +966,9 @@
                               [:a {:href "/login/"} "log in or sign up"] " for an account"]
                              ;; Otherwise show everything below
                              [:div
-                              [:div.purchase
-                               [:form {:action "/purchase/" :method "post"}
+                              [:div.buy
+                               [:form {:action "/buy-cart/" :method "post"}
                                 [:input {:type "hidden" :name "amount" :value (+ (:amount tax) subtotal)}]
-                                [:input {:type "hidden" :name "charts" :value (string/join ":" cart)}]
                                 [:input {:type "submit" :value "Buy now"}]]]
                               ;; TODO: Should this be in a markup file?
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
@@ -991,6 +990,17 @@
                                shopping-cart-div
                                [:p "Your shopping cart is empty"])]})))
                              
+(defn post-buy-cart
+  [{user :user,
+    {cart :cart, :as session} :session,
+    {amount :amount, :as params} :params,
+    :as request}]
+  ;; TODO: Save the purchases in the cart to the purchase db, and then stamp the chart files and
+  ;; make the corresponding charts available in the data directory, etc.
+  ;; The actual payment will be done using a third party and will use the 'amount' parameter.
+  ;; Leave this part for last.
+  "To be implemented")
+
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
