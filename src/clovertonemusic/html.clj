@@ -292,11 +292,13 @@
         [:td (:meter chart)]
         [:td (:tempo chart)]]]]]))
 
-;; TODO: Destructure the request here and in other function arguments to make the code more readable
 (defn render-search
   "Renders the results of a search request"
-  [request]
-  (let [search-string (:search (:params request))
+  [{user :user,
+    {search-param :search, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [search-string search-param
         search-string-in-chart
         (fn [chart]
           ;; Note: we do not filter on either category or grade since these
@@ -337,10 +339,10 @@
                (->> data/catalogue
                     :charts
                     (filter search-string-in-chart)
-                    (sort-charts (:sort (:params request)))
-                    (map #(chart-to-html (:cart (:session request)) %))
+                    (sort-charts sort-param)
+                    (map #(chart-to-html cart %))
                     (conj [:div#list]))]
-      :user-status (user-status (:user request) (:cart (:session request)))})))
+      :user-status (user-status user cart)})))
 
 (defn generate-about-contents
   "Generates the contents of the given about page based on the markdown file in the data directory
@@ -372,18 +374,20 @@
 (defn render-about
   "Renders the about page specified in the request. If the page is not found, return nil which
   should result in a 404."
-  [request]
-  (let [about-page (:page (:params request))]
-    (try
-      (render-html (generate-about-contents about-page (:user request) (:cart (:session request))))
-      ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
-      (catch java.io.FileNotFoundException ex))))
+  [{user :user, {about-page :page, :as params} :params, {cart :cart, :as session} :session,
+    :as request}]
+  (try
+    (render-html (generate-about-contents about-page user cart))
+    ;; If the file doesn't exist, just return nothing, which should result in a 404 in the browser
+    (catch java.io.FileNotFoundException ex)))
 
 (defn render-charts
   "Generates the charts page, for either all charts or for a specific chart."
-  [request]
-  (let [chart (:page (:params request))
-        chart-catentry (->> data/catalogue
+  [{user :user,
+    {chart :page, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [chart-catentry (->> data/catalogue
                             :charts
                             (filter #(= (:filename %) chart))
                             (first))]
@@ -395,9 +399,9 @@
                    (->> data/catalogue
                         :charts
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
-                        (map #(chart-to-html (:cart (:session request)) %))
+                        (map #(chart-to-html cart %))
                         (conj [:div#list]))]
-        :user-status (user-status (:user request) (:cart (:session request)))})
+        :user-status (user-status user cart)})
       ;; Otherwise if there was no requested chart, render all charts. If, on the other hand, there
       ;; was a requested chart but no corresponding catalogue entry, then the result will be a 404.
       (when (nil? chart)
@@ -411,16 +415,18 @@
           :charts [:div#charts
                    (->> data/catalogue
                         (:charts)
-                        (sort-charts (:sort (:params request)))
-                        (map #(chart-to-html (:cart (:session request)) %))
+                        (sort-charts sort-param)
+                        (map #(chart-to-html cart %))
                         (conj [:div#list]))]
-          :user-status (user-status (:user request) (:cart (:session request)))})))))
+          :user-status (user-status user cart)})))))
 
 (defn render-composers
   "Renders the composers page, either for a specific composer, or for all of them."
-  [request]
-  (let [composer (:page (:params request))
-        composer-catentry (->> data/catalogue
+  [{user :user,
+    {composer :page, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [composer-catentry (->> data/catalogue
                                (:composers)
                                (filter #(= (:filename %) composer))
                                (first))]
@@ -439,10 +445,10 @@
                  (->> data/catalogue
                       :charts
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
-                      (sort-charts (:sort (:params request)))
-                      (map #(chart-to-html (:cart (:session request)) %))
+                      (sort-charts sort-param)
+                      (map #(chart-to-html cart %))
                       (conj [:div#list]))]
-        :user-status (user-status (:user request) (:cart (:session request)))})
+        :user-status (user-status user cart)})
       (when (nil? composer)
         (render-html
          {:title "Composers - Clovertone Music"
@@ -462,13 +468,15 @@
                                         :src (str "/images/" (:filename composer-catentry) "-140.jpg")}]]
                                      [:div.name (:composer-name composer-catentry)]]])
                                  (:composers data/catalogue)))]]
-          :user-status (user-status (:user request) (:cart (:session request)))})))))
+          :user-status (user-status user cart)})))))
 
 (defn render-genres
   "Render the genres page for the genre specified in the request."
-  [request]
-  (let [genre (:page (:params request))
-        genre-catentry (->> data/catalogue
+  [{user :user,
+    {genre :page, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [genre-catentry (->> data/catalogue
                             :genres
                             (filter #(= (:filename %) genre))
                             (first))]
@@ -484,16 +492,18 @@
                  (->> data/catalogue
                       :charts
                       (filter #(= (:filename genre-catentry) (:category %)))
-                      (sort-charts (:sort (:params request)))
-                      (map #(chart-to-html (:cart (:session request)) %))
+                      (sort-charts sort-param)
+                      (map #(chart-to-html cart %))
                       (conj [:div#list]))]
-        :user-status (user-status (:user request) (:cart (:session request)))}))))
+        :user-status (user-status user cart)}))))
 
 (defn render-grades
   "Render the grades page for the grade specified in the request."
-  [request]
-  (let [grade (:page (:params request))
-        grade-catentry (->> data/catalogue
+  [{user :user,
+    {grade :page, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [grade-catentry (->> data/catalogue
                             :grades
                             (filter #(= (:filename %) grade))
                             (first))]
@@ -509,32 +519,34 @@
                  (->> data/catalogue
                       :charts
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
-                      (sort-charts (:sort (:params request)))
-                      (map #(chart-to-html (:cart (:session request)) %))
+                      (sort-charts sort-param)
+                      (map #(chart-to-html cart %))
                       (conj [:div#list]))]
-        :user-status (user-status (:user request) (:cart (:session request)))}))))
+        :user-status (user-status user cart)}))))
 
 (defn render-root
   "Renders the root page whenever either no route or the /index route is specified"
-  [request]
-  (let [rootpg (:page (:params request))]
-    (when (or (nil? rootpg) (= "index" rootpg))
-      (render-html
-       {:title "Home - Clovertone Music."
-        :sorting [:div#sorting (get-sorting)]
-        :contents [:div#contents
-                   [:div#content.index
-                    [:h1.title "Home"]
-                    [:p (data/get-index-file-contents "index")]]]
-        :charts [:div#charts
-                 (->> data/catalogue
-                      :charts
-                      (filter #(not= (:featured %) "0"))
-                      (sort-by #(utils/parse-number (:featured %)))
-                      (sort-charts (:sort (:params request)))
-                      (map #(chart-to-html (:cart (:session request)) %))
-                      (conj [:div#list]))]
-        :user-status (user-status (:user request) (:cart (:session request)))}))))
+  [{user :user,
+    {rootpg :page, sort-param :sort, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (when (or (nil? rootpg) (= "index" rootpg))
+    (render-html
+     {:title "Home - Clovertone Music."
+      :sorting [:div#sorting (get-sorting)]
+      :contents [:div#contents
+                 [:div#content.index
+                  [:h1.title "Home"]
+                  [:p (data/get-index-file-contents "index")]]]
+      :charts [:div#charts
+               (->> data/catalogue
+                    :charts
+                    (filter #(not= (:featured %) "0"))
+                    (sort-by #(utils/parse-number (:featured %)))
+                    (sort-charts sort-param)
+                    (map #(chart-to-html cart %))
+                    (conj [:div#list]))]
+      :user-status (user-status user cart)})))
 
 (def countries ["Canada" "USA"])
 (def provinces ["Alberta" "British Columbia" "Manitoba" "New Brunswick" "Newfoundland and Labrador"
@@ -651,7 +663,11 @@
 
 (defn render-login
   "Renders the login/signup form"
-  [request]
+  [{user :user,
+    {nomatch :nomatch, already-exists :already-exists, notfound :notfound, wrongpw :wrongpw,
+     :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
   (render-html {:title "Log In or Sign Up - Clovertone Music"
                 :contents [:div#login.window
                            [:h2 "Log In or Sign Up"]
@@ -726,10 +742,10 @@
                                [:td [:input {:type "submit" :formaction "/signup/"
                                              :value "Sign up securely"}]]
                                [:td]]
-                              (when (:nomatch (:params request))
+                              (when nomatch
                                 [:p.error "Passwords do not match"])
-                              (when (:already-exists (:params request))
-                                [:p.error (str (:already-exists (:params request))
+                              (when already-exists
+                                [:p.error (str already-exists
                                                " is already associated with an account")])]
                              [:hr]
                              [:p#returning_user_info
@@ -748,17 +764,17 @@
                               [:span#login-status.status
                                ;; If the request contains "notfound=true" then the user tried to
                                ;; login with an unrecognised email address
-                               (when (:notfound (:params request))
+                               (when notfound
                                  [:p.error "User not found"])
                                ;; If the request contains "wrongpw=true" then the user tried to login
                                ;; with a recognised email address but with an incorrect password.
-                               (when (:wrongpw (:params request))
+                               (when wrongpw
                                  [:p.error "Incorrect password"])]
                               [:br][:br]
                               ;; TODO: Implement forgot my password
                               [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
                            [:script (str (js-toggle-login-form) "\n" (js-enable-or-disable-other-field))]]
-                :user-status (user-status (:user request) (:cart (:session request)))}))
+                :user-status (user-status user cart)}))
 
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
@@ -796,8 +812,11 @@
      province "province" province_other "province_other"
      country "country" country_other "country_other"
      new_password "new_password" retyped_password "retyped_password"
-     phone "phone" newsletter "newsletter"} :form-params
-    session :session :as request}]
+     phone "phone" newsletter "newsletter"} :form-params,
+    {host "host", :as headers} :headers
+    {cart :cart, :as session} :session,
+    user :user,
+    :as request}]
   (if-not (= retyped_password new_password)
     ;; If the submitted passwords do not match, then just redirect to the login page, adding a
     ;; parameter to the URL to indicate the nature of the problem:
@@ -818,7 +837,7 @@
         (redirect (str "/login/?already-exists=" email))
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
-          (send-activation-email email name (get (:headers request) "host") activationid)
+          (send-activation-email email name host activationid)
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents
@@ -832,29 +851,31 @@
                          ;; TODO: Define this email address somewhere central
                          ;; (e.g., a markdown page)
                          [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-            :user-status (user-status (:user request) (:cart (:session request)))}))))))
+            :user-status (user-status user cart)}))))))
 
 (defn process-and-render-activation
   "Processes an activation request, and renders the HTML containing the result."
-  [request]
-  (let [activationid (:activationid (:params request))]
-    (if (data/activate-user! activationid)
-      ;; If the activation was successful, direct the user to login:
-      (render-html {:title "Activation - Clovertone Music"
-                    :contents [:div#contents
-                               [:div#login.window
-                                [:h2 "Your account has been successfully activated."]
-                                [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
-                    :user-status (user-status (:user request) (:cart (:session request)))})
-      ;; Otherwise inform her of the bad request:
-      (render-html {:title "Invalid Activation ID - Clovertone Music"
-                    :contents [:div#contents
-                               [:div#login.window
-                                [:h2 "The submitted activation ID is invalid."]
-                                [:p "For assistance, send an email to "
-                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
-                    :page-status 400
-                    :user-status (user-status (:user request) (:cart (:session request)))}))))
+  [{user :user,
+   {cart :cart, :as session} :session,
+   {activationid :activationid, :as params} :params,
+   :as request}]
+  (if (data/activate-user! activationid)
+    ;; If the activation was successful, direct the user to login:
+    (render-html {:title "Activation - Clovertone Music"
+                  :contents [:div#contents
+                             [:div#login.window
+                              [:h2 "Your account has been successfully activated."]
+                              [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
+                  :user-status (user-status user cart)})
+    ;; Otherwise inform her of the bad request:
+    (render-html {:title "Invalid Activation ID - Clovertone Music"
+                  :contents [:div#contents
+                             [:div#login.window
+                              [:h2 "The submitted activation ID is invalid."]
+                              [:p "For assistance, send an email to "
+                               [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+                  :page-status 400
+                  :user-status (user-status user cart)})))
 
 (defn post-login
   "Handles the posting of data when an existing user attempts to login to the system."
@@ -1012,7 +1033,10 @@
 (defn render-account
   "Renders the account page for a given user, displaying the user's purchase history and allowing
   the user to modify his/her personal information."
-  [request]
+  [{user :user,
+    {cart :cart, :as session} :session,
+    {nomatch :nomatch, wrongpw :wrongpw, :as params} :params,
+    :as request}]
   (let [make-purchase-row (fn [purchase]
                             (let [chart (->> data/catalogue
                                              :charts
@@ -1046,29 +1070,28 @@
                                     [:a
                                      {:href (str "/purchases/" (:purchaseid purchase) "/"
                                                  (:filename chart) ".parts.pdf")} "Parts"]]]]]]]))
-        user-purchases (->> request
-                            :user
+        user-purchases (->> user
                             :userid
                             data/get-user-purchases
                             (sort-by #(:date %))
                             (reverse))
-        user-province (:province (:user request))
-        user-country (:country (:user request))]
+        user-province (:province user)
+        user-country (:country user)]
 
     (render-html
      {:title "Account - Clovertone Music"
       :contents [:div#account.window
                  [:h2 "Account Information"]
-                 (when (:nomatch (:params request))
+                 (when nomatch
                    [:p.error "New and re-typed passwords do not match."])
-                 (when (:wrongpw (:params request))
+                 (when wrongpw
                    [:p.error "Could not change password. Your current password is incorrect."])
                  [:br]
                  [:form {:action "/account-change/" :method "post"}
                   [:p
                    [:label "Email&nbsp;"]
-                   [:b (:email (:user request))
-                    [:input {:type "hidden" :value (:email (:user request)) :name "email"}]]
+                   [:b (:email user)
+                    [:input {:type "hidden" :value (:email user) :name "email"}]]
                    [:br]
                    [:a {:href "/account-email/"} [:small "Change my email address"]]]
                   [:table#account_form_table
@@ -1098,22 +1121,22 @@
                     [:td "City"]
                     [:td [:input#account_city.account_info
                           {:name "city" :type "text"
-                           :onkeydown (js-suppress-enter) :value (:city (:user request))}]]]
+                           :onkeydown (js-suppress-enter) :value (:city user)}]]]
                    [:tr
                     [:td "Name"]
                     [:td [:input#account_name.account_info
                           {:name "name" :type "text"
-                           :onkeydown (js-suppress-enter) :value (:name (:user request))}]]]
+                           :onkeydown (js-suppress-enter) :value (:name user)}]]]
                    [:tr
                     [:td "School or band name"]
                     [:td [:input#account_band.account_info
                           {:name "band_name" :type "text"
-                           :onkeydown (js-suppress-enter):value (:band (:user request))}]]]
+                           :onkeydown (js-suppress-enter):value (:band user)}]]]
                    [:tr
                     [:td "Phone number"]
                     [:td [:input#account_phone.account_info
                           {:name "phone" :type "text"
-                           :onkeydown (js-suppress-enter):value (:phone (:user request))}]]]
+                           :onkeydown (js-suppress-enter):value (:phone user)}]]]
                    [:tr
                     [:td "Current password"]
                     [:td [:input#account_current_password.account_info
@@ -1133,9 +1156,9 @@
                     [:td "Sign up to our newsletter"]
                     [:td [:select#account_newsletter.select.account_info {:name "newsletter"}
                           [:option {:value "0"
-                                    :selected (= (:newsletter (:user request)) "1")} "No"]
+                                    :selected (= (:newsletter user) "1")} "No"]
                           [:option {:value "1"
-                                    :selected (= (:newsletter (:user request)) "1")} "Yes"]]]]
+                                    :selected (= (:newsletter user) "1")} "Yes"]]]]
                    [:tr [:td] [:td [:br]]]]
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
@@ -1148,7 +1171,7 @@
                     [:table (map make-purchase-row user-purchases)]
                     [:p "You haven't made any purchases yet"])]
                  [:script (js-enable-or-disable-other-field)]]
-      :user-status (user-status (:user request) (:cart (:session request)))})))
+      :user-status (user-status user cart)})))
 
 (defn post-account-change
   "Handles the posting of data when the user modifies his/her account information."
@@ -1157,7 +1180,9 @@
      country "country" country_other "country_other" current_password "current_password"
      new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params
-    session :session :as request}]
+    user :user,
+    {cart :cart, :as session} :session,
+    :as request}]
   ;; TODO: No user info (not even non-password info) should be changeable without supplying a
   ;; current password.
   (cond
@@ -1179,21 +1204,24 @@
                           :contents [:div#contents
                                      [:div#login.window
                                       [:h3 "Your account details have been successfully changed."]]]
-                          :user-status (user-status (:user request) (:cart (:session request)))}))))
+                          :user-status (user-status user cart)}))))
 
 (defn render-account-email
   "Renders the 'change email' page"
-  [request]
+  [{user :user,
+    {cart :cart, :as session} :session,
+    {nomatch :nomatch, already-exists :already-exists, :as params} :params,
+    :as request}]
   (render-html
    {:title "Change Account Email - Clovertone Music"
     :contents [:div#account.window
                [:h2 "Change the email address associated with your account"]
-               (when (:nomatch (:params request))
+               (when nomatch
                  [:p.error "New and re-typed email addresses do not match."])
-               (when (:already-exists (:params request))
+               (when already-exists
                  [:p.error "That email address is already assigned"])
                [:br]
-               [:p "Current email address:&nbsp;" [:b (:email (:user request))]]
+               [:p "Current email address:&nbsp;" [:b (:email user)]]
                [:form {:action "/account-email-change/" :method "post"}
                 [:div [:label "New email address"]]
                 [:div [:input {:name "new_email" :type "email" :onkeydown (js-suppress-enter)
@@ -1206,13 +1234,14 @@
                 [:span#login-status.status]
                 [:br][:br]]
                [:script (js-enable-or-disable-other-field)]]
-    :user-status (user-status (:user request) (:cart (:session request)))}))
+    :user-status (user-status user cart)}))
 
 (defn post-account-email-change
   "Handles the posting of data when the user modifies his/her email address."
   [{{new-email "new_email" retyped-email "retyped_email"} :form-params
     user :user
-    session :session :as request}]
+    {cart :cart, :as session} :session,
+    :as request}]
   (cond
     ;; If the new and retyped emails don't match, then redirect to the change email page while
     ;; indicating the problem:
@@ -1227,4 +1256,4 @@
             :contents [:p.window "Online email modification is not yet implemented. If you would like to "
                        "change the email address associated with your account, email us at "
                        [:a {:href "mailto:info@clovertonemusic.com"} "info@clovertonemusic.com"]]
-            :user-status (user-status user (:cart session))})))
+            :user-status (user-status user cart)})))
