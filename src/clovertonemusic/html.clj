@@ -925,6 +925,16 @@
                       (map get-numeric-price)
                       (reduce +)
                       (double))
+        tax (cond
+              ;; Ontario customers pay HST:
+              (and (= (:province user) "Ontario") (= (:country user) "Canada"))
+              {:label "Ontario HST (13%)" :amount (* 0.13 subtotal)}
+              ;; Other Canadian customers pay GST:
+              (= (:country user) "Canada")
+              {:label "GST (5%)" :amount (* 0.05 subtotal)}
+              ;; No taxes for non-Canadians:
+              :else
+              {:label "Tax (0%)" :amount 0.0})
         ;; This is the HTML DIV to display when the shopping cart is not empty:
         shopping-cart-div [:div#shopping_cart
                            [:table
@@ -944,34 +954,24 @@
                               [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
                               ;; Otherwise determine the tax based on the user's location.
                               [:div
-                               (cond
-                                 (and (= (:province user) "Ontario") (= (:country user) "Canada"))
-                                 (let [tax (* 0.13 subtotal)]
-                                   [:span
-                                    [:tr [:th] [:th] [:th "Ontario HST (13%)"]
-                                     [:td (format "$%.2f" tax)]]
-                                    [:tr [:th] [:th] [:th "Total"]
-                                     [:td (format "$%.2f" (+ tax subtotal))]]])
-                                 (= (:country user) "Canada")
-                                 (let [tax (* 0.05 subtotal)]
-                                   [:span
-                                    [:tr [:th] [:th] [:th "GST (5%)"]
-                                     [:td (format "$%.2f" tax)]]
-                                    [:tr [:th] [:th] [:th "Total"]
-                                     [:td (format "$%.2f" (+ tax subtotal))]]])
-                                 :else
-                                 [:span
-                                  [:tr [:th] [:th] [:th "Tax (0%)"] [:td "$0.00"]]
-                                  [:tr [:th] [:th] [:th "Total"]
-                                   [:td (format "$%.2f" subtotal)]]])])]
+                               [:span
+                                [:tr [:th] [:th] [:th (:label tax)]
+                                 [:td (format "$%.2f" (:amount tax))]]
+                                [:tr [:th] [:th] [:th "Total"]
+                                 [:td (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
                            [:br]
                            (if-not user
                              ;; If not logged in, suggest that the user do so:
                              [:p "To continue with your purchase, please "
                               [:a {:href "/login/"} "log in or sign up"] " for an account"]
-                             ;; Otherwise show this text:
-                             ;; TODO: Should this be in a markup file?
+                             ;; Otherwise show everything below
                              [:div
+                              [:div.purchase
+                               [:form {:action "/purchase/" :method "post"}
+                                [:input {:type "hidden" :name "amount" :value (+ (:amount tax) subtotal)}]
+                                [:input {:type "hidden" :name "charts" :value (string/join ":" cart)}]
+                                [:input {:type "submit" :value "Buy now"}]]]
+                              ;; TODO: Should this be in a markup file?
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
                                "score and parts to these charts in "
                                [:a {:href "https://get.adobe.com/reader" :target "__blank"}
@@ -981,6 +981,7 @@
                                "with your school or band name and address as follows:"]
                               [:p [:b (str "For use by " (:band user) ", " (:city user) ", "
                                            (:province user) ", " (:country user) ".")]]])]]
+
     (render-html {:title "Shopping Cart - Clovertone Music"
                   :user-status (user-status user cart)
                   :contents [:div.window
