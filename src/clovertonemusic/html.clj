@@ -218,8 +218,9 @@
     (format "%d:%02d" minutes seconds)))
 
 (defn chart-to-html
-  "Converts a given chart catalogue entry to a HTML div"
-  [chart]
+  "Converts a given chart catalogue entry to a HTML div. If the chart is not already in the
+  shopping cart, this is indicated in the div by inviting the user to order it."
+  [cart chart]
   (let [number (:chart-number chart)
         price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
         grade-name (->> data/catalogue
@@ -252,6 +253,10 @@
        {:href (str "/add-to-cart/" (:filename chart))}
        [:div.blank]
        [:div.price
+        ;; TODO: The price bubble does not currently render nicely on mobile screens:
+        (if (some #(= (:filename chart) %) cart)
+          [:div "In Cart"]
+          [:div "Order"])
         [:span.dollar-sign "$"]
         [:span.dollars (get price 1)]
         [:span.cents (get price 2)]]]
@@ -287,6 +292,7 @@
         [:td (:meter chart)]
         [:td (:tempo chart)]]]]]))
 
+;; TODO: Destructure the request here and in other function arguments to make the code more readable
 (defn render-search
   "Renders the results of a search request"
   [request]
@@ -332,7 +338,7 @@
                     :charts
                     (filter search-string-in-chart)
                     (sort-charts (:sort (:params request)))
-                    (map chart-to-html)
+                    (map #(chart-to-html (:cart (:session request)) %))
                     (conj [:div#list]))]
       :user-status (user-status (:user request) (:cart (:session request)))})))
 
@@ -389,7 +395,7 @@
                    (->> data/catalogue
                         :charts
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
-                        (map chart-to-html)
+                        (map #(chart-to-html (:cart (:session request)) %))
                         (conj [:div#list]))]
         :user-status (user-status (:user request) (:cart (:session request)))})
       ;; Otherwise if there was no requested chart, render all charts. If, on the other hand, there
@@ -406,7 +412,7 @@
                    (->> data/catalogue
                         (:charts)
                         (sort-charts (:sort (:params request)))
-                        (map chart-to-html)
+                        (map #(chart-to-html (:cart (:session request)) %))
                         (conj [:div#list]))]
           :user-status (user-status (:user request) (:cart (:session request)))})))))
 
@@ -434,7 +440,7 @@
                       :charts
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
                       (sort-charts (:sort (:params request)))
-                      (map chart-to-html)
+                      (map #(chart-to-html (:cart (:session request)) %))
                       (conj [:div#list]))]
         :user-status (user-status (:user request) (:cart (:session request)))})
       (when (nil? composer)
@@ -479,7 +485,7 @@
                       :charts
                       (filter #(= (:filename genre-catentry) (:category %)))
                       (sort-charts (:sort (:params request)))
-                      (map chart-to-html)
+                      (map #(chart-to-html (:cart (:session request)) %))
                       (conj [:div#list]))]
         :user-status (user-status (:user request) (:cart (:session request)))}))))
 
@@ -504,7 +510,7 @@
                       :charts
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
                       (sort-charts (:sort (:params request)))
-                      (map chart-to-html)
+                      (map #(chart-to-html (:cart (:session request)) %))
                       (conj [:div#list]))]
         :user-status (user-status (:user request) (:cart (:session request)))}))))
 
@@ -526,7 +532,7 @@
                       (filter #(not= (:featured %) "0"))
                       (sort-by #(utils/parse-number (:featured %)))
                       (sort-charts (:sort (:params request)))
-                      (map chart-to-html)
+                      (map #(chart-to-html (:cart (:session request)) %))
                       (conj [:div#list]))]
         :user-status (user-status (:user request) (:cart (:session request)))}))))
 
@@ -909,15 +915,17 @@
 (defn render-shopping-cart
   "Show the user's shopping cart."
   [{user :user, {cart :cart, :as session} :session, :as request}]
-  ;; The shopping cart only contains chart filenames, so the first thing we do is get the details
-  ;; for every item in the cart:
-  (let [detailed-cart (->> data/catalogue
+  (let [;; The shopping cart only contains chart filenames, so the first thing we do is get the details
+        ;; for every item in the cart:
+        detailed-cart (->> data/catalogue
                            :charts
                            (filter (fn [chart] (some #(= (:filename chart) %) cart))))
+        ;; The subtotal is just the sum of the prices of each chart in the cart:
         subtotal (->> detailed-cart
                       (map get-numeric-price)
                       (reduce +)
                       (double))
+        ;; This is the HTML DIV to display when the shopping cart is not empty:
         shopping-cart-div [:div#shopping_cart
                            [:table
                             [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
@@ -962,6 +970,7 @@
                              [:p "To continue with your purchase, please "
                               [:a {:href "/login/"} "log in or sign up"] " for an account"]
                              ;; Otherwise show this text:
+                             ;; TODO: Should this be in a markup file?
                              [:div
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
                                "score and parts to these charts in "
@@ -969,7 +978,7 @@
                                 "Adobe PDF format"]
                                ". When your purchase is complete your will immediately be emailed "
                                "a link for downloading your files. Every page will be marked "
-                               "with your school or band name and address:"]
+                               "with your school or band name and address as follows:"]
                               [:p [:b (str "For use by " (:band user) ", " (:city user) ", "
                                            (:province user) ", " (:country user) ".")]]])]]
     (render-html {:title "Shopping Cart - Clovertone Music"
@@ -1138,7 +1147,7 @@
      new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params
     session :session :as request}]
-  ;; TODO: "Normal" user information shouldn't be changeable either without supplying a
+  ;; TODO: No user info (not even non-password info) should be changeable without supplying a
   ;; current password.
   (cond
     ;; If the user has entered a new password but the retyped password does not match it, redirect
