@@ -1037,39 +1037,44 @@
     {cart :cart, :as session} :session,
     {nomatch :nomatch, wrongpw :wrongpw, :as params} :params,
     :as request}]
-  (let [make-purchase-row (fn [purchase]
-                            (let [chart (->> data/catalogue
-                                             :charts
-                                             (filter #(= (:filename %) (:chart purchase)))
-                                             (first))
-                                  composer (->> data/catalogue
-                                                :composers
-                                                (filter #(= (:composer-name %) (:composer chart)))
-                                                (first))
-                                  grade (->> data/catalogue
-                                             :grades
-                                             (filter #(= (:grade-number %) (:grade chart)))
-                                             (first))]
-                              [:tr
-                               [:td (:date purchase)]
-                               [:td [:a {:href (str "/charts/" (:filename chart))}
-                                     (:chart-name chart)]]
-                               [:td [:a {:href (str "/composers/" (:filename composer))}
-                                     (:composer chart)]]
-                               [:td (:grade-name grade)]
-                               [:td (:subgenre chart)]
-                               [:td
-                                [:table
+  (let [make-purchase-div (fn [purchase]
+                            ;; Generate a DIV containing the table rows with the information about
+                            ;; the purchase
+                            (let [charts (string/split (:charts purchase) #"\s*,\s*")
+                                  get-chart-details (fn [chart]
+                                                      (->> data/catalogue
+                                                           :charts
+                                                           (filter #(= (:filename %) chart))
+                                                           (first)))
+                                  get-composer (fn [chart]
+                                                 (->> data/catalogue
+                                                      :composers
+                                                      (filter #(= (:composer-name %)
+                                                                  (:composer chart)))
+                                                      (first)))
+                                  get-grade (fn [chart]
+                                              (->> data/catalogue
+                                                   :grades
+                                                   (filter #(= (:grade-number %) (:grade chart)))
+                                                   (first)))]
+                              [:div
+                               [:tr [:td [:hr]]]
+                               [:tr [:th (:date purchase)]]
+                               (for [chart (map get-chart-details charts)]
                                  [:tr
-                                  [:td
-                                   [:span.download
-                                    [:a
-                                     {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                 (:filename chart) ".score.pdf")} "Score"]]
-                                   [:span.download
-                                    [:a
-                                     {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                 (:filename chart) ".parts.pdf")} "Parts"]]]]]]]))
+                                  [:td [:a {:href (str "/charts/" (:filename chart))}
+                                        (:chart-name chart)]]
+                                  [:td [:a {:href (str "/composers/"
+                                                       (:filename (get-composer chart)))}
+                                        (:composer chart)]]
+                                  [:td (:grade-name (get-grade chart))]
+                                  [:td (:subgenre chart)]
+                                  [:td.download
+                                   [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                   (:filename chart) ".score.pdf")} "Score"]]
+                                  [:td.download
+                                   [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                   (:filename chart) ".parts.pdf")} "Parts"]]])]))
         user-purchases (->> user
                             :userid
                             data/get-user-purchases
@@ -1166,10 +1171,9 @@
                  ;; TODO: This needs to be redone so as to make it possible to have more than one
                  ;; chart associated with a purchase:
                  [:h2 "Purchase History"]
-                 [:div#purchase_history
-                  (if (> (utils/parse-number (count user-purchases)) 0)
-                    [:table (map make-purchase-row user-purchases)]
-                    [:p "You haven't made any purchases yet"])]
+                 (if (> (utils/parse-number (count user-purchases)) 0)
+                   [:table#purchase_history (map make-purchase-div user-purchases)]
+                   [:p "You haven't made any purchases yet"])
                  [:script (js-enable-or-disable-other-field)]]
       :user-status (user-status user cart)})))
 
