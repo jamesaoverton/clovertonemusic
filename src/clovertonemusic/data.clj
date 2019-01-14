@@ -4,9 +4,11 @@
             [clj-logging-config.log4j :as log-config]
             [clojure.data :refer [diff]]
             [clojure.data.csv :as csv]
+            [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as string]
             [java-time :as jtime]
+            [clj-pdf.core :as pdf]
             [clovertonemusic.utils :as utils]))
 
 (log-config/set-logger!
@@ -32,6 +34,23 @@
                                             (flatten)
                                             (apply array-map)))]
       (map generate-array-map data-rows))))
+
+(defn write-atomic-db-to-csv
+  "Writes the contents of an atomic db to its associated CSV file"
+  [atomic-db csv-file]
+  (let [colkeys (->> atomic-db
+                     (deref)
+                     (first)
+                     (keys))
+        get-values-from-rec (fn [db-rec]
+                              (for [colkey colkeys]
+                                (colkey db-rec)))]
+    (with-open [writer (io/writer csv-file)]
+      ;; Write the header row:
+      (csv/write-csv writer [(map name colkeys)])
+      ;; Write the data rows:
+      (doseq [rec (deref atomic-db)]
+        (csv/write-csv writer [(get-values-from-rec rec)])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the charts catalogue
@@ -248,22 +267,6 @@
       (not password-ok) false
       password-ok (get-user-by-email email))))
 
-(defn write-user-db-to-csv
-  []
-  (let [colkeys (->> user-db
-                     (deref)
-                     (first)
-                     (keys))
-        get-values-from-rec (fn [user-rec]
-                              (for [colkey colkeys]
-                                (colkey user-rec)))]
-    (with-open [writer (io/writer users-file)]
-      ;; Write the header row:
-      (csv/write-csv writer [(map name colkeys)])
-      ;; Write the data rows:
-      (doseq [rec (deref user-db)]
-        (csv/write-csv writer [(get-values-from-rec rec)])))))
-
 (defn generate-activation-id
   "Generate an activation id composed of the epoch time in ms appended to a randomly generated UUID"
   []
@@ -290,7 +293,7 @@
                              :province province :country country :phone phone :email email
                              :newsletter newsletter :activated "0" :activationid activationid))
         ;; Persist the user-db to disk (in case of a crash):
-        (write-user-db-to-csv)
+        (write-atomic-db-to-csv user-db users-file)
         ;; Finally return the activation id:
         activationid))))
 
@@ -324,7 +327,7 @@
     (let [differences (diff (sort-by :userid old-db-contents) (sort-by :userid (deref user-db)))]
       (if (or (first differences) (second differences))
         (do
-          (write-user-db-to-csv)
+          (write-atomic-db-to-csv user-db users-file)
           true)
         false))))
 
@@ -349,7 +352,7 @@
     ;; Update the user db with the current time as the last accessed time
     (swap! user-db update-access-time))
   ;; Persist the database to disk, and then return the userid back to the caller:
-  (write-user-db-to-csv)
+  (write-atomic-db-to-csv user-db users-file)
   userid)
 
 (defn modify-account-information!
@@ -403,18 +406,27 @@
     ;; Update the user db with the modified user record
     (swap! user-db update-user-rec-in-db))
   ;; Persist the db to disk:
-  (write-user-db-to-csv))
+  (write-atomic-db-to-csv user-db users-file))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to purchases in the data directory
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def purchases-path "data/purchases")
-(def purchases-db-file (str purchases-path "/purchases.csv"))
+(def purchases-file (str purchases-path "/purchases.csv"))
+(def chart-template-dir (str catalogue-path "/chart-pdfs"))
+
+(defn get-full-purchase-path
+  "If the given relative path of a purchase can be found in the purchases directory, then return
+  its absolute path, otherwise return nil"
+  [purchase-dir purchase-file]
+  (let [full-purchase-path (str purchases-path "/" purchase-dir "/" purchase-file)]
+    (when (.exists (io/as-file full-purchase-path))
+      full-purchase-path)))
 
 ;; Initialize the purchases database. Note that the user database may change while the server is
 ;; running, so we make it an atom. Updates are handled similarly to the users database (see above)
-(def purchases-db (atom (simple-extract-db-from-csv purchases-db-file)))
+(def purchases-db (atom (simple-extract-db-from-csv purchases-file)))
 
 (defn get-user-purchases
   "Returns a sequence of maps for each of the given user's purchases, containing the fields :userid,
@@ -427,14 +439,63 @@
        (deref)
        (filter #(= (:userid %) userid))))
 
+(defn remove-already-owned-charts-from-cart
+  "Remove any already-owned items from the given cart of the given user"
+  [userid cart]
+  ;; This function is meant to be a safeguard against allowing the user to purchase charts that she
+  ;; already owns. Ideally, the web page should not allow already owned charts to ever be in the
+  ;; user's cart, but this is a second safety mechanism, just in case.
+  (let [owned-charts (->> userid
+                          (get-user-purchases)
+                          (map #(string/split (:charts %) #"\s*,\s*"))
+                          (map set)
+                          (apply clojure.set/union))
+        pruned-cart (->> cart
+                         (filter #(not (contains? owned-charts %))))]
+    (when (not= (set cart) (set pruned-cart))
+      (log/warn "Shopping cart for user" userid "contained items that are already owned:"
+                (clojure.set/difference (set cart) (set pruned-cart))))
+    ;; Return the pruned cart:
+    pruned-cart))
 
-(defn get-full-purchase-path
-  "If the given relative path of a purchase can be found in the purchases directory, then return
-  its absolute path, otherwise return nil"
-  [purchase-dir purchase-file]
-  (let [full-purchase-path (str purchases-path "/" purchase-dir "/" purchase-file)]
-    (when (.exists (io/as-file full-purchase-path))
-      full-purchase-path)))
+(defn create-purchase!
+  "Create a new record in the purchase db for the items in the given cart for the given user"
+  [userid cart]
+  (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
+      [purchaseid (str (java.util.UUID/randomUUID) (System/currentTimeMillis))
+       purchasedir (str purchases-path "/" purchaseid)
+       today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+       pruned-cart (remove-already-owned-charts-from-cart userid cart)
+       user (get-user-by-id userid)]
+
+    ;; Update the purchases db with the new purchase record. We do this first, since if one of the
+    ;; steps below goes wrong, at least the purchase will have been recorded.
+    (swap! purchases-db conj
+           (array-map :purchaseid purchaseid :userid userid :charts (string/join "," pruned-cart)
+                      :date today))
+
+    ;; Create a new subdirectory in the purchases directory
+    (.mkdir (java.io.File. purchasedir))
+
+    ;; Look up the charts in the catalogue directory, and create stamped copies of them in the
+    ;; new directory:
+    (doseq [item pruned-cart]
+      ;; Create the watermark file:
+      ;; TODO: Check for errors:
+      (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
+                [:phrase (str "For use by " (:band user) ", " (:city user) ", "
+                              (:province user) ", " (:country user) ".")]]
+               (str purchasedir "/watermark.pdf"))
+
+      ;; Now call the external program 'pdftk' to add the watermark to the charts' PDFs:
+      ;; TODO: Check the exit status for errors:
+      (doseq [file-type ["score" "parts"]]
+        (sh "pdftk" (str chart-template-dir "/" item "." file-type ".pdf")
+            "stamp" (str purchasedir "/watermark.pdf")
+            "output" (str purchasedir "/" item "." file-type ".pdf"))))
+
+    ;; Persist the db to disk (for backup purposes):
+    (write-atomic-db-to-csv purchases-db purchases-file)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory

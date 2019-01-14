@@ -164,6 +164,8 @@
       (wrap-authentication backend)
       (wrap-authorization backend)
       (wrap-session)
+      ;; TODO: associate a timeout with the session
+      ;; (see: https://github.com/ring-clojure/ring-session-timeout)
       (wrap-params)
       (wrap-exception-handling)))
 

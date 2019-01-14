@@ -10,6 +10,8 @@
             [clovertonemusic.data :as data]
             [clovertonemusic.utils :as utils]))
 
+;; TODO: Tables (in, e.g., purchase history, shopping cart) need to be made mobile friendly.
+
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
@@ -881,6 +883,10 @@
   "Handles the posting of data when an existing user attempts to login to the system."
   [{{email "email" password "password"} :form-params
     session :session :as req}]
+  ;; TODO: This behaviour needs to be fixed (maybe?): if user 'mike' is logged in, and then logs out
+  ;; and then logs in again as a different user, the old session is stilled maintained.
+  ;; Possible solution: do not clear session when going from logged out to logged in, but do clear
+  ;; the session when going from logged in to logged out.
   (let [user (data/get-user-by-email-and-password email password)]
     (cond
       (nil? user) (redirect "/login/?notfound=true")
@@ -935,7 +941,10 @@
 
 (defn render-shopping-cart
   "Show the user's shopping cart."
-  [{user :user, {cart :cart, :as session} :session, :as request}]
+  [{user :user,
+    {thanks :thanks, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
   (let [;; The shopping cart only contains chart filenames, so the first thing we do is get the details
         ;; for every item in the cart:
         detailed-cart (->> data/catalogue
@@ -1009,19 +1018,31 @@
                              [:br]
                              (if-not (empty? cart)
                                shopping-cart-div
-                               [:p "Your shopping cart is empty"])]})))
-                             
+                               (if thanks
+                                 [:p [:h3 "Thanks for your purchase!"]]
+                                 [:p "Your shopping cart is empty"]))]})))
+
+(defn make-payment
+  "INSERT DESCRIPTION HERE"
+  [amount]
+  ;; TO BE IMPLEMENTED
+  true)
+
 (defn post-buy-cart
   [{user :user,
     {cart :cart, :as session} :session,
     {amount :amount, :as params} :params,
     :as request}]
-  ;; TODO: Save the purchases in the cart to the purchase db, and then stamp the chart files and
-  ;; make the corresponding charts available in the data directory, etc.
-  ;; The actual payment will be done using a third party and will use the 'amount' parameter.
-  ;; Leave this part for last.
-  "To be implemented")
-
+  (if (not (make-payment amount))
+    ;; If the payment is unsuccessful, redirect to the shopping cart:
+    (redirect "/cart/")
+    ;; Otherwise process the purchase on the server, render a "thank you" page, and empty the
+    ;; shopping cart:
+    (do
+      (data/create-purchase! (:userid user) cart)
+      (assoc (redirect "/cart/?thanks=true")
+             :session (-> session
+                          (dissoc :cart))))))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
@@ -1168,8 +1189,6 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 ;; TODO: This needs to be redone so as to make it possible to have more than one
-                 ;; chart associated with a purchase:
                  [:h2 "Purchase History"]
                  (if (> (utils/parse-number (count user-purchases)) 0)
                    [:table#purchase_history (map make-purchase-div user-purchases)]
