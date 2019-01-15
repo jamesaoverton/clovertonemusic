@@ -958,13 +958,15 @@
         tax (cond
               ;; Ontario customers pay HST:
               (and (= (:province user) "Ontario") (= (:country user) "Canada"))
-              {:label "Ontario HST (13%)" :amount (* 0.13 subtotal)}
+              {:name "Ontario HST" :rate "13%" :amount (* 0.13 subtotal)}
               ;; Other Canadian customers pay GST:
               (= (:country user) "Canada")
-              {:label "GST (5%)" :amount (* 0.05 subtotal)}
+              {:name "GST" :rate "5%" :amount (* 0.05 subtotal)}
               ;; No taxes for non-Canadians:
               :else
-              {:label "Tax (0%)" :amount 0.0})
+              {:name "No Tax" :rate "0%" :amount 0.0})
+        watermark (str "For use by " (:band user) ", " (:city user) ", "
+                       (:province user) ", " (:country user) ".")
         ;; This is the HTML DIV to display when the shopping cart is not empty:
         shopping-cart-div [:div#shopping_cart
                            [:table
@@ -985,7 +987,7 @@
                               ;; Otherwise determine the tax based on the user's location.
                               [:div
                                [:span
-                                [:tr [:th] [:th] [:th (:label tax)]
+                                [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
                                  [:td (format "$%.2f" (:amount tax))]]
                                 [:tr [:th] [:th] [:th "Total"]
                                  [:td (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
@@ -998,7 +1000,12 @@
                              [:div
                               [:div.buy
                                [:form {:action "/buy-cart/" :method "post"}
-                                [:input {:type "hidden" :name "amount" :value (+ (:amount tax) subtotal)}]
+                                [:input {:type "hidden" :name "subtotal" :value subtotal}]
+                                [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
+                                [:input {:type "hidden" :name "taxname" :value (:name tax)}]
+                                [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
+                                [:input {:type "hidden" :name "total" :value (+ (:amount tax) subtotal)}]
+                                [:input {:type "hidden" :name "watermark" :value watermark}]
                                 [:input {:type "submit" :value "Buy now"}]]]
                               ;; TODO: Should this be in a markup file?
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
@@ -1008,8 +1015,7 @@
                                ". When your purchase is complete your will immediately be emailed "
                                "a link for downloading your files. Every page will be marked "
                                "with your school or band name and address as follows:"]
-                              [:p [:b (str "For use by " (:band user) ", " (:city user) ", "
-                                           (:province user) ", " (:country user) ".")]]])]]
+                              [:p [:b watermark]]])]]
 
     (render-html {:title "Shopping Cart - Clovertone Music"
                   :user-status (user-status user cart)
@@ -1024,22 +1030,23 @@
 
 (defn make-payment
   "INSERT DESCRIPTION HERE"
-  [amount]
+  [total]
   ;; TO BE IMPLEMENTED
   true)
 
 (defn post-buy-cart
   [{user :user,
     {cart :cart, :as session} :session,
-    {amount :amount, :as params} :params,
+    {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
+     watermark :watermark, :as params} :params,
     :as request}]
-  (if (not (make-payment amount))
+  (if (not (make-payment total))
     ;; If the payment is unsuccessful, redirect to the shopping cart:
     (redirect "/cart/")
     ;; Otherwise process the purchase on the server, render a "thank you" page, and empty the
     ;; shopping cart:
     (do
-      (data/create-purchase! (:userid user) cart)
+      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxes total watermark)
       (assoc (redirect "/cart/?thanks=true")
              :session (-> session
                           (dissoc :cart))))))
@@ -1061,7 +1068,7 @@
   (let [make-purchase-div (fn [purchase]
                             ;; Generate a DIV containing the table rows with the information about
                             ;; the purchase
-                            (let [charts (string/split (:charts purchase) #"\s*,\s*")
+                            (let [charts (string/split (:charts purchase) #"\s*;\s*")
                                   get-chart-details (fn [chart]
                                                       (->> data/catalogue
                                                            :charts

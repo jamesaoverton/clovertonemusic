@@ -447,7 +447,7 @@
   ;; user's cart, but this is a second safety mechanism, just in case.
   (let [owned-charts (->> userid
                           (get-user-purchases)
-                          (map #(string/split (:charts %) #"\s*,\s*"))
+                          (map #(string/split (:charts %) #"\s*;\s*"))
                           (map set)
                           (apply clojure.set/union))
         pruned-cart (->> cart
@@ -460,19 +460,28 @@
 
 (defn create-purchase!
   "Create a new record in the purchase db for the items in the given cart for the given user"
-  [userid cart]
+  [userid cart subtotal taxrate taxname taxes total watermark]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
       [purchaseid (str (java.util.UUID/randomUUID) (System/currentTimeMillis))
        purchasedir (str purchases-path "/" purchaseid)
        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
        pruned-cart (remove-already-owned-charts-from-cart userid cart)
-       user (get-user-by-id userid)]
+       user (get-user-by-id userid)
+       get-chart-data (fn [filename] (->> catalogue
+                                          :charts
+                                          (filter #(= filename (:filename %)))
+                                          (map #(select-keys % [:chart-name :price :composer :grade
+                                                                :subgenre]))
+                                          (first)))]
 
     ;; Update the purchases db with the new purchase record. We do this first, since if one of the
     ;; steps below goes wrong, at least the purchase will have been recorded.
     (swap! purchases-db conj
-           (array-map :purchaseid purchaseid :userid userid :charts (string/join "," pruned-cart)
-                      :date today))
+           (array-map :purchaseid purchaseid :userid userid :charts (string/join ";" pruned-cart)
+                      :date today :user_data (str {:name (:name user) :email (:email user)})
+                      :charts_data (string/join ";" (map get-chart-data pruned-cart))
+                      :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes :total total
+                      :watermark watermark))
 
     ;; Create a new subdirectory in the purchases directory
     (.mkdir (java.io.File. purchasedir))
@@ -483,8 +492,7 @@
       ;; Create the watermark file:
       ;; TODO: Check for errors:
       (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
-                [:phrase (str "For use by " (:band user) ", " (:city user) ", "
-                              (:province user) ", " (:country user) ".")]]
+                [:phrase watermark]]
                (str purchasedir "/watermark.pdf"))
 
       ;; Now call the external program 'pdftk' to add the watermark to the charts' PDFs:
