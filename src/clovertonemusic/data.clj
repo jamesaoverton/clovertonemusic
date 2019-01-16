@@ -496,17 +496,21 @@
     ;; new directory:
     (doseq [item pruned-cart]
       ;; Create the watermark file:
-      ;; TODO: Check for errors:
-      (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
-                [:phrase watermark]]
-               (str purchasedir "/watermark.pdf"))
+      (try
+        (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
+                  [:phrase watermark]]
+                 (str purchasedir "/watermark.pdf"))
+        (catch Exception ex
+          (log/error (.getMessage ex) "\n" (.printStackTrace ex))))
 
       ;; Now call the external program 'pdftk' to add the watermark to the charts' PDFs:
-      ;; TODO: Check the exit status for errors:
       (doseq [file-type ["score" "parts"]]
-        (sh "pdftk" (str chart-template-dir "/" item "." file-type ".pdf")
-            "stamp" (str purchasedir "/watermark.pdf")
-            "output" (str purchasedir "/" item "." file-type ".pdf"))))
+        (let [exit-status (sh "pdftk" (str chart-template-dir "/" item "." file-type ".pdf")
+                              "stamp" (str purchasedir "/watermark.pdf")
+                              "output" (str purchasedir "/" item "." file-type ".pdf"))]
+          (when (not= (:exit exit-status) 0)
+            (log/error "During purchase, stamping of" file-type "for chart" item "for user" userid
+                       "failed:" (:err exit-status))))))
 
     ;; Persist the purchases databases to disk (for backup purposes):
     (write-atomic-db-to-csv purchases-db purchases-file)
