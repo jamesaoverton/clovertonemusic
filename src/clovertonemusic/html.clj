@@ -222,7 +222,7 @@
 (defn chart-to-html
   "Converts a given chart catalogue entry to a HTML div. If the chart is not already in the
   shopping cart, this is indicated in the div by inviting the user to order it."
-  [cart chart]
+  [user cart chart]
   (let [number (:chart-number chart)
         price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
         grade-name (->> data/catalogue
@@ -235,7 +235,14 @@
                            (filter #(= (:composer chart) (:composer-name %)))
                            (first)
                            :filename
-                           (str "/composers/"))]
+                           (str "/composers/"))
+        chart-is-unowned (or (nil? user)
+                             (nil? (->> data/purchases-db
+                                        (deref)
+                                        (filter #(= (:userid user) (:userid %)))
+                                        (map #(string/split (:charts %) #"\s*;\s*"))
+                                        (filter (fn [charts] (some #(= (:filename chart) %) charts)))
+                                        (first))))]
     [(keyword (str "div#" number ".chart.grade" (:grade chart)))
      [:div.head
       ;; Add a name to serve as an anchor for navigating back to this specific chart:
@@ -251,14 +258,14 @@
        [:div.genre (:category chart)]
        [:div.grade grade-name]]
       [:a.purchase
-       ;; TODO: this link should be disabled if the user already owns the record:
-       {:href (str "/add-to-cart/" (:filename chart))}
-       [:div.blank]
+       (if chart-is-unowned
+         {:href (str "/add-to-cart/" (:filename chart))}
+         {:href "/account#purchase-history"})
        [:div.price
-        ;; TODO: The price bubble does not currently render nicely on mobile screens:
-        (if (some #(= (:filename chart) %) cart)
-          [:div "In Cart"]
-          [:div "Order"])
+        (cond
+          (some #(= (:filename chart) %) cart) [:div.order "In Cart"]
+          chart-is-unowned [:div.order "Order!"]
+          :else [:div.order.smaller "Purchased"])
         [:span.dollar-sign "$"]
         [:span.dollars (get price 1)]
         [:span.cents (get price 2)]]]
@@ -342,7 +349,7 @@
                     :charts
                     (filter search-string-in-chart)
                     (sort-charts sort-param)
-                    (map #(chart-to-html cart %))
+                    (map #(chart-to-html user cart %))
                     (conj [:div#list]))]
       :user-status (user-status user cart)})))
 
@@ -401,7 +408,7 @@
                    (->> data/catalogue
                         :charts
                         (filter #(= (:chart-number chart-catentry) (:chart-number %)))
-                        (map #(chart-to-html cart %))
+                        (map #(chart-to-html user cart %))
                         (conj [:div#list]))]
         :user-status (user-status user cart)})
       ;; Otherwise if there was no requested chart, render all charts. If, on the other hand, there
@@ -418,7 +425,7 @@
                    (->> data/catalogue
                         (:charts)
                         (sort-charts sort-param)
-                        (map #(chart-to-html cart %))
+                        (map #(chart-to-html user cart %))
                         (conj [:div#list]))]
           :user-status (user-status user cart)})))))
 
@@ -448,7 +455,7 @@
                       :charts
                       (filter #(= (:composer-name composer-catentry) (:composer %)))
                       (sort-charts sort-param)
-                      (map #(chart-to-html cart %))
+                      (map #(chart-to-html user cart %))
                       (conj [:div#list]))]
         :user-status (user-status user cart)})
       (when (nil? composer)
@@ -495,7 +502,7 @@
                       :charts
                       (filter #(= (:filename genre-catentry) (:category %)))
                       (sort-charts sort-param)
-                      (map #(chart-to-html cart %))
+                      (map #(chart-to-html user cart %))
                       (conj [:div#list]))]
         :user-status (user-status user cart)}))))
 
@@ -522,7 +529,7 @@
                       :charts
                       (filter #(= (:grade-number grade-catentry) (:grade %)))
                       (sort-charts sort-param)
-                      (map #(chart-to-html cart %))
+                      (map #(chart-to-html user cart %))
                       (conj [:div#list]))]
         :user-status (user-status user cart)}))))
 
@@ -546,7 +553,7 @@
                     (filter #(not= (:featured %) "0"))
                     (sort-by #(utils/parse-number (:featured %)))
                     (sort-charts sort-param)
-                    (map #(chart-to-html cart %))
+                    (map #(chart-to-html user cart %))
                     (conj [:div#list]))]
       :user-status (user-status user cart)})))
 
@@ -1192,7 +1199,7 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 [:h2 "Purchase History"]
+                 [:h2 [(keyword "a#purchase-history") "Purchase History"]]
                  (if (> (utils/parse-number (count user-purchases)) 0)
                    [:table#purchase_history (map make-purchase-div user-purchases)]
                    [:p "You haven't made any purchases yet"])
