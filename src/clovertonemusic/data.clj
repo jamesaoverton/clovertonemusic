@@ -536,10 +536,17 @@
     (catch java.io.FileNotFoundException ex
       "No content found!")))
 
-(defn get-email-contents
+(defn get-inquiry-email-contents
   [email]
   (with-open [reader (io/reader (str email-path "/" email ".csv"))]
     (let [[header data] (doall (csv/read-csv reader))]
       {:to (get data (.indexOf header "to"))
        :subject (get data (.indexOf header "subject"))
        :body (get data (.indexOf header "body"))})))
+
+(defn get-activation-email-contents
+  [user link]
+  (let [template (slurp (str email-path "/activation.md"))]
+    (-> template
+        (string/replace #"<USER>" user)
+        (string/replace #"<LINK>" link))))

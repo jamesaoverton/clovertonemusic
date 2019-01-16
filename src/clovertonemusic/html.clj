@@ -202,7 +202,7 @@
   "Constructs an email inquiring about the given chart, using the email parameter as a key for
   searching through the markdown pages for the template corresponding to that parameter."
   [email chart-name]
-  (let [email-contents (data/get-email-contents email)]
+  (let [email-contents (data/get-inquiry-email-contents email)]
     (str "mailto:" (->> :to email-contents
                         (codec/url-encode))
          "?subject=" (->> :subject email-contents
@@ -788,17 +788,8 @@
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name server activationid]
-  ;; TODO: Get the contents of the activation email from a markdown file.
-  (let [body (str "Dear " name ",\n\n"
-                  "Please click on the link below to verify your email address and activate your "
-                  "Clovertone account. If you cannot click on the link, please copy and paste it "
-                  "into your browser.\n\n"
-                  ;; TODO: Change this to https eventually:
-                  "http://" server "/activation/" activationid "\n\n"
-                  "If you did not request to sign up for a Clovertone account, you can safely "
-                  "ignore this message.\n\n"
-                  "Sincerely,\n"
-                  "The Clovertone team")
+  ;; TODO: Eventually change http to https here:
+  (let [body (data/get-activation-email-contents name (str "http://" server "/activation/" activationid))
         ;; conn holds the connection parameters for the smtp server. Setting it to nil results in
         ;; delivery through the local mail system.
         ;; TODO: the SMTP server parameters should be set inside a config or markdown file and
