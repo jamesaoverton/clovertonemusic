@@ -883,10 +883,6 @@
   "Handles the posting of data when an existing user attempts to login to the system."
   [{{email "email" password "password"} :form-params
     session :session :as req}]
-  ;; TODO: This behaviour needs to be fixed (maybe?): if user 'mike' is logged in, and then logs out
-  ;; and then logs in again as a different user, the old session is stilled maintained.
-  ;; Possible solution: do not clear session when going from logged out to logged in, but do clear
-  ;; the session when going from logged in to logged out.
   (let [user (data/get-user-by-email-and-password email password)]
     (cond
       (nil? user) (redirect "/login/?notfound=true")

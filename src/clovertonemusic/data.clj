@@ -414,6 +414,7 @@
 
 (def purchases-path "data/purchases")
 (def purchases-file (str purchases-path "/purchases.csv"))
+(def purchases-details-file (str purchases-path "/purchases-details.csv"))
 (def chart-template-dir (str catalogue-path "/chart-pdfs"))
 
 (defn get-full-purchase-path
@@ -427,6 +428,7 @@
 ;; Initialize the purchases database. Note that the user database may change while the server is
 ;; running, so we make it an atom. Updates are handled similarly to the users database (see above)
 (def purchases-db (atom (simple-extract-db-from-csv purchases-file)))
+(def purchases-details-db (atom (simple-extract-db-from-csv purchases-details-file)))
 
 (defn get-user-purchases
   "Returns a sequence of maps for each of the given user's purchases, containing the fields :userid,
@@ -474,14 +476,18 @@
                                                                 :subgenre]))
                                           (first)))]
 
-    ;; Update the purchases db with the new purchase record. We do this first, since if one of the
-    ;; steps below goes wrong, at least the purchase will have been recorded.
+    ;; Update the two purchases databases with the new purchase record. We do this first, since if
+    ;; one of the steps below goes wrong, at least the purchase will have been recorded.
     (swap! purchases-db conj
-           (array-map :purchaseid purchaseid :userid userid :charts (string/join ";" pruned-cart)
-                      :date today :user_data (str {:name (:name user) :email (:email user)})
-                      :charts_data (string/join ";" (map get-chart-data pruned-cart))
-                      :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes :total total
-                      :watermark watermark))
+           (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
+                      :user_email (:email user) :charts (string/join ";" pruned-cart)
+                      :date today :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes
+                      :total total :watermark watermark))
+    (swap! purchases-details-db into
+           (for [chart (map get-chart-data pruned-cart)]
+             (array-map :purchaseid purchaseid :chart (:chart-name chart) :price (:price chart)
+                        :composer (:composer chart) :grade (:grade chart)
+                        :subgenre (:subgenre chart))))
 
     ;; Create a new subdirectory in the purchases directory
     (.mkdir (java.io.File. purchasedir))
@@ -502,8 +508,10 @@
             "stamp" (str purchasedir "/watermark.pdf")
             "output" (str purchasedir "/" item "." file-type ".pdf"))))
 
-    ;; Persist the db to disk (for backup purposes):
-    (write-atomic-db-to-csv purchases-db purchases-file)))
+    ;; Persist the purchases databases to disk (for backup purposes):
+    (write-atomic-db-to-csv purchases-db purchases-file)
+    (write-atomic-db-to-csv purchases-details-db purchases-details-file)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory
