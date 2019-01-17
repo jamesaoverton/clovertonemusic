@@ -13,8 +13,6 @@
             [clovertonemusic.html :as html]
             [clovertonemusic.data :as data]))
 
-;; TODO: If possible, add the Cart and Login/signup links to the 500/404 pages.
-
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
@@ -36,7 +34,9 @@
 
 (defn wrap-exception-handling
   [handler]
-  (fn [request]
+  (fn [{user :user,
+        {cart :cart, :as session} :session,
+        :as request}]
     (try
       (handler request)
       (catch Exception ex
@@ -44,7 +44,7 @@
               detailed-error (apply str (interpose "\n\t" (.getStackTrace ex)))]
           (log/error error-summary "\n" detailed-error)
           (html/render-html
-           {:title "Internal Server Error"
+           {:title "Internal Server Error - Clovertone Music"
             :contents [:div#contents
                        [:h1 "Internal Server Error"]
                        [:p "The server encountered an error while processing your request:"]
@@ -52,7 +52,25 @@
                        [:p "For assistance, send an email to "
                         [:a {:href (str "mailto:" html/support-email-address)}
                          html/support-email-address]]]
+            :user-status (html/user-status user cart)
             :page-status 500}))))))
+
+(defn unauthorized-handler
+  [{user :user,
+    {cart :cart, :as session} :session,
+    :as request}
+   metadata]
+  (html/render-html
+   {:title "Unauthorized - Clovertone Music"
+    :contents [:div#contents
+               [:h1 "Unauthorized"]
+               [:p "You are not authorized to access the required resource. (You may not be logged in.)"]
+               [:p "For assistance, send an email to "
+                [:a {:href (str "mailto:" html/support-email-address)}
+                 html/support-email-address]]]
+    :user-status (html/user-status user cart)
+    :page-status 401}))
+
 
 ;; Subroutes which require authentication:
 (defroutes account-routes
@@ -144,7 +162,7 @@
 
   ;; all other, return 404
   (route/not-found (html/render-html
-                    {:title "Page Not Found"
+                    {:title "Page Not Found - Clovertone Music"
                      :contents [:div#contents
                                 [:h1 "Page Not Found"]
                                 [:p "The requested resource could not be found."]
@@ -153,15 +171,13 @@
                                   html/support-email-address]]]
                      :page-status 404})))
 
-(def backend (session-backend))
+(def backend (session-backend {:unauthorized-handler unauthorized-handler}))
 (def app
   (-> #'all-routes
       (wrap-user)
       (wrap-authentication backend)
       (wrap-authorization backend)
       (wrap-session)
-      ;; TODO: Maybe associate a timeout with the session (ask James)
-      ;; (see: https://github.com/ring-clojure/ring-session-timeout)
       (wrap-params)
       (wrap-exception-handling)))
 
