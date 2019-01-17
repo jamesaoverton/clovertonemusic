@@ -1,6 +1,7 @@
 (ns clovertonemusic.html
   (:require [clojure.tools.logging :as log]
             [clj-logging-config.log4j :as log-config]
+            [java-time :as jtime]
             [hiccup.core :as page]
             [markdown-to-hiccup.core :as m2h]
             [ring.util.codec :as codec]
@@ -15,6 +16,10 @@
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
+
+(def activation-email-address "info@clovertonemusic.com")
+(def info-email-address "info@clovertonemusic.com")
+(def support-email-address "info@clovertonemusic.com")
 
 (defn render-html
   "Main template for HTML page generation. Wraps the four parameters passed as arguments in the
@@ -97,8 +102,9 @@
              [:div#footer
               [:ul
                [:li [:a {:href "/about/privacy-policy"} "Privacy Policy\n"]]
-               [:li "© 2019 Clovertone Music"]]]]
-            ]])})
+               ;; The copyright notice dynamically displays the current year:
+               [:li (str "© " (->> (jtime/local-date) (jtime/format "yyyy"))
+                         " Clovertone Music")]]]]]])})
 
 (defn user-status
   "Generates the 'user status' links on clovertone pages. If the given user parameter is not nil,
@@ -796,9 +802,9 @@
         ;; pulled from there.
         ;; See: https://github.com/drewr/postal and http://www.rkn.io/2014/03/20/clojure-cookbook-email/
         conn nil
-        send-status (send-message conn {:from "activation@clovertonemusic.com"
+        send-status (send-message conn {:from activation-email-address
                                         :to [email]
-                                        :reply-to "info@clovertonemusic.com"
+                                        :reply-to support-email-address
                                         :subject "Activate your clovertonemusic.com account"
                                         :body body})]
     (when (not= (:error send-status) :SUCCESS)
@@ -848,9 +854,8 @@
                          " with a link to activate your account. Once activated, you "
                          "will be able to login. Note: the email may have gone to your \"junk\" "
                          "email folder. If you do not receive the email, please contact us at "
-                         ;; TODO: Define this email address somewhere central
-                         ;; (e.g., a markdown page)
-                         [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+                         [:a {:href (str "mailto:" support-email-address)}
+                          support-email-address]]]]
             :user-status (user-status user cart)}))))))
 
 (defn process-and-render-activation
@@ -873,7 +878,8 @@
                              [:div#login.window
                               [:h2 "The submitted activation ID is invalid."]
                               [:p "For assistance, send an email to "
-                               [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]]
+                               [:a {:href (str "mailto:" support-email-address)}
+                                support-email-address]]]]
                   :page-status 400
                   :user-status (user-status user cart)})))
 
@@ -1116,11 +1122,10 @@
                  [:br]
                  [:form {:action "/account-change/" :method "post"}
                   [:p
-                   [:label "Email&nbsp;"]
+                   [:label "Email:&nbsp;"]
                    [:b (:email user)
                     [:input {:type "hidden" :value (:email user) :name "email"}]]
-                   [:br]
-                   [:a {:href "/account-email/"} [:small "Change my email address"]]]
+                   [:br]]
                   [:table#account_form_table
                    [:tr
                     [:td "Country"]
@@ -1190,7 +1195,7 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 [:h2 [(keyword "a#purchase-history") "Purchase History"]]
+                 [(keyword "h2#purchase-history") "Purchase History"]
                  (if (> (utils/parse-number (count user-purchases)) 0)
                    [:table#purchase_history (map make-purchase-div user-purchases)]
                    [:p "You haven't made any purchases yet"])
@@ -1229,55 +1234,3 @@
                                      [:div#login.window
                                       [:h3 "Your account details have been successfully changed."]]]
                           :user-status (user-status user cart)}))))
-
-(defn render-account-email
-  "Renders the 'change email' page"
-  [{user :user,
-    {cart :cart, :as session} :session,
-    {nomatch :nomatch, already-exists :already-exists, :as params} :params,
-    :as request}]
-  (render-html
-   {:title "Change Account Email - Clovertone Music"
-    :contents [:div#account.window
-               [:h2 "Change the email address associated with your account"]
-               (when nomatch
-                 [:p.error "New and re-typed email addresses do not match."])
-               (when already-exists
-                 [:p.error "That email address is already assigned"])
-               [:br]
-               [:p "Current email address:&nbsp;" [:b (:email user)]]
-               [:form {:action "/account-email-change/" :method "post"}
-                [:div [:label "New email address"]]
-                [:div [:input {:name "new_email" :type "email" :onkeydown (js-suppress-enter)
-                               :required true}]]
-                [:div [:label "Re-type new email address"]]
-                [:div [:input {:name "retyped_email" :type "email" :onkeydown (js-suppress-enter)
-                               :required true}]]
-                [:br]
-                [:div [:input {:type "submit" :value "Submit"}]]
-                [:span#login-status.status]
-                [:br][:br]]
-               [:script (js-enable-or-disable-other-field)]]
-    :user-status (user-status user cart)}))
-
-(defn post-account-email-change
-  "Handles the posting of data when the user modifies his/her email address."
-  [{{new-email "new_email" retyped-email "retyped_email"} :form-params
-    user :user
-    {cart :cart, :as session} :session,
-    :as request}]
-  (cond
-    ;; If the new and retyped emails don't match, then redirect to the change email page while
-    ;; indicating the problem:
-    (not= new-email retyped-email) (redirect "/account-email/?nomatch=true")
-    ;; If the new email already exists, redirect back while indicating the problem:
-    (data/get-user-by-email new-email) (redirect "/account-email/?already-exists=true")
-    ;; Otherwise process the request. Note that this is not fully implemented. Probably the best
-    ;; way to implement this will be to generate an email with an activation id to the new address
-    ;; similary to the way it is done when creating a new user.
-    :else (render-html
-           {:title "Not yet implemented"
-            :contents [:p.window "Online email modification is not yet implemented. If you would like to "
-                       "change the email address associated with your account, email us at "
-                       [:a {:href "mailto:info@clovertonemusic.com"} "info@clovertonemusic.com"]]
-            :user-status (user-status user cart)})))

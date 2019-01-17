@@ -13,6 +13,8 @@
             [clovertonemusic.html :as html]
             [clovertonemusic.data :as data]))
 
+;; TODO: If possible, add the Cart and Login/signup links to the 500/404 pages.
+
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
@@ -48,7 +50,8 @@
                        [:p "The server encountered an error while processing your request:"]
                        [:p [:code error-summary]]
                        [:p "For assistance, send an email to "
-                        [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
+                        [:a {:href (str "mailto:" html/support-email-address)}
+                         html/support-email-address]]]
             :page-status 500}))))))
 
 ;; Subroutes which require authentication:
@@ -56,10 +59,6 @@
   (GET "/" [] html/render-account))
 (defroutes account-change-routes
   (POST "/" [] html/post-account-change))
-(defroutes account-email-routes
-  (GET "/" [] html/render-account-email))
-(defroutes account-email-change-routes
-  (POST "/" [] html/post-account-email-change))
 (defroutes purchases-routes
   (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 (defroutes buy-cart-routes
@@ -78,10 +77,6 @@
            (restrict account-routes {:handler is-authenticated}))
   (context "/account-change" []
            (restrict account-change-routes {:handler is-authenticated}))
-  (context "/account-email" []
-           (restrict account-email-routes {:handler is-authenticated}))
-  (context "/account-email-change" []
-           (restrict account-email-change-routes {:handler is-authenticated}))
   (context "/purchases" []
            (restrict purchases-routes {:handler is-authenticated}))
   (context "/buy-cart" []
@@ -154,7 +149,8 @@
                                 [:h1 "Page Not Found"]
                                 [:p "The requested resource could not be found."]
                                 [:p "For assistance, send an email to "
-                                 [:a {:href "mailto:info@clovertone.com"} "info@clovertone.com"]]]
+                                 [:a {:href (str "mailto:" html/support-email-address)}
+                                  html/support-email-address]]]
                      :page-status 404})))
 
 (def backend (session-backend))
@@ -164,7 +160,7 @@
       (wrap-authentication backend)
       (wrap-authorization backend)
       (wrap-session)
-      ;; TODO: associate a timeout with the session
+      ;; TODO: Maybe associate a timeout with the session (ask James)
       ;; (see: https://github.com/ring-clojure/ring-session-timeout)
       (wrap-params)
       (wrap-exception-handling)))
