@@ -224,7 +224,7 @@
   (fail "User database contains duplicate emails"))
 
 (defn get-next-user-id
-  "Returns a number 1 larger than the largest user id in the db, in string format"
+  "Returns a number 1 larger than the largest user id in the db, in string format."
   []
   (->> user-db
        (deref)
@@ -234,7 +234,7 @@
        (str)))
 
 (defn get-user-by-id
-  "Finds and returns the user in the db corresponding to the given userid"
+  "Finds and returns the user in the db corresponding to the given userid."
   [userid]
   (->> user-db
        (deref)
@@ -242,7 +242,7 @@
        (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn get-user-by-email
-  "Finds and returns the user in the db corresponding to the given email"
+  "Finds and returns the user in the db corresponding to the given email."
   [email]
   (->> user-db
        (deref)
@@ -267,8 +267,15 @@
       (not password-ok) false
       password-ok (get-user-by-email email))))
 
-(defn generate-activation-id
-  "Generate an activation id composed of the epoch time in ms appended to a randomly generated UUID"
+(defn user-is-disabled
+  "Tests to see whether the given user is disabled (e.g. if he is not activated)."
+  [user]
+  ;; If an activation id exists, it means that the user is still pending activation:
+  (not (string/blank? (:activationid user))))
+
+(defn generate-random-id
+  "Generate a random id composed of the epoch time in ms appended to a randomly generated UUID. This
+  is used for generating activation ids, purchase ids, reset password ids, etc."
   []
   (str (java.util.UUID/randomUUID) (System/currentTimeMillis)))
 
@@ -282,36 +289,35 @@
     (when-not existing-user
       (let [today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
             userid (get-next-user-id)
-            activationid (generate-activation-id)]
-        ;; Write the user record to the user db, indicating the user is not yet activated by placing
-        ;; "0" in the activated field, and writing an activation id which will be used for later
-        ;; activation. The activation id is then returned to the caller as a convenience. We use an
+            activationid (generate-random-id)]
+        ;; Write the user record to the user db, indicating the user is not yet activated by writing
+        ;; an activation id into the activationid column which will be used for later activation.
+        ;; The way this works is, an activationid in the user record that is not nil means that the
+        ;; user has not yet been activated.
+        ;; The activation id is then returned to the caller as a convenience. We use an
         ;; array map to keep the fields in the same order in which they were inserted:
         (swap! user-db conj (array-map
                              :userid userid :lastaccessed nil :dateadded today
                              :password (hashers/derive password) :name name :band band :city city
                              :province province :country country :phone phone :email email
-                             :newsletter newsletter :activated "0" :activationid activationid))
+                             :newsletter newsletter :activationid activationid :resetpwid nil))
         ;; Persist the user-db to disk (in case of a crash):
         (write-atomic-db-to-csv user-db users-file)
         ;; Finally return the activation id:
         activationid))))
 
 (defn activate-user!
-  "Activates the user corresponding to the given activation id. If the user is activated, returns
-  true, otherwise if the activation id is not found, returns false."
+  "Activates the user corresponding to the given activation id. If the user is activated
+  successfully, returns true, otherwise if the activation id is not found, returns false."
   [activationid]
-  (let [matches-activationid (fn [row]
-                               (and (= (:activated row) "0")
-                                    (= (:activationid row) activationid)))
-        mark-as-activated (fn [dereferenced-user-db]
+  (let [mark-as-activated (fn [dereferenced-user-db]
                             (let [{matching-user-recs true, other-user-recs false}
                                   (->> dereferenced-user-db
-                                       (group-by matches-activationid))
+                                       (group-by #(= (:activationid %) activationid)))
                                   ;; There will always only ever be one matching user at most:
                                   potential-new-user-record (merge
                                                              (first matching-user-recs)
-                                                             {:activated "1" :activationid nil})]
+                                                             {:activationid nil})]
                               ;; Return the database records including the modified record
                               ;; if it exists:
                               (if (= (count matching-user-recs) 0)
@@ -354,6 +360,35 @@
   ;; Persist the database to disk, and then return the userid back to the caller:
   (write-atomic-db-to-csv user-db users-file)
   userid)
+
+(defn add-reset-password-id-to-user!
+  "Marks the user record as pending a password reset, by adding a randomly generated
+  'password reset id' to the user record, and then returning the generated id to the caller.
+  Note that this function does not actually delete the old password. To do that, the user must later
+  supply the id generated here as well as a new password. Also note that if the user never actually
+  follows through with the password reset, then the id generated here will just remain a part of the
+  user record forever, or until it is overwritten with another one (whichever comes first). It is
+  safe to have it there, since except for actually resetting the password it will be ignored."
+  [userid]
+  (let [resetpwid (generate-random-id)
+        update-resetpwid (fn [dereferenced-user-db]
+                           (let [{matching-user-recs true, other-user-recs false}
+                                 (->> dereferenced-user-db
+                                      (group-by (fn [row] (= userid (:userid row)))))
+                                 ;; There will always only ever be one matching user at most:
+                                 potential-new-user-record (merge
+                                                            (first matching-user-recs)
+                                                            {:resetpwid resetpwid})]
+                             ;; Return the database records including the modified record if it
+                             ;; exists:
+                             (if (= (count matching-user-recs) 0)
+                               other-user-recs
+                               (conj other-user-recs potential-new-user-record))))]
+    ;; Update the user db with the current time as the last accessed time
+    (swap! user-db update-resetpwid)
+    ;; Persist the database to disk, then return the generated password reset id back to the caller:
+    (write-atomic-db-to-csv user-db users-file)
+    resetpwid))
 
 (defn modify-account-information!
   "Updates the user record in the database which corresponds to the given email with the
@@ -464,7 +499,7 @@
   "Create a new record in the purchase db for the items in the given cart for the given user"
   [userid cart subtotal taxrate taxname taxes total watermark]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
-      [purchaseid (str (java.util.UUID/randomUUID) (System/currentTimeMillis))
+      [purchaseid (generate-random-id)
        purchasedir (str purchases-path "/" purchaseid)
        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
        pruned-cart (remove-already-owned-charts-from-cart userid cart)
@@ -547,6 +582,13 @@
 (defn get-activation-email-contents
   [user link]
   (let [template (slurp (str email-path "/activation.md"))]
+    (-> template
+        (string/replace #"<USER>" user)
+        (string/replace #"<LINK>" link))))
+
+(defn get-reset-pwid-email-contents
+  [user link]
+  (let [template (slurp (str email-path "/reset-pw.md"))]
     (-> template
         (string/replace #"<USER>" user)
         (string/replace #"<LINK>" link))))

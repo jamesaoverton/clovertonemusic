@@ -295,7 +295,10 @@
         [:a
          {:href (construct-email-to-clovertone "customize" (:chart-name chart))}
          "Customize"]]]
-      [:div.notes (:notes chart)]]
+      [:div.notes (->> chart
+                       :notes
+                       (m2h/md->hiccup)
+                       (m2h/component))]]
      [:table.details
       [:thead
        [:tr
@@ -687,7 +690,7 @@
   "Renders the login/signup form"
   [{user :user,
     {nomatch :nomatch, already-exists :already-exists, notfound :notfound, wrongpw :wrongpw,
-     :as params} :params,
+     user-disabled :user-disabled, :as params} :params,
     {cart :cart, :as session} :session,
     :as request}]
   (render-html {:title "Log In or Sign Up - Clovertone Music"
@@ -786,23 +789,24 @@
                               [:span#login-status.status
                                ;; If the request contains "notfound=true" then the user tried to
                                ;; login with an unrecognised email address
+                               (when user-disabled
+                                 [:p.error "User not yet activated"])
                                (when notfound
                                  [:p.error "User not found"])
                                ;; If the request contains "wrongpw=true" then the user tried to login
                                ;; with a recognised email address but with an incorrect password.
                                (when wrongpw
                                  [:p.error "Incorrect password"])]
-                              [:br][:br]
-                              ;; TODO: Implement forgot my password
-                              [:a#returning_user_forgot {:href "/"} "Forgot your password?"]]]]
+                              [:p [:a {:href "/forgotpw/"} "Forgot your password?"]]]]]
                            [:script (str (js-toggle-login-form) "\n" (js-enable-or-disable-other-field))]]
                 :user-status (user-status user cart)}))
 
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
-  [email name server activationid]
+  [email name http-server activationid]
   ;; TODO: Eventually change http to https here:
-  (let [body (data/get-activation-email-contents name (str "http://" server "/activation/" activationid))
+  (let [body (data/get-activation-email-contents name (str "http://" http-server
+                                                           "/activation/" activationid))
         ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
         send-status (send-message smtp-local {:from activation-email-address
                                               :to [email]
@@ -810,7 +814,75 @@
                                               :subject "Activate your clovertonemusic.com account"
                                               :body body})]
     (when (not= (:error send-status) :SUCCESS)
-      (log/error "Sending of email to" email "did not succeed (" send-status ")"))))
+      (log/error "Sending of activation email to" email "did not succeed (" send-status ")"))))
+
+(defn send-reset-pw-email
+  "Sends an email with a link to reset the user's password, generated using the given parameters"
+  [email name http-server resetpwid]
+  ;; TODO: Eventually change http to https here:
+  (let [body (data/get-reset-pwid-email-contents name (str "http://" http-server
+                                                           "/resetpw/" resetpwid))
+        ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
+        send-status (send-message smtp-local {:from support-email-address
+                                              :to [email]
+                                              :reply-to support-email-address
+                                              :subject "Reset your clovertonemusic.com password"
+                                              :body body})]
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of reset password email to" email "did not succeed (" send-status ")"))))
+
+(defn render-forgotpw
+  "Implements the form by which a user can request to reset his/her password."
+  [{user :user,
+    {cart :cart, :as session} :session,
+    {notfound :notfound, user-disabled :user-disabled, :as params} :params,
+    :as request}]
+  (render-html {:title "Forgot Password - Clovertone Music"
+                :user-status (user-status user cart)
+                :contents [:div.window
+                           [:h2 "Forgot Your Password"]
+                           [:p "Enter your email address in the form below. If it is on file with "
+                            "us you will receive a message in the next few minutes with "
+                            "instructions for resetting your password."]
+                           [:form {:action "/forgotpw/" :method "post"}
+                            [:br]
+                            [:div.forgot_pw
+                             (when user-disabled
+                               [:p.error "User not yet activated"])
+                             (when notfound
+                               [:p.error "Email address not found"])
+                             [:label [:b "Email:"]]
+                             [:input {:name "email" :type "email" :required true}]
+                             [:input {:type "submit" :value "Submit"}]]
+                            [:br]]]}))
+
+(defn post-forgotpw
+  "Processes the first stage of a reset password request. I.e., looks up the given user email
+  address, and if it exists, sends a link by email to the user enabling him to complete the
+  process. Note that if the user loses or deletes that email, he should still be able to login
+  with the correct password if he remembers it later."
+  [{{email :email, :as params} :params,
+    {host "host", :as headers} :headers
+    {cart :cart, :as session} :session,
+    session-user :user, :as request}]
+  (let [user (data/get-user-by-email email)]
+    (cond (nil? user) (redirect "/forgotpw/?notfound=true")
+          (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
+          :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
+                  (send-reset-pw-email email (:name user) host resetpwid)
+                  (render-html
+                   {:title "Reset Password - Clovertone Music"
+                    :contents [:div#contents
+                               [:div#login.window
+                                [:h2 (str "Reset password request in progress for " (:name user))]
+                                [:p "An email has just been sent to "
+                                 [:a {:href (str "mailto:" email)} email]
+                                 " with a link to reset your password. Note: the email may have "
+                                 "gone to your \"junk\" email folder. If you do not receive the "
+                                 "email, please contact us at "
+                                 [:a {:href (str "mailto:" support-email-address)}
+                                  support-email-address]]]]
+                    :user-status (user-status session-user cart)})))))
 
 (defn post-signup
   "Handles the posting of the contents of the signup form. If the data is valid, a new user is
@@ -893,6 +965,7 @@
     (cond
       (nil? user) (redirect "/login/?notfound=true")
       (= user false) (redirect "/login/?wrongpw=true")
+      (data/user-is-disabled user) (redirect "/login/?user-disabled=true")
       :else (->> user
                  ;; If the credentials are ok, associate a session to the request that
                  ;; incorporates an :identity field associated with the user, and redirect

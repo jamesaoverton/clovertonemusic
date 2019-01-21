@@ -304,6 +304,16 @@ table {
     display: block;
     text-align: left;
   }
+  .forgot_pw {
+    display: inline-block;
+    font-size: 85%;
+    width: 50%;
+  }
+  .forgot_pw input, label {
+    margin-left: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px
+  }
 }
 body {
   font-family: museo-sans, helvetica, sans-serif;

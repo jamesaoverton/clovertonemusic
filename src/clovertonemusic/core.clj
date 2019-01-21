@@ -102,8 +102,10 @@
 
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)
+  (GET "/forgotpw/" [] html/render-forgotpw)
   (POST "/login/" [] html/post-login)
   (POST "/signup/" [] html/post-signup)
+  (POST "/forgotpw/" [] html/post-forgotpw)
 
   (GET "/activation/:activationid" [] html/process-and-render-activation)
 
