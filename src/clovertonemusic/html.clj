@@ -33,6 +33,10 @@
 ;; The connection parameter map to use for a local server is just nil:
 (def smtp-local nil)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to catalogue content
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn render-html
   "Main template for HTML page generation. Wraps the four parameters passed as arguments in the
   generic HTML code that is used for every page in Clovertone."
@@ -573,6 +577,10 @@
                     (conj [:div#list]))]
       :user-status (user-status user cart)})))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to login/signup
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (def countries ["Canada" "USA"])
 (def provinces ["Alberta" "British Columbia" "Manitoba" "New Brunswick" "Newfoundland and Labrador"
                 "Nova Scotia" "Northwest Territories" "Nunavut" "Ontario" "Quebec" "Saskatchewan"
@@ -1051,154 +1059,9 @@
   (assoc (redirect "/login/")
          :session (dissoc session :identity)))
 
-(defn add-to-cart
-  "Add the given chart to the shopping cart associated with the browser session."
-  [{{chart :chart, :as params} :params,
-    {prevpage "referer", :as headers} :headers,
-    session :session,
-    :as request}]
-  ;; Add the chart to the shopping cart, then navigate back to the anchor for the chart on the
-  ;; previous page:
-  (assoc (redirect (str prevpage "#" chart))
-         :session (->> session
-                       :cart
-                       (set)
-                       (clojure.set/union #{chart})
-                       (assoc session :cart))))
-
-(defn remove-from-cart
-  "Removes the given chart from the shopping cart"
-  [{{chart :chart, :as params} :params,
-    {prevpage "referer", :as headers} :headers,
-    session :session,
-    :as request}]
-  (let [current-load (->> session
-                          :cart
-                          (set))]
-    ;; After removing the chart, navigate back to the previous page, which should be the shopping
-    ;; cart page.
-    (assoc (redirect prevpage)
-           :session (->> chart
-                         (disj current-load)
-                         (assoc session :cart)))))
-
-(defn render-shopping-cart
-  "Show the user's shopping cart."
-  [{user :user,
-    {thanks :thanks, :as params} :params,
-    {cart :cart, :as session} :session,
-    :as request}]
-  (let [;; The shopping cart only contains chart filenames, so the first thing we do is get the details
-        ;; for every item in the cart:
-        detailed-cart (->> data/catalogue
-                           :charts
-                           (filter (fn [chart] (some #(= (:filename chart) %) cart))))
-        ;; The subtotal is just the sum of the prices of each chart in the cart:
-        subtotal (->> detailed-cart
-                      (map get-numeric-price)
-                      (reduce +)
-                      (double))
-        tax (cond
-              ;; Ontario customers pay HST:
-              (and (= (:province user) "Ontario") (= (:country user) "Canada"))
-              {:name "Ontario HST" :rate "13%" :amount (* 0.13 subtotal)}
-              ;; Other Canadian customers pay GST:
-              (= (:country user) "Canada")
-              {:name "GST" :rate "5%" :amount (* 0.05 subtotal)}
-              ;; No taxes for non-Canadians:
-              :else
-              {:name "No Tax" :rate "0%" :amount 0.0})
-        watermark (str "For use by " (:band user) ", " (:city user) ", "
-                       (:province user) ", " (:country user) ".")
-        ;; This is the HTML DIV to display when the shopping cart is not empty:
-        shopping-cart-div [:div#shopping_cart
-                           [:table
-                            [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                            (for [chart detailed-cart]
-                              [:tr
-                               [:td (:chart-name chart)] [:td (:composer chart)]
-                               [:td (:grade chart)] [:td (:price chart)]
-                               [:td [:a {:href (str "/remove-from-cart/" (:filename chart))}
-                                     "remove"]]])
-                            [:tr [:td] [:td] [:td] [:td [:hr]]]
-                            [:tr [:th] [:th] [:th "Subtotal"]
-                             [:td (format "$%.2f" subtotal)]]
-                            (if-not user
-                              ;; If the user is not logged in, just tell the user that taxes may
-                              ;; be applicable,
-                              [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
-                              ;; Otherwise determine the tax based on the user's location.
-                              [:div
-                               [:span
-                                [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
-                                 [:td (format "$%.2f" (:amount tax))]]
-                                [:tr [:th] [:th] [:th "Total"]
-                                 [:td (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
-                           [:br]
-                           (if-not user
-                             ;; If not logged in, suggest that the user do so:
-                             [:p "To continue with your purchase, please "
-                              [:a {:href "/login/"} "log in or sign up"] " for an account"]
-                             ;; Otherwise show everything below
-                             [:div
-                              [:div.buy
-                               [:form {:action "/buy-cart/" :method "post"}
-                                [:input {:type "hidden" :name "subtotal" :value subtotal}]
-                                [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
-                                [:input {:type "hidden" :name "taxname" :value (:name tax)}]
-                                [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
-                                [:input {:type "hidden" :name "total" :value (+ (:amount tax) subtotal)}]
-                                [:input {:type "hidden" :name "watermark" :value watermark}]
-                                [:input {:type "submit" :value "Buy now"}]]]
-                              [:p [:b "Important! "] "You are purchasing an electronic copy of the "
-                               "score and parts to these charts in "
-                               [:a {:href "https://get.adobe.com/reader" :target "__blank"}
-                                "Adobe PDF format"]
-                               ". When your purchase is complete your will immediately be emailed "
-                               "a link for downloading your files. Every page will be marked "
-                               "with your school or band name and address as follows:"]
-                              [:p [:b watermark]]])]]
-
-    (render-html {:title "Shopping Cart - Clovertone Music"
-                  :user-status (user-status user cart)
-                  :contents [:div.window
-                             [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
-                             [:br]
-                             (if-not (empty? cart)
-                               shopping-cart-div
-                               (if thanks
-                                 [:p [:h3 "Thanks for your purchase!"]]
-                                 [:p "Your shopping cart is empty"]))]})))
-
-(defn make-payment
-  "INSERT DESCRIPTION HERE"
-  [total]
-  ;; TO BE IMPLEMENTED
-  true)
-
-(defn post-buy-cart
-  [{user :user,
-    {cart :cart, :as session} :session,
-    {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
-     watermark :watermark, :as params} :params,
-    :as request}]
-  (if (not (make-payment total))
-    ;; If the payment is unsuccessful, redirect to the shopping cart:
-    (redirect "/cart/")
-    ;; Otherwise process the purchase on the server, render a "thank you" page, and empty the
-    ;; shopping cart:
-    (do
-      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxes total watermark)
-      (assoc (redirect "/cart/?thanks=true")
-             :session (-> session
-                          (dissoc :cart))))))
-
-(defn render-purchase-file
-  "Render the requested purchase file (a non-HTML resource) if it exists."
-  [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
-  (let [full-purchase-path (data/get-full-purchase-path purchase-dir purchase-file)]
-    (when full-purchase-path
-      (file-response full-purchase-path))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to user account info and admin
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn render-account
   "Renders the account page for a given user, displaying the user's purchase history and allowing
@@ -1374,3 +1237,156 @@
                                      [:div#login.window
                                       [:h3 "Your account details have been successfully changed."]]]
                           :user-status (user-status user cart)}))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to purchases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn add-to-cart
+  "Add the given chart to the shopping cart associated with the browser session."
+  [{{chart :chart, :as params} :params,
+    {prevpage "referer", :as headers} :headers,
+    session :session,
+    :as request}]
+  ;; Add the chart to the shopping cart, then navigate back to the anchor for the chart on the
+  ;; previous page:
+  (assoc (redirect (str prevpage "#" chart))
+         :session (->> session
+                       :cart
+                       (set)
+                       (clojure.set/union #{chart})
+                       (assoc session :cart))))
+
+(defn remove-from-cart
+  "Removes the given chart from the shopping cart"
+  [{{chart :chart, :as params} :params,
+    {prevpage "referer", :as headers} :headers,
+    session :session,
+    :as request}]
+  (let [current-load (->> session
+                          :cart
+                          (set))]
+    ;; After removing the chart, navigate back to the previous page, which should be the shopping
+    ;; cart page.
+    (assoc (redirect prevpage)
+           :session (->> chart
+                         (disj current-load)
+                         (assoc session :cart)))))
+
+(defn render-shopping-cart
+  "Show the user's shopping cart."
+  [{user :user,
+    {thanks :thanks, :as params} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [;; The shopping cart only contains chart filenames, so the first thing we do is get the details
+        ;; for every item in the cart:
+        detailed-cart (->> data/catalogue
+                           :charts
+                           (filter (fn [chart] (some #(= (:filename chart) %) cart))))
+        ;; The subtotal is just the sum of the prices of each chart in the cart:
+        subtotal (->> detailed-cart
+                      (map get-numeric-price)
+                      (reduce +)
+                      (double))
+        tax (cond
+              ;; Ontario customers pay HST:
+              (and (= (:province user) "Ontario") (= (:country user) "Canada"))
+              {:name "Ontario HST" :rate "13%" :amount (* 0.13 subtotal)}
+              ;; Other Canadian customers pay GST:
+              (= (:country user) "Canada")
+              {:name "GST" :rate "5%" :amount (* 0.05 subtotal)}
+              ;; No taxes for non-Canadians:
+              :else
+              {:name "No Tax" :rate "0%" :amount 0.0})
+        watermark (str "For use by " (:band user) ", " (:city user) ", "
+                       (:province user) ", " (:country user) ".")
+        ;; This is the HTML DIV to display when the shopping cart is not empty:
+        shopping-cart-div [:div#shopping_cart
+                           [:table
+                            [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                            (for [chart detailed-cart]
+                              [:tr
+                               [:td (:chart-name chart)] [:td (:composer chart)]
+                               [:td (:grade chart)] [:td (:price chart)]
+                               [:td [:a {:href (str "/remove-from-cart/" (:filename chart))}
+                                     "remove"]]])
+                            [:tr [:td] [:td] [:td] [:td [:hr]]]
+                            [:tr [:th] [:th] [:th "Subtotal"]
+                             [:td (format "$%.2f" subtotal)]]
+                            (if-not user
+                              ;; If the user is not logged in, just tell the user that taxes may
+                              ;; be applicable,
+                              [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
+                              ;; Otherwise determine the tax based on the user's location.
+                              [:div
+                               [:span
+                                [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
+                                 [:td (format "$%.2f" (:amount tax))]]
+                                [:tr [:th] [:th] [:th "Total"]
+                                 [:td (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
+                           [:br]
+                           (if-not user
+                             ;; If not logged in, suggest that the user do so:
+                             [:p "To continue with your purchase, please "
+                              [:a {:href "/login/"} "log in or sign up"] " for an account"]
+                             ;; Otherwise show everything below
+                             [:div
+                              [:div.buy
+                               [:form {:action "/buy-cart/" :method "post"}
+                                [:input {:type "hidden" :name "subtotal" :value subtotal}]
+                                [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
+                                [:input {:type "hidden" :name "taxname" :value (:name tax)}]
+                                [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
+                                [:input {:type "hidden" :name "total" :value (+ (:amount tax) subtotal)}]
+                                [:input {:type "hidden" :name "watermark" :value watermark}]
+                                [:input {:type "submit" :value "Buy now"}]]]
+                              [:p [:b "Important! "] "You are purchasing an electronic copy of the "
+                               "score and parts to these charts in "
+                               [:a {:href "https://get.adobe.com/reader" :target "__blank"}
+                                "Adobe PDF format"]
+                               ". When your purchase is complete your will immediately be emailed "
+                               "a link for downloading your files. Every page will be marked "
+                               "with your school or band name and address as follows:"]
+                              [:p [:b watermark]]])]]
+
+    (render-html {:title "Shopping Cart - Clovertone Music"
+                  :user-status (user-status user cart)
+                  :contents [:div.window
+                             [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
+                             [:br]
+                             (if-not (empty? cart)
+                               shopping-cart-div
+                               (if thanks
+                                 [:p [:h3 "Thanks for your purchase!"]]
+                                 [:p "Your shopping cart is empty"]))]})))
+
+(defn make-payment
+  "INSERT DESCRIPTION HERE"
+  [total]
+  ;; TO BE IMPLEMENTED
+  true)
+
+(defn post-buy-cart
+  [{user :user,
+    {cart :cart, :as session} :session,
+    {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
+     watermark :watermark, :as params} :params,
+    :as request}]
+  (if (not (make-payment total))
+    ;; If the payment is unsuccessful, redirect to the shopping cart:
+    (redirect "/cart/")
+    ;; Otherwise process the purchase on the server, render a "thank you" page, and empty the
+    ;; shopping cart:
+    (do
+      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxes total watermark)
+      (assoc (redirect "/cart/?thanks=true")
+             :session (-> session
+                          (dissoc :cart))))))
+
+(defn render-purchase-file
+  "Render the requested purchase file (a non-HTML resource) if it exists."
+  [{{purchase-dir :purchase-dir, purchase-file :purchase-file} :params}]
+  (let [full-purchase-path (data/get-full-purchase-path purchase-dir purchase-file)]
+    (when full-purchase-path
+      (file-response full-purchase-path))))
