@@ -273,6 +273,14 @@
   ;; If an activation id exists, it means that the user is still pending activation:
   (not (string/blank? (:activationid user))))
 
+(defn get-user-by-resetpwid
+  "Finds and returns the user in the db associated with the given reset password id"
+  [resetpwid]
+  (->> user-db
+       (deref)
+       (filter #(= (:resetpwid %) resetpwid))
+       (first)))
+
 (defn generate-random-id
   "Generate a random id composed of the epoch time in ms appended to a randomly generated UUID. This
   is used for generating activation ids, purchase ids, reset password ids, etc."
@@ -365,10 +373,11 @@
   "Marks the user record as pending a password reset, by adding a randomly generated
   'password reset id' to the user record, and then returning the generated id to the caller.
   Note that this function does not actually delete the old password. To do that, the user must later
-  supply the id generated here as well as a new password. Also note that if the user never actually
-  follows through with the password reset, then the id generated here will just remain a part of the
-  user record forever, or until it is overwritten with another one (whichever comes first). It is
-  safe to have it there, since except for actually resetting the password it will be ignored."
+  supply the id generated here (e.g. by clicking on a link within which it is embedded). Also note
+  that if the user never actually follows through with the password reset, then the id generated
+  here will just remain a part of the user record forever, or until it is overwritten with another
+  one (whichever comes first). It is safe to have it there, though, since it is only used for
+  resetting the user's password and is otherwise ignored."
   [userid]
   (let [resetpwid (generate-random-id)
         update-resetpwid (fn [dereferenced-user-db]
@@ -384,11 +393,34 @@
                              (if (= (count matching-user-recs) 0)
                                other-user-recs
                                (conj other-user-recs potential-new-user-record))))]
-    ;; Update the user db with the current time as the last accessed time
+    ;; Update the user db:
     (swap! user-db update-resetpwid)
     ;; Persist the database to disk, then return the generated password reset id back to the caller:
     (write-atomic-db-to-csv user-db users-file)
     resetpwid))
+
+(defn change-user-password!
+  "Change the password for the given user with the given one, deleting any existing
+  'reset password id' in the user record."
+  [userid new-password]
+  (let [hashed-new-password (hashers/derive new-password)
+        update-password (fn [dereferenced-user-db]
+                          (let [{matching-user-recs true, other-user-recs false}
+                                (->> dereferenced-user-db
+                                     (group-by (fn [row] (= userid (:userid row)))))
+                                potential-new-user-record (merge
+                                                           (first matching-user-recs)
+                                                           {:password hashed-new-password
+                                                            :resetpwid nil})]
+                            ;; Return the database records including the modified record if it
+                            ;; exists:
+                            (if (= (count matching-user-recs) 0)
+                              other-user-recs
+                              (conj other-user-recs potential-new-user-record))))]
+    ;; Update the user db:
+    (swap! user-db update-password))
+  ;; Persist the db to disk
+  (write-atomic-db-to-csv user-db users-file))
 
 (defn modify-account-information!
   "Updates the user record in the database which corresponds to the given email with the

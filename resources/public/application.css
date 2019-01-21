@@ -304,12 +304,22 @@ table {
     display: block;
     text-align: left;
   }
-  .forgot_pw {
+  #forgot_pw {
     display: inline-block;
     font-size: 85%;
     width: 50%;
   }
-  .forgot_pw input, label {
+  #forgot_pw input, label {
+    margin-left: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px
+  }
+  #reset_pw {
+    display: inline-block;
+    font-size: 85%;
+    width: 50%;
+  }
+  #reset_pw input, label {
     margin-left: 4px;
     margin-top: 4px;
     margin-bottom: 4px
@@ -907,6 +917,14 @@ input[type="password"] {
 }
 #returning_user_radio:checked ~ #returning_user_forgot {
   display: inline-block;
+}
+#reset_pw {
+  display: inline-block;
+}
+#reset_pw input, label {
+    margin-left: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px
 }
 .tight {
   font-size: 0.9em;

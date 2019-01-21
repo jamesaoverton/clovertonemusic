@@ -846,7 +846,7 @@
                             "instructions for resetting your password."]
                            [:form {:action "/forgotpw/" :method "post"}
                             [:br]
-                            [:div.forgot_pw
+                            [:div#forgot_pw
                              (when user-disabled
                                [:p.error "User not yet activated"])
                              (when notfound
@@ -956,6 +956,74 @@
                                 support-email-address]]]]
                   :page-status 400
                   :user-status (user-status user cart)})))
+
+(defn process-and-input-password-reset
+  "Processes a password reset request by first validating the reset password id given, fetching
+  the user record associated with that id, and finally, presenting the user with a form
+  to input her new password."
+  [{session-user :user,
+    {host "host", :as headers} :headers
+    {cart :cart, :as session} :session,
+    {resetpwid :resetpwid, nomatch :nomatch, :as params} :params,
+    :as request}]
+  (let [user (data/get-user-by-resetpwid resetpwid)]
+    (if-not user
+    ;; If there is no user corresponding to the reset password id, inform the user:
+    (render-html {:title "Invalid Reset Password ID - Clovertone Music"
+                  :contents [:div#contents
+                             [:div.window
+                              [:h2 "The submitted reset password ID is invalid."]
+                              [:p "For assistance, send an email to "
+                               [:a {:href (str "mailto:" support-email-address)}
+                                support-email-address]]]]
+                  :page-status 400
+                  :user-status (user-status user cart)})
+    ;; Otherwise, render a password reset form:
+    (render-html {:title "Reset Password - Clovertone Music"
+                  :user-status (user-status session-user cart)
+                  :contents [:div.window
+                             [:h2 "Reset Password for " (:email user)]
+                             [:form {:action "/resetpw/" :method "post"}
+                              [:br]
+                              [:div#reset_pw
+                               (when nomatch
+                                 [:p.error "Passwords do not match"])
+                               [:div
+                                [:label [:b "New password:"]]]
+                               [:div
+                                [:input {:name "password1" :type "password" :required true}]]
+                               [:div
+                                [:label [:b "Retype password:"]]]
+                               [:div
+                                [:input {:name "password2" :type "password" :required true}]]
+                               [:div
+                                [:input {:type "submit" :value "Submit"}]]]
+                              [:input {:name "userid" :type "hidden" :value (:userid user)}]
+                              [:input {:name "resetpwid" :type "hidden" :value resetpwid}]
+                              [:br]]]}))))
+
+(defn post-resetpw
+  "Resets the user's password to the new one given, after first checking to make sure that the user
+  has retyped her password correctly."
+  [{{userid "userid", password1 "password1", password2 "password2", resetpwid "resetpwid"
+     :as form-params} :form-params,
+    session-user :user,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (if-not (= password1 password2)
+    ;; If the inputted passwords don't match, then redirect back to the password reset page using
+    ;; the given reset password id so that the user can try again.
+    (redirect (str "/resetpw/" resetpwid "?nomatch=true"))
+    ;; Otherwise, change the user's password to the given one:
+    (do
+      (data/change-user-password! userid password1)
+      ;; Render a "password changed" page:
+      (render-html {:title "Reset Password - Clovertone Music"
+                    :contents [:div#contents
+                               [:div.window
+                                [:h2 "Your password has been successfully changed."]
+                                [:p "Click " [:a {:href "/login/"} "here"] " to login."]]]
+                    :user-status (user-status session-user cart)}))))
 
 (defn post-login
   "Handles the posting of data when an existing user attempts to login to the system."

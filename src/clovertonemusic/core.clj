@@ -109,6 +109,9 @@
 
   (GET "/activation/:activationid" [] html/process-and-render-activation)
 
+  (GET "/resetpw/:resetpwid" [] html/process-and-input-password-reset)
+  (POST "/resetpw/" [] html/post-resetpw)
+
   (GET "/about/:page" [page search]
        (if search
          html/render-search
