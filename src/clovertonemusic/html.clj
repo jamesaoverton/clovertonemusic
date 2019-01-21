@@ -13,13 +13,25 @@
 
 ;; TODO: Tables (in, e.g., purchase history, shopping cart) need to be made mobile friendly.
 
+;; Logger configuration:
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
 
+;; Email addresses to use for various purposes:
 (def activation-email-address "info@clovertonemusic.com")
 (def info-email-address "info@clovertonemusic.com")
 (def support-email-address "info@clovertonemusic.com")
+
+;; SMTP server parameters for calls to postal.core/send-message:
+(def smtp-remote {:host "smtp.server.com"
+                  :port "999"
+                  :user "user"
+                  :pass "pass"
+                  :ssl true
+                  :tls true})
+;; The connection parameter map to use for a local server is just nil:
+(def smtp-local nil)
 
 (defn render-html
   "Main template for HTML page generation. Wraps the four parameters passed as arguments in the
@@ -231,11 +243,6 @@
   [user cart chart]
   (let [number (:chart-number chart)
         price (re-matches #"\$(\d+)(\.\d\d)" (:price chart))
-        grade-name (->> data/catalogue
-                        :grades
-                        (filter #(= (:grade-number %) (:grade chart)))
-                        (first)
-                        :grade-name)
         composer-path (->> data/catalogue
                            :composers
                            (filter #(= (:composer chart) (:composer-name %)))
@@ -262,7 +269,7 @@
       [:div.image
        [(keyword (str "div.genre-image." (:category chart)))]
        [:div.genre (:category chart)]
-       [:div.grade grade-name]]
+       [:div.grade (str "Grade " (:grade chart))]]
       [:a.purchase
        (if chart-is-unowned
          {:href (str "/add-to-cart/" (:filename chart))}
@@ -279,16 +286,16 @@
        [:li
         [:a#audio2.audio
          {:href (str "/audio/" (:filename chart) ".mp3")}
-         "▶   Listen\n"]]
+         "▶   Listen"]]
        [:li
         [:a
          {:href (str "/previews/" (:filename chart) ".preview.pdf") :target "_blank"}
-         "Preview\n"]]
+         "Preview"]]
        [:li
         [:a
          {:href (construct-email-to-clovertone "customize" (:chart-name chart))}
-         "Customize\n"]]]
-      (:notes chart)]
+         "Customize"]]]
+      [:div.notes (:notes chart)]]
      [:table.details
       [:thead
        [:tr
@@ -796,17 +803,12 @@
   [email name server activationid]
   ;; TODO: Eventually change http to https here:
   (let [body (data/get-activation-email-contents name (str "http://" server "/activation/" activationid))
-        ;; conn holds the connection parameters for the smtp server. Setting it to nil results in
-        ;; delivery through the local mail system.
-        ;; TODO: the SMTP server parameters should be set inside a config or markdown file and
-        ;; pulled from there.
-        ;; See: https://github.com/drewr/postal and http://www.rkn.io/2014/03/20/clojure-cookbook-email/
-        conn nil
-        send-status (send-message conn {:from activation-email-address
-                                        :to [email]
-                                        :reply-to support-email-address
-                                        :subject "Activate your clovertonemusic.com account"
-                                        :body body})]
+        ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
+        send-status (send-message smtp-local {:from activation-email-address
+                                              :to [email]
+                                              :reply-to support-email-address
+                                              :subject "Activate your clovertonemusic.com account"
+                                              :body body})]
     (when (not= (:error send-status) :SUCCESS)
       (log/error "Sending of email to" email "did not succeed (" send-status ")"))))
 
@@ -1007,7 +1009,6 @@
                                 [:input {:type "hidden" :name "total" :value (+ (:amount tax) subtotal)}]
                                 [:input {:type "hidden" :name "watermark" :value watermark}]
                                 [:input {:type "submit" :value "Buy now"}]]]
-                              ;; TODO: Should this be in a markup file?
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
                                "score and parts to these charts in "
                                [:a {:href "https://get.adobe.com/reader" :target "__blank"}
@@ -1212,8 +1213,6 @@
     user :user,
     {cart :cart, :as session} :session,
     :as request}]
-  ;; TODO: No user info (not even non-password info) should be changeable without supplying a
-  ;; current password.
   (cond
     ;; If the user has entered a new password but the retyped password does not match it, redirect
     ;; back to the page while indicating the problem:

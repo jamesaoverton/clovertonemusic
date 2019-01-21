@@ -1152,7 +1152,7 @@ span.page_button {
   text-transform: uppercase;
 }
 .chart .purchase .order.smaller {
-  font-size: 0.7em;
+  font-size: 0.75em;
 }
 .chart .purchase .blank {
   height: 24px;
@@ -1240,7 +1240,7 @@ span.page_button {
     height: 70px;
     background-position: -775px 0px;
     line-height: 120%;
-    font-size: 1em;
+    font-size: 0.9em;
   }
   .chart .purchase .blank {
     height: 26px;
