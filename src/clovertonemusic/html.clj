@@ -277,7 +277,7 @@
       [:a.purchase
        (if chart-is-unowned
          {:href (str "/add-to-cart/" (:filename chart))}
-         {:href "/account#purchase-history"})
+         {:href "/account#purchase_history_head"})
        [:div.price
         (cond
           (some #(= (:filename chart) %) cart) [:div.order "In Cart"]
@@ -1091,23 +1091,25 @@
                                                    (filter #(= (:grade-number %) (:grade chart)))
                                                    (first)))]
                               [:div
-                               [:tr [:td [:hr]]]
-                               [:tr [:th (:date purchase)]]
+                               [:tr [:td.purchase_date (:date purchase)]]
                                (for [chart (map get-chart-details charts)]
                                  [:tr
-                                  [:td [:a {:href (str "/charts/" (:filename chart))}
-                                        (:chart-name chart)]]
-                                  [:td [:a {:href (str "/composers/"
-                                                       (:filename (get-composer chart)))}
-                                        (:composer chart)]]
-                                  [:td (:grade-name (get-grade chart))]
-                                  [:td (:subgenre chart)]
+                                  [:td
+                                   [:a {:href (str "/charts/" (:filename chart))} (:chart-name chart)]]
+                                  [:td
+                                   [:a {:href (str "/composers/" (:filename (get-composer chart)))}
+                                    (:composer chart)]]
+                                  [:td
+                                   (:grade-name (get-grade chart))]
+                                  [:td
+                                   (:subgenre chart)]
                                   [:td.download
-                                   [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                   (:filename chart) ".score.pdf")} "Score"]]
-                                  [:td.download
-                                   [:a {:href (str "/purchases/" (:purchaseid purchase) "/"
-                                                   (:filename chart) ".parts.pdf")} "Parts"]]])]))
+                                   [:a.download
+                                    {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                (:filename chart) ".score.pdf")} "Score"]
+                                   [:a.download
+                                    {:href (str "/purchases/" (:purchaseid purchase) "/"
+                                                (:filename chart) ".parts.pdf")} "Parts"]]])]))
         user-purchases (->> user
                             :userid
                             data/get-user-purchases
@@ -1119,15 +1121,15 @@
     (render-html
      {:title "Account - Clovertone Music"
       :contents [:div#account.window
-                 [:h2 "Account Information"]
+                 [:h2#account_info_head "Account Information"]
                  (when nomatch
                    [:p.error "New and re-typed passwords do not match."])
                  (when wrongpw
                    [:p.error "Could not change password. Your current password is incorrect."])
-                 [:br]
+                 ;;[:br]
                  [:form {:action "/account-change/" :method "post"}
                   [:p
-                   [:label "Email:&nbsp;"]
+                   [:label#account_email "Email:&nbsp;"]
                    [:b (:email user)
                     [:input {:type "hidden" :value (:email user) :name "email"}]]
                    [:br]]
@@ -1200,9 +1202,9 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 [(keyword "h2#purchase-history") "Purchase History"]
+                 [(keyword "h2#purchase_history_head") "Purchase History"]
                  (if (> (utils/parse-number (count user-purchases)) 0)
-                   [:table#purchase_history (map make-purchase-div user-purchases)]
+                   [:table#purchase_history_table (map make-purchase-div user-purchases)]
                    [:p "You haven't made any purchases yet"])
                  [:script (js-enable-or-disable-other-field)]]
       :user-status (user-status user cart)})))

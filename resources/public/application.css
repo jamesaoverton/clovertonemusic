@@ -830,6 +830,12 @@ img {
 #account {
   padding-bottom: 1em;
 }
+#account_info_head, #purchase_history_head {
+  padding-bottom: .75em;
+}
+#account_email {
+  margin-left: 0em;
+}
 .password {
   font-weight: 500;
 }
@@ -867,7 +873,7 @@ p.example {
 }
 .download a {
   padding: 0.3em 0.5em;
-  margin: 0 0.3em;
+  margin: 0 0.3em 0 0;
   font-size: 0.9em;
   background-color: #2d742f;
   color: #fff;
@@ -922,9 +928,9 @@ input[type="password"] {
   display: inline-block;
 }
 #reset_pw input, label {
-    margin-left: 4px;
-    margin-top: 4px;
-    margin-bottom: 4px
+  margin-left: 4px;
+  margin-top: 4px;
+  margin-bottom: 4px
 }
 .tight {
   font-size: 0.9em;
@@ -947,10 +953,10 @@ input[type="password"] {
   margin-right: 60px;
   padding-bottom: 1em;
 }
-#purchase_history, #shopping_cart {
+#purchase_history_table, #shopping_cart {
   overflow-x:auto;
 }
-#purchase_history, #shopping_cart th, td {
+#purchase_history_table, #shopping_cart th, td {
   text-align: left;
   padding-top: .25em;
   padding-bottom: .25em;
@@ -1287,6 +1293,19 @@ span.page_button {
   }
   .chart table {
     table-layout: fixed;
+  }
+  #purchase_history_table tr {
+    display: block;
+    margin-bottom: 1em;
+  }
+  #purchase_history_table td {
+    display: block;
+    text-align: center;
+  }
+  #purchase_history_table .purchase_date {
+    font-size: 125%;
+    border-bottom: 3px solid #ddd;
+    border-top: 3px solid #ddd;
   }
 }
 @media screen and (max-width: 600px) {
