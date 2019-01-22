@@ -900,13 +900,13 @@ input[type="password"] {
   display: inline-block;
   text-align: left;
 }
+#account_newsletter,
 #account_province,
 #account_country,
 #new_user_province,
 #new_user_country,
 #new_user_newsletter {
   display: inline-block;
-  margin: auto;
   margin-left: 5px;
   margin-right: 5px;
 }
@@ -1306,6 +1306,31 @@ span.page_button {
     font-size: 125%;
     border-bottom: 3px solid #ddd;
     border-top: 3px solid #ddd;
+  }
+  #shopping_cart th {
+    border: none;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+  }
+  #shopping_cart tr {
+    border-bottom: 3px solid #ddd;
+    display: block;
+  }
+  #shopping_cart td {
+    display: block;
+    text-align: right;
+  }
+  #shopping_cart hr {
+    visibility: hidden;
+  }
+  #shopping_cart td::before {
+    content: attr(data-label);
+    float: left;
   }
 }
 @media screen and (max-width: 600px) {

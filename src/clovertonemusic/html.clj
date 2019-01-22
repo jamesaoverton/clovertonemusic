@@ -1309,13 +1309,16 @@
                             [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
                             (for [chart detailed-cart]
                               [:tr
-                               [:td (:chart-name chart)] [:td (:composer chart)]
-                               [:td (:grade chart)] [:td (:price chart)]
-                               [:td [:a {:href (str "/remove-from-cart/" (:filename chart))}
-                                     "remove"]]])
+                               [:td {:data-label "Chart"} (:chart-name chart)]
+                               [:td {:data-label "Composer"} (:composer chart)]
+                               [:td {:data-label "Grade"} (:grade chart)]
+                               [:td {:data-label "Price"} (:price chart)]
+                               [:td {:data-label ""}
+                                [:a {:href (str "/remove-from-cart/" (:filename chart))}
+                                 "remove"]]])
                             [:tr [:td] [:td] [:td] [:td [:hr]]]
                             [:tr [:th] [:th] [:th "Subtotal"]
-                             [:td (format "$%.2f" subtotal)]]
+                             [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
                             (if-not user
                               ;; If the user is not logged in, just tell the user that taxes may
                               ;; be applicable,
@@ -1324,9 +1327,11 @@
                               [:div
                                [:span
                                 [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
-                                 [:td (format "$%.2f" (:amount tax))]]
+                                 [:td {:data-label (str (:name tax) "(" (:rate tax) ")")}
+                                  (format "$%.2f" (:amount tax))]]
                                 [:tr [:th] [:th] [:th "Total"]
-                                 [:td (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
+                                 [:td {:data-label "Total"}
+                                  (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
                            [:br]
                            (if-not user
                              ;; If not logged in, suggest that the user do so:
