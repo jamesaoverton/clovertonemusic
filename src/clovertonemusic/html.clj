@@ -11,8 +11,6 @@
             [clovertonemusic.data :as data]
             [clovertonemusic.utils :as utils]))
 
-;; TODO: Tables (in, e.g., purchase history, shopping cart) need to be made mobile friendly.
-
 ;; Logger configuration:
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
