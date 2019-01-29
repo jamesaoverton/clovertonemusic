@@ -581,15 +581,15 @@
 
 (def countries ["Canada" "USA"])
 (def provinces ["Alberta" "British Columbia" "Manitoba" "New Brunswick" "Newfoundland and Labrador"
-                "Nova Scotia" "Northwest Territories" "Nunavut" "Ontario" "Quebec" "Saskatchewan"
-                "Yukon" "Alabama" "Alaska" "Arizona" "Arkansas" "California" "Colorado"
-                "Connecticut" "Delaware" "District Of Columbia" "Florida" "Georgia" "Hawaii"
-                "Idaho" "Illinois" "Indiana" "Iowa" "Kansas" "Kentucky" "Louisiana" "Maine"
+                "Nova Scotia" "Northwest Territories" "Nunavut" "Ontario" "Prince Edward Island"
+                "Quebec" "Saskatchewan" "Yukon" "Alabama" "Alaska" "Arizona" "Arkansas" "California"
+                "Colorado" "Connecticut" "Delaware" "District Of Columbia" "Florida" "Georgia"
+                "Hawaii" "Idaho" "Illinois" "Indiana" "Iowa" "Kansas" "Kentucky" "Louisiana" "Maine"
                 "Maryland" "Massachusetts" "Michigan" "Minnesota" "Mississippi" "Missouri" "Montana"
                 "Nebraska" "Nevada" "New Hampshire" "New Jersey" "New Mexico" "New York"
                 "North Carolina" "North Dakota" "Ohio" "Oklahoma" "Oregon" "Pennsylvania"
                 "Rhode Island" "South Carolina" "South Dakota" "Tennessee" "Texas" "Utah"
-                "Vermont" "Virginia" "Washington" "West Virginia" "Wisconsin""Wyoming"])
+                "Vermont" "Virginia" "Washington" "West Virginia" "Wisconsin" "Wyoming"])
 
 (defn generate-country-dropdown
   "Generates a select box with dropdown for Country. If 'Other' is specified this triggers
@@ -824,10 +824,10 @@
 
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
-  [email name http-server resetpwid]
+  [email is-migration name http-server resetpwid]
   ;; TODO: Eventually change http to https here:
-  (let [body (data/get-reset-pwid-email-contents name (str "http://" http-server
-                                                           "/resetpw/" resetpwid))
+  (let [body (data/get-reset-pwid-email-contents is-migration name (str "http://" http-server
+                                                                        "/resetpw/" resetpwid))
         ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
         send-status (send-message smtp-local {:from support-email-address
                                               :to [email]
@@ -867,7 +867,7 @@
   address, and if it exists, sends a link by email to the user enabling him to complete the
   process. Note that if the user loses or deletes that email, he should still be able to login
   with the correct password if he remembers it later."
-  [{{email :email, :as params} :params,
+  [{{email :email, is-migration :is-migration, :as params} :params,
     {host "host", :as headers} :headers
     {cart :cart, :as session} :session,
     session-user :user, :as request}]
@@ -875,7 +875,7 @@
     (cond (nil? user) (redirect "/forgotpw/?notfound=true")
           (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
-                  (send-reset-pw-email email (:name user) host resetpwid)
+                  (send-reset-pw-email email is-migration (:name user) host resetpwid)
                   (render-html
                    {:title "Reset Password - Clovertone Music"
                     :contents [:div#contents

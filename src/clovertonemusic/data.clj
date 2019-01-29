@@ -228,7 +228,12 @@
   []
   (->> user-db
        (deref)
-       (map (fn [idstring] (utils/parse-number (:userid idstring))))
+       (map (fn [idstring]
+              ;; Old pre-migration users may have a non-numeric userid. If we come across one of
+              ;; these just treat it as '0', i.e. the minimum possible value:
+              (try
+                (utils/parse-number (:userid idstring))
+                (catch Exception ex 0))))
        (apply max)
        (inc)
        (str)))
@@ -250,12 +255,17 @@
        (first))) ; Note: result of filter must be unique (verified at load time)
 
 (defn check-password
-  "Returns true if the password is correct, false if not correct, and nil if the user isn't found."
-  [email password]
-  (->> email
-       (get-user-by-email)
-       :password
-       (hashers/check password)))
+  "Returns true if the password is correct, false if not correct, and nil if the user isn't found.
+  Note that if the password for the user is not set in the db, then we always return 'incorrect'."
+  [email given-password]
+  (let [check-password-with-default-false (fn [actual-password]
+                                            (if (= actual-password "")
+                                              false
+                                              (hashers/check given-password actual-password)))]
+    (->> email
+         (get-user-by-email)
+         :password
+         (check-password-with-default-false))))
 
 (defn get-user-by-email-and-password
   "Returns the record corresponding to the given email if the password is correct,
@@ -549,7 +559,8 @@
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
                       :user_email (:email user) :charts (string/join ";" pruned-cart)
                       :date today :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes
-                      :total total :watermark watermark))
+                      :total total :watermark watermark :paypal_token nil :paypal_payer nil
+                      :expires nil :completed nil :cancelled nil))
     (swap! purchases-details-db into
            (for [chart (map get-chart-data pruned-cart)]
              (array-map :purchaseid purchaseid :chart (:chart-name chart) :price (:price chart)
@@ -619,8 +630,10 @@
         (string/replace #"<LINK>" link))))
 
 (defn get-reset-pwid-email-contents
-  [user link]
-  (let [template (slurp (str email-path "/reset-pw.md"))]
+  [is-migration user link]
+  (let [template (if (nil? is-migration)
+                   (slurp (str email-path "/reset-pw.md"))
+                   (slurp (str email-path "/migration.md")))]
     (-> template
         (string/replace #"<USER>" user)
         (string/replace #"<LINK>" link))))

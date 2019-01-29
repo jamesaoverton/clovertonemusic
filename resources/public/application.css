@@ -836,6 +836,10 @@ img {
 #account_info_head, #purchase_history_head {
   padding-bottom: .75em;
 }
+#purchase_history_table .purchase_date {
+  padding-top: 1em;
+  font-size: 115%;
+}
 #account_email {
   margin-left: 0em;
 }
@@ -1307,6 +1311,7 @@ span.page_button {
   }
   #purchase_history_table .purchase_date {
     font-size: 125%;
+    padding-top: 0.25em;
     border-bottom: 3px solid #ddd;
     border-top: 3px solid #ddd;
   }
