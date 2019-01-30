@@ -464,7 +464,7 @@
        {:title (str (:composer-name composer-catentry) " - Clovertone Music")
         :sorting [:div#sorting (get-sorting)]
         :contents [:div#contents
-                   [:div#content.index
+                   [:div#content
                     [:h1.title (:composer-name composer-catentry)]
                     [:img.float {:src (str "/images/" (:filename composer-catentry) ".jpg")}]
                     [:p (:notes composer-catentry)]]]

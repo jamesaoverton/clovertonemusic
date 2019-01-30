@@ -4,6 +4,7 @@ import csv
 import json
 import requests
 import sys
+import time
 from os.path import basename
 
 clovertone_server = "http://localhost:8090"
@@ -96,25 +97,38 @@ def main(args=[]):
           .format(basename(__file__)), file=sys.stderr)
     sys.exit(1)
 
+  try:
+    input("\nWARNING. This will overwrite all existing users. If you are\n"
+          "sure you want to continue, press Enter; otherwise press Ctrl-C.\n")
+  except KeyboardInterrupt:
+    print("\nOkee dokee.")
+    sys.exit(1)
+
   with open(args[0]) as json_in, open(args[1], 'w') as csv_out:
     data = json.load(json_in)
     writer = csv.writer(csv_out, lineterminator='\n', delimiter=',')
     writer.writerow(['userid', 'lastaccessed', 'dateadded', 'password', 'name', 'band', 'city',
                      'province', 'country', 'phone', 'email', 'newsletter', 'activationid',
                      'resetpwid'])
-    print("\nCreating user records for pre-existing users in the new user db ...")
+    print("Creating user records for pre-existing users in the CSV file ...")
+    time.sleep(1)
     for entry in data:
       writer.writerow([entry['id'], None, None, None, entry['name'], entry['band'], entry['city'],
                        translate(entry['province'], province_alias_map),
                        translate(entry['country'], country_alias_map),
                        None, entry['email'], entry['newsletter'], None, None])
 
-  input("\nExisting users have been migrated to the new database. Their\n"
-        "passwords must now be reset. Before doing so, the clovertone server\n"
-        "must be restarted. Please do that now and press enter. An email will\n"
-        "then be sent to each migrated user asking them to reset their\n"
-        "password and supplying them with a link through which to do so.\n"
-        "\nPress enter when ready or Ctrl-C to abort.\n")
+  try:
+    input("\nExisting users have been migrated to the new CSV file. Their\n"
+          "passwords must now be reset. Before doing so, the clovertone server\n"
+          "must be restarted so as to read in the new records. Please do that\n"
+          "now before continuing on with the script. Upon continuing, this script\n"
+          "will send a request to the server to reset each of the migrated users'\n"
+          "passwords, which will generate an email to each user containing a link to\n"
+          "complete the password reset. Press enter when ready or Ctrl-C to abort.\n")
+  except KeyboardInterrupt:
+    print("\nOkee dokee.")
+    sys.exit(1)
 
   with open (args[1]) as csv_in:
     users = list(csv.DictReader(csv_in))

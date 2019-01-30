@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import csv
+import datetime
 import json
 import os
 import sys
-import datetime
+import time
 
 purchases_path = "/home/mike/Knocean/clovertonemusic/data/purchases"
 
@@ -24,6 +25,13 @@ def main(args=[]):
   if len(args) != 3:
     print("Usage: {} <Input JSON file> <Purchases CSV output> <Purchases details CSV output>"
           .format(os.path.basename(__file__)), file=sys.stderr)
+    sys.exit(1)
+
+  try:
+    input("\nWARNING. This will overwrite all existing purchases. If you are\n"
+          "sure you want to continue, press Enter; otherwise press Ctrl-C.\n")
+  except KeyboardInterrupt:
+    print("\nOkee dokee.")
     sys.exit(1)
 
   with open(args[0]) as js_in, open(args[1], 'w') as summary_out, open(args[2], 'w') as details_out:
@@ -50,6 +58,9 @@ def main(args=[]):
         details_writer.writerow([entry['token'], chart['name'], '${:.2f}'.format(chart['price']),
                                 chart['composer'], chart['grade'], chart['genre']])
 
+  time.sleep(1)
+  print("\nMigration of purchase records is complete. Please restart the server now\n"
+        "for the changes to take effect.")
 
 if __name__ == "__main__":
   main(sys.argv[1:])
