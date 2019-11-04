@@ -1,14 +1,14 @@
 (ns clovertonemusic.data
-  (:require [buddy.hashers :as hashers]
-            [clojure.tools.logging :as log]
-            [clj-logging-config.log4j :as log-config]
-            [clojure.data :refer [diff]]
+  (:require [clojure.data :refer [diff]]
             [clojure.data.csv :as csv]
             [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as string]
-            [java-time :as jtime]
+            [clojure.tools.logging :as log]
+            [buddy.hashers :as hashers]
+            [clj-logging-config.log4j :as log-config]
             [clj-pdf.core :as pdf]
+            [java-time :as jtime]
             [clovertonemusic.utils :as utils]))
 
 (log-config/set-logger!
@@ -602,12 +602,15 @@
 (def about-path "data/about")
 (def indices-path "data/indices")
 (def email-path "data/email")
+(def stripe-path "data/stripe")
 
 (defn get-about-page-contents
+  "Return the contents of the given about page"
   [about-page]
   (slurp (str about-path "/" about-page ".md")))
 
 (defn get-index-file-contents
+  "Return the contents of the given index file"
   [index-file]
   (try
     (slurp (str indices-path "/" index-file ".md"))
@@ -615,6 +618,8 @@
       "No content found!")))
 
 (defn get-inquiry-email-contents
+  "Given the name of an inquiry email CSV file, retrieve the values for the columns to, subject,
+  and body, and return a map with those fields and their corresponding values."
   [email]
   (with-open [reader (io/reader (str email-path "/" email ".csv"))]
     (let [[header data] (doall (csv/read-csv reader))]
@@ -623,6 +628,7 @@
        :body (get data (.indexOf header "body"))})))
 
 (defn get-activation-email-contents
+  "Given a user and an activation link, get the contents of an activation email to send to the user"
   [user link]
   (let [template (slurp (str email-path "/activation.md"))]
     (-> template
@@ -630,6 +636,8 @@
         (string/replace #"<LINK>" link))))
 
 (defn get-reset-pwid-email-contents
+  "Given a user, a URL link, and a flag specifying whether this is a migration or a normal reset
+  password request, get the contents of the appropriate reset password email to send to the user."
   [is-migration user link]
   (let [template (if (nil? is-migration)
                    (slurp (str email-path "/reset-pw.md"))
@@ -637,3 +645,15 @@
     (-> template
         (string/replace #"<USER>" user)
         (string/replace #"<LINK>" link))))
+
+(defn get-api-keys
+  "Get the pair of API keys to use for communicating with Stripe. Which pair (test or prod) to
+  retrieve is indicated in the data file which contains the keys."
+  []
+  (with-open [reader (io/reader (str stripe-path "/api_keys.csv"))]
+    (let [[header data] (doall (csv/read-csv reader))]
+      {:keys-to-use (get data (.indexOf header "keys_to_use"))
+       :test {:publishable (get data (.indexOf header "publishable_key_test"))
+              :secret (get data (.indexOf header "secret_key_test"))}
+       :prod {:publishable (get data (.indexOf header "publishable_key_prod"))
+              :secret (get data (.indexOf header "secret_key_prod"))}})))

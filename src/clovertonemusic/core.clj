@@ -1,17 +1,17 @@
 (ns clovertonemusic.core
   (:require [clojure.tools.logging :as log]
-            [clj-logging-config.log4j :as log-config]
-            [org.httpkit.server :refer [run-server]]
-            [compojure.route :as route]
-            [compojure.handler :refer [site]]
-            [compojure.core :refer [defroutes context GET POST]]
             [buddy.auth.accessrules :refer [restrict]]
             [buddy.auth.backends.session :refer [session-backend]]
             [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
-            [ring.middleware.session :refer [wrap-session]]
+            [clj-logging-config.log4j :as log-config]
+            [compojure.core :refer [defroutes context GET POST]]
+            [compojure.handler :refer [site]]
+            [compojure.route :as route]
+            [org.httpkit.server :refer [run-server]]
             [ring.middleware.params :refer [wrap-params]]
-            [clovertonemusic.html :as html]
-            [clovertonemusic.data :as data]))
+            [ring.middleware.session :refer [wrap-session]]
+            [clovertonemusic.data :as data]
+            [clovertonemusic.html :as html]))
 
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -71,7 +71,6 @@
     :user-status (html/user-status user cart)
     :page-status 401}))
 
-
 ;; Subroutes which require authentication:
 (defroutes account-routes
   (GET "/" [] html/render-account))
@@ -81,6 +80,10 @@
   (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 (defroutes buy-cart-routes
   (POST "/" [] html/post-buy-cart))
+(defroutes complete-purchase-routes
+  (GET "/:checkout-session-id" [] html/complete-purchase))
+(defroutes stripe-error-routes
+  (GET "/" [] html/render-stripe-checkout-error))
 
 (defroutes all-routes
   ;; To test authentication:
@@ -99,6 +102,10 @@
            (restrict purchases-routes {:handler is-authenticated}))
   (context "/buy-cart" []
            (restrict buy-cart-routes {:handler is-authenticated}))
+  (context "/complete-purchase" []
+           (restrict complete-purchase-routes {:handler is-authenticated}))
+  (context "/stripe-checkout-error" []
+           (restrict stripe-error-routes {:handler is-authenticated}))
 
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)

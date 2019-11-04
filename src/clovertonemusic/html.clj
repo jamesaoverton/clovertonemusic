@@ -1,13 +1,16 @@
 (ns clovertonemusic.html
   (:require [clojure.tools.logging :as log]
+            [clojure.string :as string]
+            [cheshire.core :as cheshire]
             [clj-logging-config.log4j :as log-config]
-            [java-time :as jtime]
             [hiccup.core :as page]
+            [java-time :as jtime]
             [markdown-to-hiccup.core :as m2h]
+            [org.httpkit.client :as http]
+            [paraman.core :as paraman]
+            [postal.core :refer [send-message]]
             [ring.util.codec :as codec]
             [ring.util.response :refer [response file-response redirect]]
-            [postal.core :refer [send-message]]
-            [clojure.string :as string]
             [clovertonemusic.data :as data]
             [clovertonemusic.utils :as utils]))
 
@@ -1273,34 +1276,52 @@
                          (disj current-load)
                          (assoc session :cart)))))
 
+(defn get-cart-details
+  "Given a cart, in the form of a list of chart filenames, return a list with the details of the
+  chart corresponding to each chart filename."
+  [cart]
+  (->> data/catalogue
+       :charts
+       (filter (fn [chart] (some #(= (:filename chart) %) cart)))))
+
+(defn calculate-subtotal
+  "Calculate the total price (not including tax) for the items in the given detailed cart"
+  [detailed-cart]
+  (->> detailed-cart
+       (map get-numeric-price)
+       (reduce +)
+       (double)))
+
+(defn calculate-tax
+  "Given a subtotal and information about the user, calculate the tax applicable to the user's
+  region"
+  [user subtotal]
+  (cond
+    ;; Ontario customers pay HST:
+    (and (= (:province user) "Ontario") (= (:country user) "Canada"))
+    {:name "Ontario HST" :rate "13%" :amount (* 0.13 subtotal)}
+    ;; Other Canadian customers pay GST:
+    (= (:country user) "Canada")
+    {:name "GST" :rate "5%" :amount (* 0.05 subtotal)}
+    ;; No taxes for non-Canadians:
+    :else
+    {:name "No Tax" :rate "0%" :amount 0.0}))
+
+(defn generate-watermark
+  "Generate a watermark string for the user that will be applied to his/her purchases"
+  [user]
+  (str "For use by " (:band user) ", " (:city user) ", " (:province user) ", " (:country user) "."))
+
 (defn render-shopping-cart
-  "Show the user's shopping cart."
+  "Show the user's shopping cart in a HTML page."
   [{user :user,
     {thanks :thanks, :as params} :params,
     {cart :cart, :as session} :session,
     :as request}]
-  (let [;; The shopping cart only contains chart filenames, so the first thing we do is get the details
-        ;; for every item in the cart:
-        detailed-cart (->> data/catalogue
-                           :charts
-                           (filter (fn [chart] (some #(= (:filename chart) %) cart))))
-        ;; The subtotal is just the sum of the prices of each chart in the cart:
-        subtotal (->> detailed-cart
-                      (map get-numeric-price)
-                      (reduce +)
-                      (double))
-        tax (cond
-              ;; Ontario customers pay HST:
-              (and (= (:province user) "Ontario") (= (:country user) "Canada"))
-              {:name "Ontario HST" :rate "13%" :amount (* 0.13 subtotal)}
-              ;; Other Canadian customers pay GST:
-              (= (:country user) "Canada")
-              {:name "GST" :rate "5%" :amount (* 0.05 subtotal)}
-              ;; No taxes for non-Canadians:
-              :else
-              {:name "No Tax" :rate "0%" :amount 0.0})
-        watermark (str "For use by " (:band user) ", " (:city user) ", "
-                       (:province user) ", " (:country user) ".")
+  (let [detailed-cart (get-cart-details cart)
+        subtotal (calculate-subtotal detailed-cart)
+        tax (calculate-tax user subtotal)
+        watermark (generate-watermark user)
         ;; This is the HTML DIV to display when the shopping cart is not empty:
         shopping-cart-div [:div#shopping_cart
                            [:table
@@ -1366,28 +1387,126 @@
                                  [:p [:h3 "Thanks for your purchase!"]]
                                  [:p "Your shopping cart is empty"]))]})))
 
-(defn make-payment
-  "INSERT DESCRIPTION HERE"
-  [total]
-  ;; TO BE IMPLEMENTED
-  true)
+(defn render-stripe-checkout-error
+  [{user :user,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (render-html
+   {:title "Stripe Error - Clovertone Music"
+    :contents [:div#contents
+               [:h1 "Stripe Error"]
+               [:p "There was an error obtaining a checkout session ID from Stripe."
+                [:p "For assistance, send an email to "
+                 [:a {:href (str "mailto:" support-email-address)}
+                  support-email-address]]]]
+    :user-status (user-status user cart)}))
+
+(defn complete-purchase
+  "Completes the purchase process if the given checkout-session-id matches the one we were
+  expecting."
+  [{user :user,
+    {cart :cart, old-checkout-session-id :checkout-session-id, :as session} :session,
+    {new-checkout-session-id :checkout-session-id, :as params} :params,
+    :as request}]
+  (if-not (= old-checkout-session-id new-checkout-session-id)
+    ;; If the checkout-session-id is invalid, just redirect to the home page, otherwise
+    ;; complete the purchase.
+    (redirect "/")
+    (let [detailed-cart (get-cart-details cart)
+          subtotal (calculate-subtotal detailed-cart)
+          tax (calculate-tax user subtotal)
+          taxamount (:amount tax)
+          taxname (:name tax)
+          taxrate (:rate tax)
+          total (+ subtotal taxamount)
+          watermark (generate-watermark user)]
+      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxamount total watermark)
+      (assoc (redirect "/cart/?thanks=true")
+             :session (-> session
+                          (dissoc :cart)
+                          (dissoc :checkout-session-id))))))
+
+(defn get-stripe-keys
+  "Returns a map containing the publishable and secret key to use when communicating with the
+  Stripe API"
+  []
+  (let [api-keys (data/get-api-keys)]
+    ;; There are two pairs of keys in api-keys, one for test and one for production. The pair we
+    ;; need is indicated in the field :keys-to-use of api-keys.
+    (->> api-keys
+         :keys-to-use
+         (keyword)
+         (get api-keys))))
+
+(defn create-checkout-payment-session
+  "Given a shopping cart and information about the taxes applicable to the items in it, generate a
+  checkout payment session in Stripe, with a line item corresponding to each item in the cart as
+  well as one for the applicable taxes, and return the checkout-session-id."
+  [taxes taxname taxrate cart]
+  (let [detailed-cart (get-cart-details cart)
+        line-items (conj
+                    ;; Add a line item corresponding to each chart being purchased:
+                    (vec (->> detailed-cart
+                              (map (fn [chart]
+                                     {"name" (:chart-name chart)
+                                      "amount" (->> chart
+                                                    (get-numeric-price)
+                                                    (utils/parse-number)
+                                                    (* 100)
+                                                    (int))
+                                      "currency" "cad"
+                                      "quantity" 1}))))
+                    ;; Add a line item for taxes if they are non-zero:
+                    (let [tax-amount (->> taxes
+                                          (utils/parse-number)
+                                          (* 100)
+                                          (int))]
+                      (when-not (= 0 tax-amount)
+                        {"name" (->> (str "(" taxrate ")")
+                                     (str taxname " "))
+                         "amount" tax-amount
+                         "currency" "cad"
+                         "quantity" "1"})))
+        response (http/post "https://api.stripe.com/v1/checkout/sessions"
+                            {:basic-auth [(:secret (get-stripe-keys)) ""]
+                             :body (paraman/convert
+                                    {:payment_method_types ["card"]
+                                     :mode "payment"
+                                     :line_items line-items
+                                     :success_url (str "http://127.0.0.1:8090/complete-purchase/"
+                                                       "{CHECKOUT_SESSION_ID}")
+                                     :cancel_url "http://127.0.0.1:8090/cart/"})})]
+    (if-not (= (:status @response) 200)
+      nil
+      (-> @response
+          (get :body)
+          (cheshire/parse-string)
+          (get "id")))))
 
 (defn post-buy-cart
+  "Process the user's request to purchase the items in her cart."
   [{user :user,
     {cart :cart, :as session} :session,
     {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
      watermark :watermark, :as params} :params,
     :as request}]
-  (if (not (make-payment total))
-    ;; If the payment is unsuccessful, redirect to the shopping cart:
-    (redirect "/cart/")
-    ;; Otherwise process the purchase on the server, render a "thank you" page, and empty the
-    ;; shopping cart:
-    (do
-      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxes total watermark)
-      (assoc (redirect "/cart/?thanks=true")
-             :session (-> session
-                          (dissoc :cart))))))
+  (let [checkout-session-id (create-checkout-payment-session taxes taxname taxrate cart)]
+    (if (or (empty? checkout-session-id) (nil? checkout-session-id))
+      (redirect "/stripe-checkout-error")
+      (assoc
+       (render-html {:title "Payment Processing - Clovertone Music"
+                     :user-status (user-status user cart)
+                     :contents [:div.window
+                                [:h2 "Redirecting you to Stripe"]
+                                [:script {:type "text/javascript", :src "https://js.stripe.com/v3/"}]
+                                [:script
+                                 (str
+                                  "var stripe = Stripe('" (:publishable (get-stripe-keys)) "');"
+                                  "stripe.redirectToCheckout({"
+                                  "  sessionId: '" checkout-session-id "'"
+                                  "});")]]})
+       ;; Add the checkout-session-id to the browser session:
+       :session (assoc session :checkout-session-id checkout-session-id)))))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
