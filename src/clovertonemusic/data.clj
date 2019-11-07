@@ -8,6 +8,7 @@
             [buddy.hashers :as hashers]
             [clj-logging-config.log4j :as log-config]
             [clj-pdf.core :as pdf]
+            [dk.ative.docjure.spreadsheet :as xlsx]
             [java-time :as jtime]
             [clovertonemusic.utils :as utils]))
 
@@ -52,11 +53,13 @@
       (doseq [rec (deref atomic-db)]
         (csv/write-csv writer [(get-values-from-rec rec)])))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Functions and Vars relating to the charts catalogue
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions and Vars relating to the music catalogue
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def google-drive "mcuffar_google_drive:")
 (def catalogue-path "data/catalogue")
+(def catalogue-filename "ClovertoneTest.xlsx")
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
@@ -164,42 +167,109 @@
             catalogue)))
        body-rows))
 
-(defn extract-catalogue-data-from-csv
-  "Reads the contents of the CSV file containing the catalogue data from disk using the
-  csv library and the read-csv function, which returns a lazy sequence of vectors representing rows"
-  [filename]
-  (with-open [reader (io/reader (str catalogue-path "/" filename))]
-    (doall
-     (csv/read-csv reader))))
+(defn extract-rows-from-xlsx
+  "Given a file name and the name of a worksheet in that file, extract and return the data rows from
+  that sheet"
+  [xlsx-filepath worksheet]
+  ;; Note the following:
+  ;; ------------------
+  ;; When retrieving data from a worksheet, docjure ignores columns that do not have data, even
+  ;; when the column has a header. For example, if we have:
+  ;;
+  ;; col1 | col2 | col3
+  ;; -----|------|-----
+  ;; 1    | 3    |  2
+  ;; 5    |      |  3
+  ;;
+  ;; then docjure will extract the data rows: [["1" "3" "2"] ["5" "3"]]. This is really awful. What
+  ;; we need to have instead is: [["1" "3" "2"] ["5" "" "3"]]. To implement this we have do go
+  ;; through some contortions. First we get the contents of the header row, and use it to create a
+  ;; map mapping each alphabetic character from A-Z (note: we cannot have more than 26 columns) to
+  ;; its corresponding header column. Then we use the mapping to get the data from the data rows.
+  ;; But note that the data will be problematic in the way described above. So we then have to merge
+  ;; the data for each row with a map in which each column header is mapped to "". Ugh.
+  (let [sheet (->> xlsx-filepath
+                   (xlsx/load-workbook)
+                   (xlsx/select-sheet worksheet))
+        header-row (->> sheet
+                        (first)
+                        (map #(.toString %))
+                        (vec))
+        ;; A mapping from columns A-Z to their corresponding headers. Note that 65 to 91 are A to Z
+        ;; in ASCII:
+        column-header-mapping (->> header-row
+                                   (zipmap (->> (range 65 91)
+                                                (map char)
+                                                (map str)
+                                                (map keyword))))
+        ;; A mapping in which each header name is assigned the empty string. We will use this later
+        ;; as the basis upon which to superimpose the data for a given row in the sheet:
+        row-template (->> header-row
+                          (map #(list % ""))
+                          (flatten)
+                          (apply hash-map))
+        data-rows (->> sheet
+                       (xlsx/select-columns column-header-mapping)
+                       (drop 1)
+                       (map (fn [row]
+                              ;; For each row, start with the row-template, then merge it with
+                              ;; the data row, resulting in a map from header names to the data in
+                              ;; this row, including any empty cells. In the last step we remove
+                              ;; the header to yield only the data values (in the right order),
+                              ;; including any empty cells:
+                              (-> row-template
+                                  (merge row)
+                                  (map header-row))))
+                       ;; When parsing numeric cells, docjure formats integers as float. We need to
+                       ;; rectify this, we we call the utils/parse-as-string function, which formats
+                       ;; numbers that have no decimal places or only zeroes after the decimal as
+                       ;; integers:
+                       (map #(->> %
+                                  (map utils/parse-as-string)
+                                  (vec))))]
+    ;; Return all the rows in the sheet (including the header):
+    (->> data-rows
+         (into [header-row]))))
 
-(defn generate-table-from-csv
-  "Given a table name and a data catalogue, this function generates a table from a CSV file stored
+(defn generate-table-from-xlsx
+  "Given a table name and a data catalogue, this function generates a table from an XLSX file stored
   on disk. It returns a new catalogue consisting of the old catalogue merged with a new entry for
   the constructed table."
   [tablename catalogue]
   (try
     (log/info "Loading" tablename)
-    (->> ".csv"
-         (str tablename)
-         (extract-catalogue-data-from-csv)
+    (->> tablename
+         (extract-rows-from-xlsx (str catalogue-path "/" catalogue-filename))
          (create-table tablename catalogue)
          (hash-map (keyword tablename))
          (merge catalogue))
     (catch Exception ex
       (.printStackTrace ex)
-      (fail (str "Error while parsing " tablename ".csv: " (.getMessage ex))))))
+      (fail (str "Error while parsing " tablename ": " (.getMessage ex))))))
+
+(defn pull-xlsx-file
+  "Given the filename of a file on Google Drive in XLSX format, pull it to the server's filesystem"
+  [google-filename]
+  (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
+                        (str google-drive google-filename) catalogue-path)]
+    (when (not= (:exit exit-status) 0)
+      (log/error "Rclone pull failed:" (:err exit-status)))
+    ;; Return the exit status from rclone:
+    (:exit exit-status)))
 
 (def catalogue
-  ;; The catalogue is build by generating each catalogue table successively. The output
-  ;; of each call adds the built table to the orignally given catalogue; i.e.:
-  ;; {} -> {:genres {...}} -> {:genres {...} :composers {...}} -> ...
-  ;; The order here is important; in particular "charts" must be last since it has
-  ;; foreign keys to all of the other tables.
-  (->> {}
-       (generate-table-from-csv "genres")
-       (generate-table-from-csv "composers")
-       (generate-table-from-csv "grades")
-       (generate-table-from-csv "charts")))
+  (if-not (= (pull-xlsx-file catalogue-filename) 0)
+    (fail (str "Error retrieving catalogue file: " catalogue-filename))
+    ;; The catalogue is build by generating each catalogue table successively. The output
+    ;; of each call adds the built table to the orignally given catalogue; i.e.:
+    ;; {} -> {:genres {...}} -> {:genres {...} :composers {...}} -> ...
+    ;; The order here is important; in particular "charts" must be last since it has
+    ;; foreign keys to all of the other tables.
+    (->> {}
+         (generate-table-from-xlsx "genres")
+         (generate-table-from-xlsx "composers")
+         (generate-table-from-xlsx "grades")
+         (generate-table-from-xlsx "charts"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the user database
@@ -232,7 +302,7 @@
               ;; Old pre-migration users may have a non-numeric userid. If we come across one of
               ;; these just treat it as '0', i.e. the minimum possible value:
               (try
-                (utils/parse-number (:userid idstring))
+                (utils/parse-as-number (:userid idstring))
                 (catch Exception ex 0))))
        (apply max)
        (inc)

@@ -14,6 +14,7 @@
                  [clj-pdf "2.3.1"]
                  [com.draines/postal "2.0.3"]
                  [compojure "1.1.6"]
+                 [dk.ative/docjure "1.12.0"]
                  [hiccup "1.0.5"]
                  [http-kit "2.3.0"]
                  [http-kit "2.2.0"]

@@ -188,7 +188,7 @@
   (->> :price chart
        (re-matches #"\$(\d+\.\d\d)")
        (second)
-       (utils/parse-number)))
+       (utils/parse-as-number)))
 
 (defn get-numeric-duration
   "Converts the duration of a chart (in the format '00s') to a number"
@@ -196,7 +196,7 @@
   (->> :duration chart
        (re-matches #"(\d+)s")
        (second)
-       (utils/parse-number)))
+       (utils/parse-as-number)))
 
 (defn sort-charts
   "Sorts the given sequence of charts by the given sort parameter, where the latter is of the form
@@ -214,7 +214,7 @@
             (= sort-key :price) (sort-by get-numeric-price < charts)
             (= sort-key :duration) (sort-by get-numeric-duration < charts)
             ;; Sorting is done numerically for :grade and :tempo:
-            (some #(= sort-key %) [:grade :tempo]) (sort-by #(utils/parse-number (sort-key %)) < charts)
+            (some #(= sort-key %) [:grade :tempo]) (sort-by #(utils/parse-as-number (sort-key %)) < charts)
             ;; Sort is done in the default way in all other cases:
             :else (sort-by sort-key charts))]
       (if (= sort-dir "desc")
@@ -237,7 +237,7 @@
   "Converts a string of the form Ns (e.g. 120s) to one of the form MM:ss (e.g. 2:00)."
   [seconds-string]
   ;; We can assume that the duration ends in 's'
-  (let [total-seconds (utils/parse-number (string/replace seconds-string #"s$" ""))
+  (let [total-seconds (utils/parse-as-number (string/replace seconds-string #"s$" ""))
         minutes (quot total-seconds 60)
         seconds (mod total-seconds 60)]
     (format "%d:%02d" minutes seconds)))
@@ -572,7 +572,7 @@
                (->> data/catalogue
                     :charts
                     (filter #(not= (:featured %) "0"))
-                    (sort-by #(utils/parse-number (:featured %)))
+                    (sort-by #(utils/parse-as-number (:featured %)))
                     (sort-charts sort-param)
                     (map #(chart-to-html user cart %))
                     (conj [:div#list]))]
@@ -1204,7 +1204,7 @@
                   [:span#login-status.status]
                   [:br][:br]]
                  [(keyword "h2#purchase_history_head") "Purchase History"]
-                 (if (> (utils/parse-number (count user-purchases)) 0)
+                 (if (> (utils/parse-as-number (count user-purchases)) 0)
                    [:table#purchase_history_table (map make-purchase-div user-purchases)]
                    [:p "You haven't made any purchases yet"])
                  [:script (js-enable-or-disable-other-field)]]
@@ -1451,14 +1451,14 @@
                                      {"name" (:chart-name chart)
                                       "amount" (->> chart
                                                     (get-numeric-price)
-                                                    (utils/parse-number)
+                                                    (utils/parse-as-number)
                                                     (* 100)
                                                     (int))
                                       "currency" "cad"
                                       "quantity" 1}))))
                     ;; Add a line item for taxes if they are non-zero:
                     (let [tax-amount (->> taxes
-                                          (utils/parse-number)
+                                          (utils/parse-as-number)
                                           (* 100)
                                           (int))]
                       (when-not (= 0 tax-amount)
