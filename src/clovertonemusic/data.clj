@@ -12,9 +12,14 @@
             [java-time :as jtime]
             [clovertonemusic.utils :as utils]))
 
+;; TODO: All of the databases should be persisted to disk/google drive whenever the server shuts down.
+
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
+
+;; The name of the remote Google drive as it is defined in the rclone configuration:
+(def google-drive "mcuffar_google_drive:")
 
 (defn fail
   "Logs a fatal error and then exits with a failure status"
@@ -22,44 +27,143 @@
   (log/fatal errorstr)
   (System/exit 1))
 
-(defn simple-extract-db-from-csv
-  "Reads the contents of the given CSV file and returns a sequence of array maps for each record"
-  [csv-file]
-  (with-open [reader (io/reader csv-file)]
-    (let [[header & data-rows] (doall (csv/read-csv reader))
-          header-keywords (map keyword header)
-          ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
-          ;; that will keep the columns in the original order that they were in in the file.
-          generate-array-map (fn [row] (->> row
-                                            (map vector header-keywords)
-                                            (flatten)
-                                            (apply array-map)))]
-      (map generate-array-map data-rows))))
+(defn pull-xlsx-file
+  "Given the filename of a file on Google Drive in XLSX format, pull it to the server's filesystem"
+  [google-filename local-path]
+  (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
+                        (str google-drive google-filename) local-path)]
+    (when (not= (:exit exit-status) 0)
+      (log/error "Rclone pull failed:" (:err exit-status)))
+    ;; Return the exit status from rclone:
+    (:exit exit-status)))
 
-(defn write-atomic-db-to-csv
-  "Writes the contents of an atomic db to its associated CSV file"
-  [atomic-db csv-file]
-  (let [colkeys (->> atomic-db
-                     (deref)
+(defn push-xlsx-file
+  "Given the filename of a file on the server's file system, push it to Google Drive in XLSX format"
+  [filename]
+  (let [exit-status (sh "rclone" "copy" "--drive-import-formats" "xlsx"
+                        filename google-drive)]
+    (when (not= (:exit exit-status) 0)
+      (log/error "Rclone push failed:" (:err exit-status)))
+    ;; Return the exit status from rclone:
+    (:exit exit-status)))
+
+(defn extract-rows-from-xlsx
+  "Given a file name and the name of a worksheet in that file, extract and return the data rows from
+  that sheet"
+  [xlsx-filepath worksheet]
+  ;; Note the following:
+  ;; ------------------
+  ;; When retrieving data from a worksheet, docjure ignores columns that do not have data, even
+  ;; when the column has a header. For example, if we have:
+  ;;
+  ;; col1 | col2 | col3
+  ;; -----|------|-----
+  ;; 1    | 3    |  2
+  ;; 5    |      |  3
+  ;;
+  ;; then docjure will extract the data rows: [["1" "3" "2"] ["5" "3"]]. This is really awful. What
+  ;; we need to have instead is: [["1" "3" "2"] ["5" "" "3"]]. To implement this we have do go
+  ;; through some contortions. First we get the contents of the header row, and use it to create a
+  ;; map mapping each alphabetic character from A-Z (note: we don't allow more than 26 columns) to
+  ;; its corresponding header column. Then we use the mapping to get the data from the data rows.
+  ;; But note that the data will be problematic in the way described above. So we then have to merge
+  ;; the data for each row with a map in which each column header is mapped to "". Ugh.
+  (let [sheet (->> xlsx-filepath
+                   (xlsx/load-workbook)
+                   (xlsx/select-sheet worksheet))
+        header-row (->> sheet
+                        (first)
+                        (map #(.toString %))
+                        (vec))
+        ;; A mapping from columns A-Z to their corresponding headers. Note that 65 to 91 are A to Z
+        ;; in ASCII:
+        column-header-mapping (->> header-row
+                                   (zipmap (->> (range 65 91)
+                                                (map char)
+                                                (map str)
+                                                (map keyword))))
+        ;; A mapping in which each header name is assigned the empty string. We will use this later
+        ;; as the basis upon which to superimpose the data for a given row in the sheet:
+        row-template (->> header-row
+                          (map #(list % ""))
+                          (flatten)
+                          (apply hash-map))
+        data-rows (->> sheet
+                       (xlsx/select-columns column-header-mapping)
+                       (drop 1)
+                       (map (fn [row]
+                              ;; For each row, start with the row-template, then merge it with
+                              ;; the data row, resulting in a map from header names to the data in
+                              ;; this row, including any empty cells. In the last step we remove
+                              ;; the header to yield only the data values (in the right order),
+                              ;; including any empty cells:
+                              (-> row-template
+                                  (merge row)
+                                  (map header-row))))
+                       ;; When parsing numeric cells, docjure formats integers as float. We need to
+                       ;; rectify this, so we call the utils/parse-as-string function, which formats
+                       ;; numbers that have no decimal places or only zeroes after the decimal as
+                       ;; integers:
+                       (map #(->> %
+                                  (map utils/parse-as-string)
+                                  (vec))))]
+    ;; Return all the rows in the sheet (including the header):
+    (->> data-rows
+         (into [header-row]))))
+
+(defn simple-extract-db-from-xlsx
+  "Reads the contents of the given worksheet from the given XLSX file and returns a sequence of
+  array maps for each record"
+  [xlsx-filepath worksheet]
+  (let [[header & data-rows] (extract-rows-from-xlsx xlsx-filepath worksheet)
+        header-keywords (map keyword header)
+        ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
+        ;; that will keep the columns in the original order that they were in in the file.
+        generate-array-map (fn [row] (->> row
+                                          (map vector header-keywords)
+                                          (flatten)
+                                          (apply array-map)))]
+    (map generate-array-map data-rows)))
+
+(defn write-atomic-db-to-xlsx
+  "Writes the contents of an atomic db to its associated XLSX file"
+  [atomic-db filename sheetname]
+  (let [dereferenced-db (deref atomic-db)
+        colkeys (->> dereferenced-db
                      (first)
                      (keys))
         get-values-from-rec (fn [db-rec]
                               (for [colkey colkeys]
-                                (colkey db-rec)))]
-    (with-open [writer (io/writer csv-file)]
-      ;; Write the header row:
-      (csv/write-csv writer [(map name colkeys)])
-      ;; Write the data rows:
-      (doseq [rec (deref atomic-db)]
-        (csv/write-csv writer [(get-values-from-rec rec)])))))
+                                (colkey db-rec)))
+        update-worksheet (fn [rows]
+                           ;; This is implemented simply by removing all existing rows and re-adding
+                           ;; them to the worksheet. The data set is relatively small so this should
+                           ;; be fine, however if the customer-base expands sufficiently we may want
+                           ;; to revisit this implementation to make it more scalable.
+                           (let [workbook (xlsx/load-workbook filename)]
+                             (-> sheetname
+                                 (xlsx/select-sheet workbook)
+                                 (xlsx/remove-all-rows!)
+                                 (xlsx/add-rows! rows))
+                             ;; Save the workbook to the filesystem and push it to Google drive:
+                             (xlsx/save-workbook-into-file! filename workbook)
+                             (push-xlsx-file filename)))]
+    (-> []
+        ;; The header row:
+        (into (->> colkeys
+                   (map name)
+                   (list)))
+        ;; The data rows:
+        (into (->> dereferenced-db
+                   (map #(get-values-from-rec %))))
+        (update-worksheet))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the music catalogue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def google-drive "mcuffar_google_drive:")
 (def catalogue-path "data/catalogue")
-(def catalogue-filename "ClovertoneTest.xlsx")
+(def catalogue-filename "ClovertoneMusicCatalogue.xlsx")
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
@@ -167,70 +271,6 @@
             catalogue)))
        body-rows))
 
-(defn extract-rows-from-xlsx
-  "Given a file name and the name of a worksheet in that file, extract and return the data rows from
-  that sheet"
-  [xlsx-filepath worksheet]
-  ;; Note the following:
-  ;; ------------------
-  ;; When retrieving data from a worksheet, docjure ignores columns that do not have data, even
-  ;; when the column has a header. For example, if we have:
-  ;;
-  ;; col1 | col2 | col3
-  ;; -----|------|-----
-  ;; 1    | 3    |  2
-  ;; 5    |      |  3
-  ;;
-  ;; then docjure will extract the data rows: [["1" "3" "2"] ["5" "3"]]. This is really awful. What
-  ;; we need to have instead is: [["1" "3" "2"] ["5" "" "3"]]. To implement this we have do go
-  ;; through some contortions. First we get the contents of the header row, and use it to create a
-  ;; map mapping each alphabetic character from A-Z (note: we cannot have more than 26 columns) to
-  ;; its corresponding header column. Then we use the mapping to get the data from the data rows.
-  ;; But note that the data will be problematic in the way described above. So we then have to merge
-  ;; the data for each row with a map in which each column header is mapped to "". Ugh.
-  (let [sheet (->> xlsx-filepath
-                   (xlsx/load-workbook)
-                   (xlsx/select-sheet worksheet))
-        header-row (->> sheet
-                        (first)
-                        (map #(.toString %))
-                        (vec))
-        ;; A mapping from columns A-Z to their corresponding headers. Note that 65 to 91 are A to Z
-        ;; in ASCII:
-        column-header-mapping (->> header-row
-                                   (zipmap (->> (range 65 91)
-                                                (map char)
-                                                (map str)
-                                                (map keyword))))
-        ;; A mapping in which each header name is assigned the empty string. We will use this later
-        ;; as the basis upon which to superimpose the data for a given row in the sheet:
-        row-template (->> header-row
-                          (map #(list % ""))
-                          (flatten)
-                          (apply hash-map))
-        data-rows (->> sheet
-                       (xlsx/select-columns column-header-mapping)
-                       (drop 1)
-                       (map (fn [row]
-                              ;; For each row, start with the row-template, then merge it with
-                              ;; the data row, resulting in a map from header names to the data in
-                              ;; this row, including any empty cells. In the last step we remove
-                              ;; the header to yield only the data values (in the right order),
-                              ;; including any empty cells:
-                              (-> row-template
-                                  (merge row)
-                                  (map header-row))))
-                       ;; When parsing numeric cells, docjure formats integers as float. We need to
-                       ;; rectify this, we we call the utils/parse-as-string function, which formats
-                       ;; numbers that have no decimal places or only zeroes after the decimal as
-                       ;; integers:
-                       (map #(->> %
-                                  (map utils/parse-as-string)
-                                  (vec))))]
-    ;; Return all the rows in the sheet (including the header):
-    (->> data-rows
-         (into [header-row]))))
-
 (defn generate-table-from-xlsx
   "Given a table name and a data catalogue, this function generates a table from an XLSX file stored
   on disk. It returns a new catalogue consisting of the old catalogue merged with a new entry for
@@ -247,18 +287,8 @@
       (.printStackTrace ex)
       (fail (str "Error while parsing " tablename ": " (.getMessage ex))))))
 
-(defn pull-xlsx-file
-  "Given the filename of a file on Google Drive in XLSX format, pull it to the server's filesystem"
-  [google-filename]
-  (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
-                        (str google-drive google-filename) catalogue-path)]
-    (when (not= (:exit exit-status) 0)
-      (log/error "Rclone pull failed:" (:err exit-status)))
-    ;; Return the exit status from rclone:
-    (:exit exit-status)))
-
 (def catalogue
-  (if-not (= (pull-xlsx-file catalogue-filename) 0)
+  (if-not (= (pull-xlsx-file catalogue-filename catalogue-path) 0)
     (fail (str "Error retrieving catalogue file: " catalogue-filename))
     ;; The catalogue is build by generating each catalogue table successively. The output
     ;; of each call adds the built table to the orignally given catalogue; i.e.:
@@ -275,19 +305,27 @@
 ;; Functions and Vars relating to the user database
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def users-file "data/users/users.csv")
+(def users-path "data/users")
+(def users-xlsx "ClovertoneMusicUsers.xlsx")
+(def users-file (str users-path "/" users-xlsx))
 
-;; Initialize the user database. Note that the user database may change while the server is running,
-;; so we make it an atom. The way this works is as follows:
+;; Initialize the users database using the XLSX file stored in the Google drive. Note that it
+;; may change while the server is running, so we make it an atom. The way this works is as follows:
 ;; - We read it from disk into memory at server startup
 ;; - All subsequent read accesses are to the memory instance.
 ;; - When an update is made (e.g., through create-user! or activate-user!), we update the atom, and
-;;   then write a backup of the atom to disk. Apart from these occasional writes, the .csv file on
+;;   then write a backup of the atom to disk. Apart from these occasional writes, the .xlsx file on
 ;;   disk is never accessed except the one time at startup.
-(def user-db (atom (simple-extract-db-from-csv users-file)))
+(if-not (= (pull-xlsx-file users-xlsx users-path) 0)
+  (fail (str "Error retrieving users XLSX file: " users-xlsx)))
+
+(def users-db (-> users-path
+                  (str "/" users-xlsx)
+                  (simple-extract-db-from-xlsx "users")
+                  (atom)))
 
 ;; Verify that the user database is in a good state at server startup; fail otherwise:
-(when-not (->> user-db
+(when-not (->> users-db
                (deref)
                (map #(:email %))
                (apply distinct?))
@@ -296,7 +334,7 @@
 (defn get-next-user-id
   "Returns a number 1 larger than the largest user id in the db, in string format."
   []
-  (->> user-db
+  (->> users-db
        (deref)
        (map (fn [idstring]
               ;; Old pre-migration users may have a non-numeric userid. If we come across one of
@@ -311,7 +349,7 @@
 (defn get-user-by-id
   "Finds and returns the user in the db corresponding to the given userid."
   [userid]
-  (->> user-db
+  (->> users-db
        (deref)
        (filter #(= (:userid %) userid))
        (first))) ; Note: result of filter must be unique (verified at load time)
@@ -319,7 +357,7 @@
 (defn get-user-by-email
   "Finds and returns the user in the db corresponding to the given email."
   [email]
-  (->> user-db
+  (->> users-db
        (deref)
        (filter #(= (:email %) email))
        (first))) ; Note: result of filter must be unique (verified at load time)
@@ -356,7 +394,7 @@
 (defn get-user-by-resetpwid
   "Finds and returns the user in the db associated with the given reset password id"
   [resetpwid]
-  (->> user-db
+  (->> users-db
        (deref)
        (filter #(= (:resetpwid %) resetpwid))
        (first)))
@@ -368,7 +406,7 @@
   (str (java.util.UUID/randomUUID) (System/currentTimeMillis)))
 
 (defn create-user!
-  "Creates a user with the given information and writes the record to the csv file. If the user
+  "Creates a user with the given information and writes the record to the xlsx file. If the user
   already exists, returns nothing, otherwise returns an activation id that can be later used to
   activate the user."
   [password name band city province country phone email newsletter]
@@ -384,13 +422,13 @@
         ;; user has not yet been activated.
         ;; The activation id is then returned to the caller as a convenience. We use an
         ;; array map to keep the fields in the same order in which they were inserted:
-        (swap! user-db conj (array-map
-                             :userid userid :lastaccessed nil :dateadded today
-                             :password (hashers/derive password) :name name :band band :city city
-                             :province province :country country :phone phone :email email
-                             :newsletter newsletter :activationid activationid :resetpwid nil))
-        ;; Persist the user-db to disk (in case of a crash):
-        (write-atomic-db-to-csv user-db users-file)
+        (swap! users-db conj (array-map
+                              :userid userid :lastaccessed nil :dateadded today
+                              :password (hashers/derive password) :name name :band band :city city
+                              :province province :country country :phone phone :email email
+                              :newsletter newsletter :activationid activationid :resetpwid nil))
+        ;; Persist the users-db (in case of a crash):
+        (write-atomic-db-to-xlsx users-db users-file "users")
         ;; Finally return the activation id:
         activationid))))
 
@@ -398,9 +436,9 @@
   "Activates the user corresponding to the given activation id. If the user is activated
   successfully, returns true, otherwise if the activation id is not found, returns false."
   [activationid]
-  (let [mark-as-activated (fn [dereferenced-user-db]
+  (let [mark-as-activated (fn [dereferenced-users-db]
                             (let [{matching-user-recs true, other-user-recs false}
-                                  (->> dereferenced-user-db
+                                  (->> dereferenced-users-db
                                        (group-by #(= (:activationid %) activationid)))
                                   ;; There will always only ever be one matching user at most:
                                   potential-new-user-record (merge
@@ -411,17 +449,17 @@
                               (if (= (count matching-user-recs) 0)
                                 other-user-recs
                                 (conj other-user-recs potential-new-user-record))))
-        old-db-contents (deref user-db)]
+        old-db-contents (deref users-db)]
 
     ;; Update the user db to mark the user as activated:
-    (swap! user-db mark-as-activated)
-    ;; Now compare the old and new db contents. If there are differences, persist the database to
-    ;; disk and return true; otherwise return false. If there is no difference this is because
+    (swap! users-db mark-as-activated)
+    ;; Now compare the old and new db contents. If there are differences, persist the database
+    ;; and return true; otherwise return false. If there is no difference this is because
     ;; the activation id was not found.
-    (let [differences (diff (sort-by :userid old-db-contents) (sort-by :userid (deref user-db)))]
+    (let [differences (diff (sort-by :userid old-db-contents) (sort-by :userid (deref users-db)))]
       (if (or (first differences) (second differences))
         (do
-          (write-atomic-db-to-csv user-db users-file)
+          (write-atomic-db-to-xlsx users-db users-file "users")
           true)
         false))))
 
@@ -429,9 +467,9 @@
   "Updates the last accessed time of the user in the db with the given userid"
   [userid]
   (let [current-time (->> (jtime/offset-date-time) (jtime/format "yyyy-MM-dd HH:mmZ"))
-        update-access-time (fn [dereferenced-user-db]
+        update-access-time (fn [dereferenced-users-db]
                              (let [{matching-user-recs true, other-user-recs false}
-                                   (->> dereferenced-user-db
+                                   (->> dereferenced-users-db
                                         (group-by (fn [row] (= userid (:userid row)))))
                                    ;; There will always only ever be one matching user at most:
                                    potential-new-user-record (merge
@@ -444,9 +482,9 @@
                                  (conj other-user-recs potential-new-user-record))))]
 
     ;; Update the user db with the current time as the last accessed time
-    (swap! user-db update-access-time))
-  ;; Persist the database to disk, and then return the userid back to the caller:
-  (write-atomic-db-to-csv user-db users-file)
+    (swap! users-db update-access-time))
+  ;; Persist the database, and then return the userid back to the caller:
+  (write-atomic-db-to-xlsx users-db users-file "users")
   userid)
 
 (defn add-reset-password-id-to-user!
@@ -460,9 +498,9 @@
   resetting the user's password and is otherwise ignored."
   [userid]
   (let [resetpwid (generate-random-id)
-        update-resetpwid (fn [dereferenced-user-db]
+        update-resetpwid (fn [dereferenced-users-db]
                            (let [{matching-user-recs true, other-user-recs false}
-                                 (->> dereferenced-user-db
+                                 (->> dereferenced-users-db
                                       (group-by (fn [row] (= userid (:userid row)))))
                                  ;; There will always only ever be one matching user at most:
                                  potential-new-user-record (merge
@@ -474,9 +512,9 @@
                                other-user-recs
                                (conj other-user-recs potential-new-user-record))))]
     ;; Update the user db:
-    (swap! user-db update-resetpwid)
-    ;; Persist the database to disk, then return the generated password reset id back to the caller:
-    (write-atomic-db-to-csv user-db users-file)
+    (swap! users-db update-resetpwid)
+    ;; Persist the database, then return the generated password reset id back to the caller:
+    (write-atomic-db-to-xlsx users-db users-file "users")
     resetpwid))
 
 (defn change-user-password!
@@ -484,9 +522,9 @@
   'reset password id' in the user record."
   [userid new-password]
   (let [hashed-new-password (hashers/derive new-password)
-        update-password (fn [dereferenced-user-db]
+        update-password (fn [dereferenced-users-db]
                           (let [{matching-user-recs true, other-user-recs false}
-                                (->> dereferenced-user-db
+                                (->> dereferenced-users-db
                                      (group-by (fn [row] (= userid (:userid row)))))
                                 potential-new-user-record (merge
                                                            (first matching-user-recs)
@@ -498,9 +536,9 @@
                               other-user-recs
                               (conj other-user-recs potential-new-user-record))))]
     ;; Update the user db:
-    (swap! user-db update-password))
-  ;; Persist the db to disk
-  (write-atomic-db-to-csv user-db users-file))
+    (swap! users-db update-password))
+  ;; Persist the db
+  (write-atomic-db-to-xlsx users-db users-file "users"))
 
 (defn modify-account-information!
   "Updates the user record in the database which corresponds to the given email with the
@@ -537,9 +575,9 @@
                                   {:newsletter newsletter})
                                 (when (not= password "")
                                   {:password (hashers/derive password)})))
-        update-user-rec-in-db (fn [dereferenced-user-db]
+        update-user-rec-in-db (fn [dereferenced-users-db]
                                 (let [{matching-user-recs true, other-user-recs false}
-                                      (->> dereferenced-user-db
+                                      (->> dereferenced-users-db
                                            (group-by (fn [row] (= email (:email row)))))
                                       ;; Emails are unique, so only one record will match:
                                       potential-new-user-record (get-updated-user-rec
@@ -551,18 +589,34 @@
                                     (conj other-user-recs potential-new-user-record))))]
 
     ;; Update the user db with the modified user record
-    (swap! user-db update-user-rec-in-db))
-  ;; Persist the db to disk:
-  (write-atomic-db-to-csv user-db users-file))
+    (swap! users-db update-user-rec-in-db))
+  ;; Persist the db:
+  (write-atomic-db-to-xlsx users-db users-file "users"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to purchases in the data directory
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def purchases-path "data/purchases")
-(def purchases-file (str purchases-path "/purchases.csv"))
-(def purchases-details-file (str purchases-path "/purchases-details.csv"))
+(def purchases-xlsx "ClovertoneMusicPurchases.xlsx")
+(def purchases-file (str purchases-path "/" purchases-xlsx))
 (def chart-template-dir (str catalogue-path "/chart-pdfs"))
+
+;; Initialize the purchases and purchases-details databases using the XLSX file stored in the
+;; Google drive. Note that they may change while the server is running, so we make them atoms.
+;; Updates are handled similarly to the users database (see above)
+(if-not (= (pull-xlsx-file purchases-xlsx purchases-path) 0)
+  (fail (str "Error retrieving purchases XLSX file: " purchases-xlsx)))
+
+(def purchases-db (-> purchases-path
+                      (str "/" purchases-xlsx)
+                      (simple-extract-db-from-xlsx "summary")
+                      (atom)))
+
+(def purchases-details-db (-> purchases-path
+                              (str "/" purchases-xlsx)
+                              (simple-extract-db-from-xlsx "details")
+                              (atom)))
 
 (defn get-full-purchase-path
   "If the given relative path of a purchase can be found in the purchases directory, then return
@@ -571,11 +625,6 @@
   (let [full-purchase-path (str purchases-path "/" purchase-dir "/" purchase-file)]
     (when (.exists (io/as-file full-purchase-path))
       full-purchase-path)))
-
-;; Initialize the purchases database. Note that the user database may change while the server is
-;; running, so we make it an atom. Updates are handled similarly to the users database (see above)
-(def purchases-db (atom (simple-extract-db-from-csv purchases-file)))
-(def purchases-details-db (atom (simple-extract-db-from-csv purchases-details-file)))
 
 (defn get-user-purchases
   "Returns a sequence of maps for each of the given user's purchases, containing the fields :userid,
@@ -622,9 +671,9 @@
                                           (map #(select-keys % [:chart-name :price :composer :grade
                                                                 :subgenre]))
                                           (first)))]
-
     ;; Update the two purchases databases with the new purchase record. We do this first, since if
     ;; one of the steps below goes wrong, at least the purchase will have been recorded.
+    ;; TODO: The paypal fields should be removed from the purchases databases.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
                       :user_email (:email user) :charts (string/join ";" pruned-cart)
@@ -660,9 +709,9 @@
             (log/error "During purchase, stamping of" file-type "for chart" item "for user" userid
                        "failed:" (:err exit-status))))))
 
-    ;; Persist the purchases databases to disk (for backup purposes):
-    (write-atomic-db-to-csv purchases-db purchases-file)
-    (write-atomic-db-to-csv purchases-details-db purchases-details-file)))
+    ;; Persist the purchases databases (for backup purposes):
+    (write-atomic-db-to-xlsx purchases-db purchases-file "summary")
+    (write-atomic-db-to-xlsx purchases-details-db purchases-file "details")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

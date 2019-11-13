@@ -1038,6 +1038,10 @@
   "Handles the posting of data when an existing user attempts to login to the system."
   [{{email "email" password "password"} :form-params
     session :session :as req}]
+  ;; TODO: When items are added to the shopping cart anonymously, and the user then logs in,
+  ;; any items the user already owns should then be removed from the cart. There is a function
+  ;; to do this, but it is invoked at the wrong time (currently: aftern payment!). It needs to be
+  ;; invoked here, as soon as the user logs in.
   (let [user (data/get-user-by-email-and-password email password)]
     (cond
       (nil? user) (redirect "/login/?notfound=true")
