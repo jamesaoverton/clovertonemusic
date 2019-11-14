@@ -471,15 +471,15 @@
             activationid (generate-random-id)]
         ;; Write the user record to the user db, indicating the user is not yet activated by writing
         ;; an activation id into the activationid column which will be used for later activation.
-        ;; The way this works is, an activationid in the user record that is not nil means that the
-        ;; user has not yet been activated.
-        ;; The activation id is then returned to the caller as a convenience. We use an
-        ;; array map to keep the fields in the same order in which they were inserted:
+        ;; The way this works is, an activationid in the user record that is not blank means that
+        ;; the user has not yet been activated. The activation id is then returned to the caller as
+        ;; a convenience. We use an array map to keep the fields in the same order in which they
+        ;; were inserted:
         (swap! users-db conj (array-map
-                              :userid userid :lastaccessed nil :dateadded today
+                              :userid userid :lastaccessed "" :dateadded today
                               :password (hashers/derive password) :name name :band band :city city
                               :province province :country country :phone phone :email email
-                              :newsletter newsletter :activationid activationid :resetpwid nil))
+                              :newsletter newsletter :activationid activationid :resetpwid ""))
         ;; Persist the database, and then return the userid back to the caller. Note that future
         ;; blocks don't emit generated exceptions until they are de-referenced. Since we don't care
         ;; about the result of the block and won't be de-referencing it, it is important to handle
@@ -500,7 +500,7 @@
                                   ;; There will always only ever be one matching user at most:
                                   potential-new-user-record (merge
                                                              (first matching-user-recs)
-                                                             {:activationid nil})]
+                                                             {:activationid ""})]
                               ;; Return the database records including the modified record
                               ;; if it exists:
                               (if (= (count matching-user-recs) 0)
@@ -598,7 +598,7 @@
                                 potential-new-user-record (merge
                                                            (first matching-user-recs)
                                                            {:password hashed-new-password
-                                                            :resetpwid nil})]
+                                                            :resetpwid ""})]
                             ;; Return the database records including the modified record if it
                             ;; exists:
                             (if (= (count matching-user-recs) 0)
@@ -694,11 +694,12 @@
 
 (defn remove-already-owned-charts-from-cart
   "Remove any already-owned items from the given cart of the given user"
-  [userid cart]
+  [user {cart :cart, :as session}]
   ;; This function is meant to be a safeguard against allowing the user to purchase charts that she
   ;; already owns. Ideally, the web page should not allow already owned charts to ever be in the
   ;; user's cart, but this is a second safety mechanism, just in case.
-  (let [owned-charts (->> userid
+  (let [owned-charts (->> user
+                          :userid
                           (get-user-purchases)
                           (map #(string/split (:charts %) #"\s*;\s*"))
                           (map set)
@@ -706,10 +707,10 @@
         pruned-cart (->> cart
                          (filter #(not (contains? owned-charts %))))]
     (when (not= (set cart) (set pruned-cart))
-      (log/warn "Shopping cart for user" userid "contained items that are already owned:"
+      (log/info "Pruning items from cart of user" (:userid user) "that are already owned:"
                 (clojure.set/difference (set cart) (set pruned-cart))))
-    ;; Return the pruned cart:
-    pruned-cart))
+    ;; Return the session replacing the original cart with the pruned cart:
+    (assoc session :cart pruned-cart)))
 
 (defn create-purchase!
   "Create a new record in the purchase db for the items in the given cart for the given user"
@@ -718,7 +719,6 @@
       [purchaseid (generate-random-id)
        purchasedir (str purchases-data-dir "/" purchaseid)
        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-       pruned-cart (remove-already-owned-charts-from-cart userid cart)
        user (get-user-by-id userid)
        get-chart-data (fn [filename] (->> catalogue
                                           :charts
@@ -730,11 +730,11 @@
     ;; one of the steps below goes wrong, at least the purchase will have been recorded.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
-                      :user_email (:email user) :charts (string/join ";" pruned-cart)
+                      :user_email (:email user) :charts (string/join ";" cart)
                       :date today :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes
                       :total total :watermark watermark))
     (swap! purchases-details-db into
-           (for [chart (map get-chart-data pruned-cart)]
+           (for [chart (map get-chart-data cart)]
              (array-map :purchaseid purchaseid :chart (:chart-name chart) :price (:price chart)
                         :composer (:composer chart) :grade (:grade chart)
                         :subgenre (:subgenre chart))))
@@ -744,7 +744,7 @@
 
     ;; Look up the charts in the catalogue directory, and create stamped copies of them in the
     ;; new directory:
-    (doseq [item pruned-cart]
+    (doseq [item cart]
       ;; Create the watermark file:
       (try
         (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
