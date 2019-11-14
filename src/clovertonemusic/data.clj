@@ -12,8 +12,6 @@
             [java-time :as jtime]
             [clovertonemusic.utils :as utils]))
 
-;; TODO: All of the databases should be persisted to disk/google drive whenever the server shuts down.
-
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
  :level :info)
@@ -38,19 +36,19 @@
     (:exit exit-status)))
 
 (defn push-xlsx-file
-  "Given the filename of a file on the server's file system, push it to Google Drive in XLSX format"
-  [filename]
+  "Given a path to a file on the server's file system, push it to Google Drive in XLSX format"
+  [local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-import-formats" "xlsx"
-                        filename google-drive)]
+                        local-path google-drive)]
     (when (not= (:exit exit-status) 0)
       (log/error "Rclone push failed:" (:err exit-status)))
     ;; Return the exit status from rclone:
     (:exit exit-status)))
 
 (defn extract-rows-from-xlsx
-  "Given a file name and the name of a worksheet in that file, extract and return the data rows from
-  that sheet"
-  [xlsx-filepath worksheet]
+  "Given an XLSX workbook and the name of a worksheet within it, extract and return the data rows
+  from that sheet"
+  [workbook sheetname]
   ;; Note the following:
   ;; ------------------
   ;; When retrieving data from a worksheet, docjure ignores columns that do not have data, even
@@ -68,9 +66,8 @@
   ;; its corresponding header column. Then we use the mapping to get the data from the data rows.
   ;; But note that the data will be problematic in the way described above. So we then have to merge
   ;; the data for each row with a map in which each column header is mapped to "". Ugh.
-  (let [sheet (->> xlsx-filepath
-                   (xlsx/load-workbook)
-                   (xlsx/select-sheet worksheet))
+  (let [sheet (->> workbook
+                   (xlsx/select-sheet sheetname))
         header-row (->> sheet
                         (first)
                         (map #(.toString %))
@@ -90,7 +87,9 @@
                           (apply hash-map))
         data-rows (->> sheet
                        (xlsx/select-columns column-header-mapping)
+                       ;; drop the header and remove any empty rows:
                        (drop 1)
+                       (remove nil?)
                        (map (fn [row]
                               ;; For each row, start with the row-template, then merge it with
                               ;; the data row, resulting in a map from header names to the data in
@@ -112,10 +111,10 @@
          (into [header-row]))))
 
 (defn simple-extract-db-from-xlsx
-  "Reads the contents of the given worksheet from the given XLSX file and returns a sequence of
+  "Reads the contents of the given worksheet from the given XLSX workbook and returns a sequence of
   array maps for each record"
-  [xlsx-filepath worksheet]
-  (let [[header & data-rows] (extract-rows-from-xlsx xlsx-filepath worksheet)
+  [workbook sheetname]
+  (let [[header & data-rows] (extract-rows-from-xlsx workbook sheetname)
         header-keywords (map keyword header)
         ;; It would be simpler to convert each row to a zipmap. However, we use an array map since
         ;; that will keep the columns in the original order that they were in in the file.
@@ -126,44 +125,67 @@
     (map generate-array-map data-rows)))
 
 (defn write-atomic-db-to-xlsx
-  "Writes the contents of an atomic db to its associated XLSX file"
-  [atomic-db filename sheetname]
-  (let [dereferenced-db (deref atomic-db)
-        colkeys (->> dereferenced-db
-                     (first)
-                     (keys))
-        get-values-from-rec (fn [db-rec]
-                              (for [colkey colkeys]
-                                (colkey db-rec)))
-        update-worksheet (fn [rows]
-                           ;; This is implemented simply by removing all existing rows and re-adding
-                           ;; them to the worksheet. The data set is relatively small so this should
-                           ;; be fine, however if the customer-base expands sufficiently we may want
-                           ;; to revisit this implementation to make it more scalable.
-                           (let [workbook (xlsx/load-workbook filename)]
+  "Writes the contents of an atomic db to the given sheet in its associated XLSX file, and pushes
+  the updated file to Google Drive"
+  [atomic-db xlsx sheetname]
+  (try
+    (let [dereferenced-db (deref atomic-db)
+          colkeys (->> dereferenced-db
+                       (first)
+                       (keys))
+          get-values-from-rec (fn [db-rec]
+                                (for [colkey colkeys]
+                                  (colkey db-rec)))
+          update-worksheet (fn [rows]
+                             ;; This is implemented simply by removing all existing rows and
+                             ;; re-adding them to the worksheet. The data set is relatively
+                             ;; small so this should be fine, however if the customer-base
+                             ;; expands sufficiently we may want to revisit this implementation
+                             ;; to make it more scalable.
                              (-> sheetname
-                                 (xlsx/select-sheet workbook)
+                                 (xlsx/select-sheet (:workbook xlsx))
                                  (xlsx/remove-all-rows!)
                                  (xlsx/add-rows! rows))
                              ;; Save the workbook to the filesystem and push it to Google drive:
-                             (xlsx/save-workbook-into-file! filename workbook)
-                             (push-xlsx-file filename)))]
-    (-> []
-        ;; The header row:
-        (into (->> colkeys
-                   (map name)
-                   (list)))
-        ;; The data rows:
-        (into (->> dereferenced-db
-                   (map #(get-values-from-rec %))))
-        (update-worksheet))))
+                             (xlsx/save-workbook-into-file! (:path xlsx) (:workbook xlsx))
+                             (push-xlsx-file (:path xlsx)))]
+      (-> []
+          ;; The header row:
+          (into (->> colkeys
+                     (map name)
+                     (list)))
+          ;; The data rows:
+          (into (->> dereferenced-db
+                     (map #(get-values-from-rec %))))
+          (update-worksheet)))
+    (catch Exception ex
+      (->> xlsx
+           :name
+           (str "Got error: '" (.getMessage ex) "' while persisting ")
+           (log/error))
+      (->> (Thread/currentThread)
+           (.getStackTrace)
+           (interpose "\n")
+           (apply str)
+           (log/debug)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the music catalogue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def catalogue-path "data/catalogue")
-(def catalogue-filename "ClovertoneMusicCatalogue.xlsx")
+(def catalogue-dir "data/catalogue")
+
+(def catalogue-xlsx
+  (let [xlsx-name "ClovertoneMusicCatalogue.xlsx"]
+    ;; Try to get the file from Google Drive and fail if we cannot:
+    (when-not (= (pull-xlsx-file xlsx-name catalogue-dir) 0)
+      (fail (str "Error retrieving catalogue file: " xlsx-name)))
+    ;; catalogue-xlsx is a map consisting of the filename and associated workbook object
+    {:name xlsx-name
+     :workbook (->> xlsx-name
+                    (str catalogue-dir "/")
+                    (xlsx/load-workbook))}))
 
 (def catalogue-table-constraints         ; Form: required (y/n)/type/foreign key
   {:composers {:date-created             "y/datetime/"
@@ -279,7 +301,7 @@
   (try
     (log/info "Loading" tablename)
     (->> tablename
-         (extract-rows-from-xlsx (str catalogue-path "/" catalogue-filename))
+         (extract-rows-from-xlsx (:workbook catalogue-xlsx))
          (create-table tablename catalogue)
          (hash-map (keyword tablename))
          (merge catalogue))
@@ -288,63 +310,94 @@
       (fail (str "Error while parsing " tablename ": " (.getMessage ex))))))
 
 (def catalogue
-  (if-not (= (pull-xlsx-file catalogue-filename catalogue-path) 0)
-    (fail (str "Error retrieving catalogue file: " catalogue-filename))
-    ;; The catalogue is build by generating each catalogue table successively. The output
-    ;; of each call adds the built table to the orignally given catalogue; i.e.:
-    ;; {} -> {:genres {...}} -> {:genres {...} :composers {...}} -> ...
-    ;; The order here is important; in particular "charts" must be last since it has
-    ;; foreign keys to all of the other tables.
-    (->> {}
-         (generate-table-from-xlsx "genres")
-         (generate-table-from-xlsx "composers")
-         (generate-table-from-xlsx "grades")
-         (generate-table-from-xlsx "charts"))))
+  ;; The catalogue is built by generating each catalogue table successively. The output
+  ;; of each call adds the built table to the orignally given catalogue; i.e.:
+  ;; {} -> {:genres {...}} -> {:genres {...} :composers {...}} -> ...
+  ;; The order here is important; in particular "charts" must be last since it has
+  ;; foreign keys to all of the other tables.
+  (->> {}
+       (generate-table-from-xlsx "genres")
+       (generate-table-from-xlsx "composers")
+       (generate-table-from-xlsx "grades")
+       (generate-table-from-xlsx "charts")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Functions and Vars relating to the user database
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data relating to the users and purchases databases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def users-path "data/users")
-(def users-xlsx "ClovertoneMusicUsers.xlsx")
-(def users-file (str users-path "/" users-xlsx))
+(def users-and-purchases-dir "data/users-and-purchases")
 
-;; Initialize the users database using the XLSX file stored in the Google drive. Note that it
-;; may change while the server is running, so we make it an atom. The way this works is as follows:
+(def users-and-purchases-xlsx
+  (let [xlsx-name "ClovertoneMusicUsersAndPurchases.xlsx"]
+    ;; Try to get the file from Google Drive and fail if we cannot:
+    (when-not (= (pull-xlsx-file xlsx-name users-and-purchases-dir) 0)
+      (fail (str "Error retrieving users-and-purchases file: " xlsx-name)))
+    ;; users-and-purchases-xlsx is a map consisting of the filename, path, and associated workbook:
+    {:name xlsx-name
+     :path (str users-and-purchases-dir "/" xlsx-name)
+     :workbook (->> xlsx-name
+                    (str users-and-purchases-dir "/")
+                    (xlsx/load-workbook))}))
+
+(def purchases-data-dir (str users-and-purchases-dir "/purchases"))
+(def chart-template-dir (str catalogue-dir "/chart-pdfs"))
+
+;; Initialize the users database using the XLSX workbook. Note that it may change while the server
+;; is running, so we make it an atom. The way this works is as follows:
 ;; - We read it from disk into memory at server startup
 ;; - All subsequent read accesses are to the memory instance.
 ;; - When an update is made (e.g., through create-user! or activate-user!), we update the atom, and
-;;   then write a backup of the atom to disk. Apart from these occasional writes, the .xlsx file on
-;;   disk is never accessed except the one time at startup.
-(if-not (= (pull-xlsx-file users-xlsx users-path) 0)
-  (fail (str "Error retrieving users XLSX file: " users-xlsx)))
-
-(def users-db (-> users-path
-                  (str "/" users-xlsx)
+;;   then persist the atom to disk and to Google Drive. Apart from these occasional writes, the
+;;   .xlsx file on disk is never written to except the one time at startup.
+(def users-db (-> users-and-purchases-xlsx
+                  :workbook
                   (simple-extract-db-from-xlsx "users")
                   (atom)))
 
 ;; Verify that the user database is in a good state at server startup; fail otherwise:
-(when-not (->> users-db
-               (deref)
-               (map #(:email %))
-               (apply distinct?))
-  (fail "User database contains duplicate emails"))
+(let [dereferenced-db (deref users-db)]
+  (when-not (empty? dereferenced-db)
+    (when-not (->> dereferenced-db
+                   (map #(:email %))
+                   (apply distinct?))
+      (fail "User database contains duplicate emails"))))
+
+;; Initialize the purchases and purchases-details databases using the XLSX workbook. Note that they
+;; may change while the server is running, so we make them atoms. Updates are handled similarly to
+;; the users database (see above)
+(def purchases-db (-> users-and-purchases-xlsx
+                      :workbook
+                      (simple-extract-db-from-xlsx "purchases-summary")
+                      (atom)))
+
+(def purchases-details-db (-> users-and-purchases-xlsx
+                              :workbook
+                              (simple-extract-db-from-xlsx "purchases-details")
+                              (atom)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions relating to users
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn get-next-user-id
   "Returns a number 1 larger than the largest user id in the db, in string format."
   []
-  (->> users-db
-       (deref)
-       (map (fn [idstring]
-              ;; Old pre-migration users may have a non-numeric userid. If we come across one of
-              ;; these just treat it as '0', i.e. the minimum possible value:
-              (try
-                (utils/parse-as-number (:userid idstring))
-                (catch Exception ex 0))))
-       (apply max)
-       (inc)
-       (str)))
+  (letfn [(max-or-default [number-collection]
+            ;; Get back the largest number in the collection or 0 if it is empty:
+            (if (empty? number-collection)
+              0
+              (apply max number-collection)))]
+    (->> users-db
+         (deref)
+         (map (fn [idstring]
+                ;; Old pre-migration users may have a non-numeric userid. If we come across one of
+                ;; these just treat it as '0', i.e. the minimum possible value:
+                (try
+                  (utils/parse-as-number (:userid idstring))
+                  (catch Exception ex 0))))
+         (max-or-default)
+         (inc)
+         (str))))
 
 (defn get-user-by-id
   "Finds and returns the user in the db corresponding to the given userid."
@@ -427,8 +480,12 @@
                               :password (hashers/derive password) :name name :band band :city city
                               :province province :country country :phone phone :email email
                               :newsletter newsletter :activationid activationid :resetpwid nil))
-        ;; Persist the users-db (in case of a crash):
-        (write-atomic-db-to-xlsx users-db users-file "users")
+        ;; Persist the database, and then return the userid back to the caller. Note that future
+        ;; blocks don't emit generated exceptions until they are de-referenced. Since we don't care
+        ;; about the result of the block and won't be de-referencing it, it is important to handle
+        ;; all exceptions within the write-atomic-db-to-xlsx function.
+        (future (locking users-and-purchases-xlsx
+                  (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
         ;; Finally return the activation id:
         activationid))))
 
@@ -459,7 +516,11 @@
     (let [differences (diff (sort-by :userid old-db-contents) (sort-by :userid (deref users-db)))]
       (if (or (first differences) (second differences))
         (do
-          (write-atomic-db-to-xlsx users-db users-file "users")
+          ;; Note that future blocks don't emit generated exceptions until they are de-referenced.
+          ;; Since we don't care about the result of the block and won't be de-referencing it, it is
+          ;; important to handle all exceptions within the write-atomic-db-to-xlsx function.
+          (future (locking users-and-purchases-xlsx
+                    (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
           true)
         false))))
 
@@ -483,8 +544,12 @@
 
     ;; Update the user db with the current time as the last accessed time
     (swap! users-db update-access-time))
-  ;; Persist the database, and then return the userid back to the caller:
-  (write-atomic-db-to-xlsx users-db users-file "users")
+  ;; Persist the database, and then return the userid back to the caller. Note that future blocks
+  ;; don't emit generated exceptions until they are de-referenced. Since we don't care about the
+  ;; result of the block and won't be de-referencing it, it is important to handle all exceptions
+  ;; within the write-atomic-db-to-xlsx function.
+  (future (locking users-and-purchases-xlsx
+            (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
   userid)
 
 (defn add-reset-password-id-to-user!
@@ -513,8 +578,12 @@
                                (conj other-user-recs potential-new-user-record))))]
     ;; Update the user db:
     (swap! users-db update-resetpwid)
-    ;; Persist the database, then return the generated password reset id back to the caller:
-    (write-atomic-db-to-xlsx users-db users-file "users")
+    ;; Persist the database, then return the generated password reset id back to the caller. Note
+    ;; that future blocks don't emit generated exceptions until they are de-referenced. Since we
+    ;; don't care about the result of the block and won't be de-referencing it, it is important to
+    ;; handle all exceptions within the write-atomic-db-to-xlsx function.
+    (future (locking users-and-purchases-xlsx
+              (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
     resetpwid))
 
 (defn change-user-password!
@@ -537,8 +606,12 @@
                               (conj other-user-recs potential-new-user-record))))]
     ;; Update the user db:
     (swap! users-db update-password))
-  ;; Persist the db
-  (write-atomic-db-to-xlsx users-db users-file "users"))
+  ;; Persist the db. Note that future blocks don't emit generated exceptions until they are
+  ;; de-referenced. Since we don't care about the result of the block and won't be de-referencing
+  ;; it, it is important to handle all exceptions within the write-atomic-db-to-xlsx function.
+  (future (locking users-and-purchases-xlsx
+            (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users"))))
+
 
 (defn modify-account-information!
   "Updates the user record in the database which corresponds to the given email with the
@@ -590,39 +663,21 @@
 
     ;; Update the user db with the modified user record
     (swap! users-db update-user-rec-in-db))
-  ;; Persist the db:
-  (write-atomic-db-to-xlsx users-db users-file "users"))
+  ;; Persist the db. Note that future blocks don't emit generated exceptions until they are
+  ;; de-referenced. Since we don't care about the result of the block and won't be de-referencing
+  ;; it, it is important to handle all exceptions within the write-atomic-db-to-xlsx function.
+  (future (locking users-and-purchases-xlsx
+            (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Functions and Vars relating to purchases in the data directory
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def purchases-path "data/purchases")
-(def purchases-xlsx "ClovertoneMusicPurchases.xlsx")
-(def purchases-file (str purchases-path "/" purchases-xlsx))
-(def chart-template-dir (str catalogue-path "/chart-pdfs"))
-
-;; Initialize the purchases and purchases-details databases using the XLSX file stored in the
-;; Google drive. Note that they may change while the server is running, so we make them atoms.
-;; Updates are handled similarly to the users database (see above)
-(if-not (= (pull-xlsx-file purchases-xlsx purchases-path) 0)
-  (fail (str "Error retrieving purchases XLSX file: " purchases-xlsx)))
-
-(def purchases-db (-> purchases-path
-                      (str "/" purchases-xlsx)
-                      (simple-extract-db-from-xlsx "summary")
-                      (atom)))
-
-(def purchases-details-db (-> purchases-path
-                              (str "/" purchases-xlsx)
-                              (simple-extract-db-from-xlsx "details")
-                              (atom)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functions relating to purchases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn get-full-purchase-path
   "If the given relative path of a purchase can be found in the purchases directory, then return
   its absolute path, otherwise return nil"
   [purchase-dir purchase-file]
-  (let [full-purchase-path (str purchases-path "/" purchase-dir "/" purchase-file)]
+  (let [full-purchase-path (str purchases-data-dir "/" purchase-dir "/" purchase-file)]
     (when (.exists (io/as-file full-purchase-path))
       full-purchase-path)))
 
@@ -661,7 +716,7 @@
   [userid cart subtotal taxrate taxname taxes total watermark]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
       [purchaseid (generate-random-id)
-       purchasedir (str purchases-path "/" purchaseid)
+       purchasedir (str purchases-data-dir "/" purchaseid)
        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
        pruned-cart (remove-already-owned-charts-from-cart userid cart)
        user (get-user-by-id userid)
@@ -673,13 +728,11 @@
                                           (first)))]
     ;; Update the two purchases databases with the new purchase record. We do this first, since if
     ;; one of the steps below goes wrong, at least the purchase will have been recorded.
-    ;; TODO: The paypal fields should be removed from the purchases databases.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
                       :user_email (:email user) :charts (string/join ";" pruned-cart)
                       :date today :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes
-                      :total total :watermark watermark :paypal_token nil :paypal_payer nil
-                      :expires nil :completed nil :cancelled nil))
+                      :total total :watermark watermark))
     (swap! purchases-details-db into
            (for [chart (map get-chart-data pruned-cart)]
              (array-map :purchaseid purchaseid :chart (:chart-name chart) :price (:price chart)
@@ -709,10 +762,16 @@
             (log/error "During purchase, stamping of" file-type "for chart" item "for user" userid
                        "failed:" (:err exit-status))))))
 
-    ;; Persist the purchases databases (for backup purposes):
-    (write-atomic-db-to-xlsx purchases-db purchases-file "summary")
-    (write-atomic-db-to-xlsx purchases-details-db purchases-file "details")))
-
+    ;; Persist the purchases databases. Note that future blocks don't emit generated exceptions
+    ;; until they are de-referenced. Since we don't care about the result of the block and won't be
+    ;; de-referencing it, it is important to handle all exceptions within the
+    ;; write-atomic-db-to-xlsx function.
+    (future (locking users-and-purchases-xlsx
+              (write-atomic-db-to-xlsx purchases-db users-and-purchases-xlsx "purchases-summary")))
+    (future (locking users-and-purchases-xlsx
+              (write-atomic-db-to-xlsx purchases-details-db
+                                       users-and-purchases-xlsx
+                                       "purchases-details")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory
