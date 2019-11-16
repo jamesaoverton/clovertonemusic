@@ -19,15 +19,29 @@
 
 (defn is-authenticated
   "Determines whether the request is authenticated by checking for the presence of the :identity
-  keyword within it."
+  map within it. If the identity map is present, then we must also verify that the last accessed
+  time corresponding to the userid in the identity map matches the last accessed time in the users
+  database for that userid. Note that a consequence of the way we verify the user's authentication
+  is that a user cannot be authenticated in multiple browsers simultaneously."
   [{identity :identity :as req}]
-  (not (nil? identity)))
+  (when-not (nil? identity)
+    (let [userid (->> identity
+                      (first)
+                      (first))
+          login-time (->> identity
+                          (first)
+                          (second))]
+      (= login-time (->> userid
+                         (data/get-user-by-id)
+                         :lastaccessed)))))
 
 (defn wrap-user
   "Adds complete information for the user to the request"
   [handler]
-  (fn [{userid :identity :as req}]
-    (->> userid
+  (fn [{identity :identity :as req}]
+    (->> identity
+         (first)
+         (first)
          (data/get-user-by-id)
          (assoc req :user)
          (handler))))
@@ -87,11 +101,11 @@
 
 (defroutes all-routes
   ;; To test authentication:
-  ;; (app {:request-method :post :uri "/login/" :form-params {"username" "jim@thedoors.com"
+  ;; (app {:request-method :post :uri "/login/" :form-params {"email" "jim@thedoors.com"
   ;;                                                          "password" "jim"}})
   ;; This yields the output: {:status 302, :headers {"Location" "/", "Set-Cookie" ("<...>")}, :body ""}
   ;; Then send:
-  ;; (app {:request-method :get :uri "/account/" :headers {"cookie" "<...>"}}))
+  ;; (app {:request-method :get :uri "/account/" :headers {"cookie" "<...>"}})
 
   ;; Account and purchases pages are protected; only authenticated users may access them:
   (context "/account" []
