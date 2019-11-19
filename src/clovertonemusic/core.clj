@@ -87,7 +87,7 @@
 
 (defroutes all-routes
   ;; To test authentication:
-  ;; (app {:request-method :post :uri "/login/" :form-params {"username" "jim@thedoors.com"
+  ;; (app {:request-method :post :uri "/login/" :form-params {"email" "jim@thedoors.com"
   ;;                                                          "password" "jim"}})
   ;; This yields the output: {:status 302, :headers {"Location" "/", "Set-Cookie" ("<...>")}, :body ""}
   ;; Then send:
