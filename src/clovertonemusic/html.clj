@@ -1043,20 +1043,16 @@
       (nil? user) (redirect "/login/?notfound=true")
       (= user false) (redirect "/login/?wrongpw=true")
       (data/user-is-disabled user) (redirect "/login/?user-disabled=true")
-      :else (let [userid (:userid user)]
-              (->> userid
-                   ;; If the credentials are ok, associate a session to the request that
-                   ;; incorporates an :identity field associated with the user, and redirect
-                   ;; to the home page. The contents of the :identity field are a map from the
-                   ;; user's userid to the last time she has accessed the system (i.e. just a few
-                   ;; moments ago).
-                   (data/update-user-last-accessed-time!)
-                   (swap! data/user-session-ids merge)
-                   ((keyword userid))
-                   (hash-map userid)
-                   (assoc session :identity)
-                   (data/remove-already-owned-charts-from-cart user)
-                   (assoc (redirect "/") :session))))))
+      :else (->> user
+                 ;; If the credentials are ok, associate a session to the request that
+                 ;; incorporates an :identity field associated with the user, and redirect
+                 ;; to the home page. The contents of the :identity field are whatever is returned
+                 ;; by data/update-user-last-accessed-time!
+                 :userid
+                 (data/update-user-last-accessed-time!)
+                 (assoc session :identity)
+                 (data/remove-already-owned-charts-from-cart user)
+                 (assoc (redirect "/") :session)))))
 
 (defn get-logout
   "Handles a logout request by stripping the :identity field from the session parameters and

@@ -325,10 +325,6 @@
 ;; Data relating to the users and purchases databases
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def user-session-ids
-  "A map from user ids to their corresponding session identifiers"
-  (atom {}))
-
 (def users-and-purchases-dir "data/users-and-purchases")
 
 (def users-and-purchases-xlsx
@@ -531,7 +527,7 @@
 (defn update-user-last-accessed-time!
   "Updates the last accessed time of the user in the db with the given userid"
   [userid]
-  (let [current-time (->> (jtime/offset-date-time) (jtime/format "yyyy-MM-dd-HH:mm:ss:SSS"))
+  (let [current-time (->> (jtime/offset-date-time) (jtime/format "yyyy-MM-dd HH:mmZ"))
         update-access-time (fn [dereferenced-users-db]
                              (let [{matching-user-recs true, other-user-recs false}
                                    (->> dereferenced-users-db
@@ -547,15 +543,14 @@
                                  (conj other-user-recs potential-new-user-record))))]
 
     ;; Update the user db with the current time as the last accessed time
-    (swap! users-db update-access-time)
-    ;; Persist the database, and then return a mapping of the userid to the current time back to the
-    ;; caller. Note that future blocks don't emit generated exceptions until they are dereferenced.
-    ;; Since we don't care about the result of the block and won't be de-referencing it, it is
-    ;; important to handle all exceptions within the write-atomic-db-to-xlsx function.
-    (future (locking users-and-purchases-xlsx
-              (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
-    ;; We convert the userid to a keyword for convenience when accessing it later.
-    {(keyword userid) current-time}))
+    (swap! users-db update-access-time))
+  ;; Persist the database, and then return the userid back to the caller. Note that future blocks
+  ;; don't emit generated exceptions until they are de-referenced. Since we don't care about the
+  ;; result of the block and won't be de-referencing it, it is important to handle all exceptions
+  ;; within the write-atomic-db-to-xlsx function.
+  (future (locking users-and-purchases-xlsx
+            (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users")))
+  userid)
 
 (defn add-reset-password-id-to-user!
   "Marks the user record as pending a password reset, by adding a randomly generated
