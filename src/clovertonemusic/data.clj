@@ -442,7 +442,9 @@
   "Tests to see whether the given user is disabled (e.g. if he is not activated)."
   [user]
   ;; If an activation id exists, it means that the user is still pending activation:
-  (not (string/blank? (:activationid user))))
+  (not (or (nil? (:activationid user))
+           (= (:activationid user) "null")
+           (string/blank? (:activationid user)))))
 
 (defn get-user-by-resetpwid
   "Finds and returns the user in the db associated with the given reset password id"

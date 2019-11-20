@@ -14,6 +14,9 @@
             [clovertonemusic.data :as data]
             [clovertonemusic.utils :as utils]))
 
+;; Set this to one of "dev", "test", or "prod":
+(def env "dev")
+
 ;; Logger configuration:
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
@@ -31,8 +34,38 @@
                   :pass "pass"
                   :ssl true
                   :tls true})
+
 ;; The connection parameter map to use for a local server is just nil:
 (def smtp-local nil)
+
+(defn get-email-for-env
+  "If this is a production environment (prod), then just send back the given email as is, otherwise
+  replace it with an email address that is more appropriate to either development (dev) or test"
+  [email]
+  (cond
+    (= env "prod") email
+    (= env "test") "mike@localhost"
+    (= env "dev") "mike@localhost"
+    :else "mike@localhost"))
+
+(defn get-smtp-for-env
+  "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
+  []
+  (cond
+    (= env "prod") smtp-remote
+    (= env "test") smtp-remote
+    (= env "dev") smtp-local
+    :else smtp-local))
+
+(defn get-url-prefix-for-env
+  "Return the appropriate URL prefix (http:// or https://) for the current environment
+  (prod, test, or dev)"
+  [http-server]
+  (cond
+    (= env "prod") (str "https://" http-server)
+    (= env "test") (str "https://" http-server)
+    (= env "dev") (str "http://" http-server)
+    :else (str "http://" http-server)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to catalogue content
@@ -813,30 +846,32 @@
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name http-server activationid]
-  ;; TODO: Eventually change http to https here:
-  (let [body (data/get-activation-email-contents name (str "http://" http-server
-                                                           "/activation/" activationid))
-        ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
-        send-status (send-message smtp-local {:from activation-email-address
-                                              :to [email]
-                                              :reply-to support-email-address
-                                              :subject "Activate your clovertonemusic.com account"
-                                              :body body})]
+  (let [body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
+                                                          (str "/activation/")
+                                                          (str activationid)))
+        send-status (-> (get-smtp-for-env)
+                        (send-message {:from activation-email-address
+                                       :to [(get-email-for-env email)]
+                                       :reply-to support-email-address
+                                       :subject "Activate your clovertonemusic.com account"
+                                       :body body}))]
     (when (not= (:error send-status) :SUCCESS)
       (log/error "Sending of activation email to" email "did not succeed (" send-status ")"))))
 
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
   [email is-migration name http-server resetpwid]
-  ;; TODO: Eventually change http to https here:
-  (let [body (data/get-reset-pwid-email-contents is-migration name (str "http://" http-server
-                                                                        "/resetpw/" resetpwid))
-        ;; TODO: Eventually change smtp-local to smtp-remote (both are defined above):
-        send-status (send-message smtp-local {:from support-email-address
-                                              :to [email]
-                                              :reply-to support-email-address
-                                              :subject "Reset your clovertonemusic.com password"
-                                              :body body})]
+  (let [body (data/get-reset-pwid-email-contents is-migration
+                                                 name
+                                                 (-> (get-url-prefix-for-env http-server)
+                                                     (str "/resetpw/")
+                                                     (str resetpwid)))
+        send-status (-> (get-smtp-for-env)
+                        (send-message {:from support-email-address
+                                       :to [(get-email-for-env email)]
+                                       :reply-to support-email-address
+                                       :subject "Reset your clovertonemusic.com password"
+                                       :body body}))]
     (when (not= (:error send-status) :SUCCESS)
       (log/error "Sending of reset password email to" email "did not succeed (" send-status ")"))))
 
@@ -878,7 +913,9 @@
     (cond (nil? user) (redirect "/forgotpw/?notfound=true")
           (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
-                  (send-reset-pw-email email is-migration (:name user) host resetpwid)
+                  (-> email
+                      (get-email-for-env)
+                      (send-reset-pw-email is-migration (:name user) host resetpwid))
                   (render-html
                    {:title "Reset Password - Clovertone Music"
                     :contents [:div#contents
@@ -926,7 +963,9 @@
         (redirect (str "/login/?already-exists=" email))
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
-          (send-activation-email email name host activationid)
+          (-> email
+              (get-email-for-env)
+              (send-activation-email name host activationid))
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents

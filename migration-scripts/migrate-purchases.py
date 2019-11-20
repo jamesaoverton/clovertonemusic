@@ -7,7 +7,7 @@ import os
 import sys
 import time
 
-purchases_path = "/home/mike/Knocean/clovertonemusic/data/purchases"
+purchases_path = "/home/mike/Knocean/clovertonemusic/data/users-and-purchases/purchases"
 
 def guess_purchase_date(token):
   fulldir = purchases_path + "/" + token
@@ -27,11 +27,8 @@ def main(args=[]):
           .format(os.path.basename(__file__)), file=sys.stderr)
     sys.exit(1)
 
-  try:
-    input("\nWARNING. This will overwrite all existing purchases. If you are\n"
-          "sure you want to continue, press Enter; otherwise press Ctrl-C.\n")
-  except KeyboardInterrupt:
-    print("\nOkee dokee.")
+  if not os.path.isdir(purchases_path):
+    print("{} does not exist".format(purchases_path), file=sys.stderr)
     sys.exit(1)
 
   with open(args[0]) as js_in, open(args[1], 'w') as summary_out, open(args[2], 'w') as details_out:
@@ -40,8 +37,7 @@ def main(args=[]):
     details_writer = csv.writer(details_out, lineterminator='\n', delimiter=',')
     print("\nCreating records for pre-existing purchases in the new purchase db ...")
     summary_writer.writerow(['purchaseid', 'userid', 'user_name', 'user_email', 'charts', 'date',
-                             'subtotal', 'taxrate', 'taxname', 'taxes', 'total', 'watermark',
-                             'paypal_token', 'paypal_payer', 'expires', 'completed', 'cancelled'])
+                             'subtotal', 'taxrate', 'taxname', 'taxes', 'total', 'watermark'])
     details_writer.writerow(['purchaseid', 'chart', 'price', 'composer', 'grade', 'subgenre'])
 
     for entry in data:
@@ -51,16 +47,19 @@ def main(args=[]):
                                guess_purchase_date(entry['token']), entry['subtotal'],
                                format(int(entry['taxrate'] * 100)) + '%',
                                'No Tax' if not entry['taxname'] else entry['taxname'],
-                               entry['taxes'], entry['total'], entry['watermark'],
-                               entry.get('paypal_token'), entry.get('paypal_payer'),
-                               entry['expires'], entry['completed'], entry['cancelled']])
+                               entry['taxes'], entry['total'], entry['watermark']])
       for chart in entry['chart_data']:
         details_writer.writerow([entry['token'], chart['name'], '${:.2f}'.format(chart['price']),
                                 chart['composer'], chart['grade'], chart['genre']])
 
   time.sleep(1)
-  print("\nMigration of purchase records is complete. Please restart the server now\n"
-        "for the changes to take effect.")
+  print("\nThe purchases in {json} have been added to {csv1} and {csv2}.\n\n"
+        "You must now manually copy the data from {csv1} and {csv2} to the 'purchases-summary'\n"
+        "and 'purchases-details' worksheets of the ClovertoneMusicUsersAndPurchases workbook\n"
+        "in your Google Drive. You should remove any existing entries from that worksheet before\n"
+        "copying.\n\n"
+        "Once you have copied the purchases, restart the clovertone server.\n"
+        .format(json=args[0], csv1=args[1], csv2=args[2]))
 
 if __name__ == "__main__":
   main(sys.argv[1:])
