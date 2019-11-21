@@ -12,8 +12,13 @@
       (try
         (Float/parseFloat given)
         (catch Exception e2
-          ;; If that fails, then we assume it is already a number and return it:
-          given)))))
+          ;; If that fails, then it should be a number. If it isn't, then throw an exception:
+          (if (instance? java.lang.Number given)
+            given
+            (-> given
+                (str " cannot be parsed as a number")
+                (Exception.)
+                (throw))))))))
 
 (defn parse-as-string
   "Accepts either a string or a number as input and returns a string. If the input is a
