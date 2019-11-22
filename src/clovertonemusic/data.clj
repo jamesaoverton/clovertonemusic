@@ -16,30 +16,41 @@
  :pattern "%d - %p %m%n"
  :level :info)
 
-;; The name of the remote Google drive as it is defined in the rclone configuration:
-(def google-drive "mcuffar_google_drive:")
-
 (defn fail
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
   (log/fatal errorstr)
   (System/exit 1))
 
+(def config
+  "A map of configuration parameters, loaded from the config file in the data directory"
+  (try
+    (->> "data/config.edn"
+         (slurp)
+         (clojure.edn/read-string))
+    (catch Exception ex
+      (fail "Unable to read configuration file"))))
+
 (defn pull-xlsx-file
-  "Given the filename of a file on Google Drive in XLSX format, pull it to the server's filesystem"
-  [google-filename local-path]
+  "Given the filename of a file on the remote drive in XLSX format, pull it to the server's
+  filesystem"
+  [remote-filename local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
-                        (str google-drive google-filename) local-path)]
+                        (-> config
+                            :remote-drive-name
+                            (str remote-filename))
+                        local-path)]
     (when (not= (:exit exit-status) 0)
       (log/error "Rclone pull failed:" (:err exit-status)))
     ;; Return the exit status from rclone:
     (:exit exit-status)))
 
 (defn push-xlsx-file
-  "Given a path to a file on the server's file system, push it to Google Drive in XLSX format"
+  "Given a path to a file on the server's file system, push it to the remote drive in XLSX format"
   [local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-import-formats" "xlsx"
-                        local-path google-drive)]
+                        local-path
+                        (:remote-drive-name config))]
     (when (not= (:exit exit-status) 0)
       (log/error "Rclone push failed:" (:err exit-status)))
     ;; Return the exit status from rclone:
@@ -126,7 +137,7 @@
 
 (defn write-atomic-db-to-xlsx
   "Writes the contents of an atomic db to the given sheet in its associated XLSX file, and pushes
-  the updated file to Google Drive"
+  the updated file to the remote drive"
   [atomic-db xlsx sheetname]
   (try
     (let [dereferenced-db (deref atomic-db)
@@ -146,7 +157,7 @@
                                  (xlsx/select-sheet (:workbook xlsx))
                                  (xlsx/remove-all-rows!)
                                  (xlsx/add-rows! rows))
-                             ;; Save the workbook to the filesystem and push it to Google drive:
+                             ;; Save the workbook to the filesystem and push it to the remote drive:
                              (xlsx/save-workbook-into-file! (:path xlsx) (:workbook xlsx))
                              (push-xlsx-file (:path xlsx)))]
       (-> []
@@ -177,8 +188,8 @@
 (def catalogue-dir "data/catalogue")
 
 (def catalogue-xlsx
-  (let [xlsx-name "ClovertoneMusicCatalogue.xlsx"]
-    ;; Try to get the file from Google Drive and fail if we cannot:
+  (let [xlsx-name (:catalogue-xlsx-name config)]
+    ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name catalogue-dir) 0)
       (fail (str "Error retrieving catalogue file: " xlsx-name)))
     ;; catalogue-xlsx is a map consisting of the filename and associated workbook object
@@ -328,8 +339,8 @@
 (def users-and-purchases-dir "data/users-and-purchases")
 
 (def users-and-purchases-xlsx
-  (let [xlsx-name "ClovertoneMusicUsersAndPurchases.xlsx"]
-    ;; Try to get the file from Google Drive and fail if we cannot:
+  (let [xlsx-name (:users-and-purchases-xlsx-name config)]
+    ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name users-and-purchases-dir) 0)
       (fail (str "Error retrieving users-and-purchases file: " xlsx-name)))
     ;; users-and-purchases-xlsx is a map consisting of the filename, path, and associated workbook:
@@ -347,7 +358,7 @@
 ;; - We read it from disk into memory at server startup
 ;; - All subsequent read accesses are to the memory instance.
 ;; - When an update is made (e.g., through create-user! or activate-user!), we update the atom, and
-;;   then persist the atom to disk and to Google Drive. Apart from these occasional writes, the
+;;   then persist the atom to disk and to the remote drive. Apart from these occasional writes, the
 ;;   .xlsx file on disk is never written to except the one time at startup.
 (def users-db (-> users-and-purchases-xlsx
                   :workbook
@@ -782,7 +793,6 @@
 (def about-path "data/about")
 (def indices-path "data/indices")
 (def email-path "data/email")
-(def stripe-path "data/stripe")
 
 (defn get-about-page-contents
   "Return the contents of the given about page"
@@ -825,15 +835,3 @@
     (-> template
         (string/replace #"<USER>" user)
         (string/replace #"<LINK>" link))))
-
-(defn get-api-keys
-  "Get the pair of API keys to use for communicating with Stripe. Which pair (test or prod) to
-  retrieve is indicated in the data file which contains the keys."
-  []
-  (with-open [reader (io/reader (str stripe-path "/api_keys.csv"))]
-    (let [[header data] (doall (csv/read-csv reader))]
-      {:keys-to-use (get data (.indexOf header "keys_to_use"))
-       :test {:publishable (get data (.indexOf header "publishable_key_test"))
-              :secret (get data (.indexOf header "secret_key_test"))}
-       :prod {:publishable (get data (.indexOf header "publishable_key_prod"))
-              :secret (get data (.indexOf header "secret_key_prod"))}})))

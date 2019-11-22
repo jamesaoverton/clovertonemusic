@@ -23,49 +23,53 @@
  :level :info)
 
 ;; Email addresses to use for various purposes:
-(def activation-email-address "info@clovertonemusic.com")
-(def info-email-address "info@clovertonemusic.com")
-(def support-email-address "info@clovertonemusic.com")
+(def activation-email-address (-> data/config
+                                  :activation-email-address
+                                  (get (keyword env))))
+(def info-email-address (-> data/config
+                            :info-email-address
+                            (get (keyword env))))
+(def support-email-address (-> data/config
+                               :support-email-address
+                               (get (keyword env))))
 
-;; SMTP server parameters for calls to postal.core/send-message:
-(def smtp-remote {:host "smtp.server.com"
-                  :port "999"
-                  :user "user"
-                  :pass "pass"
-                  :ssl true
-                  :tls true})
-
-;; The connection parameter map to use for a local server is just nil:
-(def smtp-local nil)
-
-(defn get-email-for-env
+(defn get-recipient-email-for-env
   "If this is a production environment (prod), then just send back the given email as is, otherwise
   replace it with an email address that is more appropriate to either development (dev) or test"
   [email]
   (cond
     (= env "prod") email
-    (= env "test") "mike@localhost"
-    (= env "dev") "mike@localhost"
-    :else "mike@localhost"))
+    (or (= env "test") (= env "dev")) (-> data/config
+                                          :recipient-email-address
+                                          (get (keyword env)))
+    :else (do (log/error "Unrecognized environment:" env)
+              (->> data/config
+                   :recipient-email-address
+                   :dev))))
 
 (defn get-smtp-for-env
   "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
   []
-  (cond
-    (= env "prod") smtp-remote
-    (= env "test") smtp-remote
-    (= env "dev") smtp-local
-    :else smtp-local))
+  (-> data/config
+      :smtp-server
+      (get (keyword env))))
 
 (defn get-url-prefix-for-env
   "Return the appropriate URL prefix (http:// or https://) for the current environment
-  (prod, test, or dev)"
+  (prod, test, or dev) and prepend it to the given string"
   [http-server]
-  (cond
-    (= env "prod") (str "https://" http-server)
-    (= env "test") (str "https://" http-server)
-    (= env "dev") (str "http://" http-server)
-    :else (str "http://" http-server)))
+  (-> data/config
+      :http-prefix
+      (get (keyword env))
+      (str http-server)))
+
+(defn get-url-for-env
+  "Return the base URL for the server in the current environment"
+  []
+  (-> data/config
+      :http-server
+      (get (keyword env))
+      (get-url-prefix-for-env)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to catalogue content
@@ -851,7 +855,7 @@
                                                           (str activationid)))
         send-status (-> (get-smtp-for-env)
                         (send-message {:from activation-email-address
-                                       :to [(get-email-for-env email)]
+                                       :to [(get-recipient-email-for-env email)]
                                        :reply-to support-email-address
                                        :subject "Activate your clovertonemusic.com account"
                                        :body body}))]
@@ -868,7 +872,7 @@
                                                      (str resetpwid)))
         send-status (-> (get-smtp-for-env)
                         (send-message {:from support-email-address
-                                       :to [(get-email-for-env email)]
+                                       :to [(get-recipient-email-for-env email)]
                                        :reply-to support-email-address
                                        :subject "Reset your clovertonemusic.com password"
                                        :body body}))]
@@ -914,7 +918,7 @@
           (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
                   (-> email
-                      (get-email-for-env)
+                      (get-recipient-email-for-env)
                       (send-reset-pw-email is-migration (:name user) host resetpwid))
                   (render-html
                    {:title "Reset Password - Clovertone Music"
@@ -964,7 +968,7 @@
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
           (-> email
-              (get-email-for-env)
+              (get-recipient-email-for-env)
               (send-activation-email name host activationid))
           (render-html
            {:title "Activation - Clovertone Music"
@@ -1470,13 +1474,9 @@
   "Returns a map containing the publishable and secret key to use when communicating with the
   Stripe API"
   []
-  (let [api-keys (data/get-api-keys)]
-    ;; There are two pairs of keys in api-keys, one for test and one for production. The pair we
-    ;; need is indicated in the field :keys-to-use of api-keys.
-    (->> api-keys
-         :keys-to-use
-         (keyword)
-         (get api-keys))))
+  (-> data/config
+      :stripe-api-keys
+      (get (keyword env))))
 
 (defn create-checkout-payment-session
   "Given a shopping cart and information about the taxes applicable to the items in it, generate a
@@ -1513,9 +1513,10 @@
                                     {:payment_method_types ["card"]
                                      :mode "payment"
                                      :line_items line-items
-                                     :success_url (str "http://127.0.0.1:8090/complete-purchase/"
-                                                       "{CHECKOUT_SESSION_ID}")
-                                     :cancel_url "http://127.0.0.1:8090/cart/"})})]
+                                     :success_url (str (get-url-for-env)
+                                                       "/complete-purchase/{CHECKOUT_SESSION_ID}")
+                                     :cancel_url (str (get-url-for-env)
+                                                      "/cart/")})})]
     (if-not (= (:status @response) 200)
       nil
       (-> @response
