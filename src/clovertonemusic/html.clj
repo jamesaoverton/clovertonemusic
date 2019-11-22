@@ -14,13 +14,16 @@
             [clovertonemusic.data :as data]
             [clovertonemusic.utils :as utils]))
 
-;; Set this to one of "dev", "test", or "prod":
-(def env "dev")
+(def env
+  "The runtime environment (dev, test, or prod), as read from the configuration map"
+  (:env data/config))
 
 ;; Logger configuration:
 (log-config/set-logger!
  :pattern "%d - %p %m%n"
- :level :info)
+ :level (-> data/config
+            :log-level
+            (get (keyword env))))
 
 ;; Email addresses to use for various purposes:
 (def activation-email-address (-> data/config
