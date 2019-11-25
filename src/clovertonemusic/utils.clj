@@ -12,7 +12,8 @@
       (try
         (Float/parseFloat given)
         (catch Exception e2
-          ;; If that fails, then it should be a number. If it isn't, then throw an exception:
+          ;; If that fails, then the given should already be a number. If it isn't, then throw an
+          ;; exception:
           (if (instance? java.lang.Number given)
             given
             (-> given

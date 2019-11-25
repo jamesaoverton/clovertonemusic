@@ -21,7 +21,8 @@
                  [javax.servlet/servlet-api "2.5"]
                  [markdown-to-hiccup "0.3.0"]
                  [paraman "0.1.2"]
-                 [ring/ring-core "1.7.1"]]
+                 [ring/ring-core "1.7.1"]
+                 [ring/ring-json "0.5.0"]]
   :main ^:skip-aot clovertonemusic.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

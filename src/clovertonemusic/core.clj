@@ -8,6 +8,7 @@
             [compojure.handler :refer [site]]
             [compojure.route :as route]
             [org.httpkit.server :refer [run-server]]
+            [ring.middleware.json :refer [wrap-json-body]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
             [clovertonemusic.data :as data]
@@ -81,7 +82,7 @@
 (defroutes buy-cart-routes
   (POST "/" [] html/post-buy-cart))
 (defroutes complete-purchase-routes
-  (GET "/:checkout-session-id" [] html/complete-purchase))
+  (GET "/:stripe-checkout-session-id" [] html/complete-purchase))
 (defroutes stripe-error-routes
   (GET "/" [] html/render-stripe-checkout-error))
 
@@ -118,6 +119,9 @@
 
   (GET "/resetpw/:resetpwid" [] html/process-and-input-password-reset)
   (POST "/resetpw/" [] html/post-resetpw)
+
+  ;; This endpoint is hit by a webhook defined in Stripe:
+  (POST "/stripe-checkout-session-completed/" [] html/post-stripe-checkout-session-completed)
 
   (GET "/about/:page" [page search]
        (if search
@@ -186,6 +190,7 @@
 (def backend (session-backend {:unauthorized-handler unauthorized-handler}))
 (def app
   (-> #'all-routes
+      (wrap-json-body)
       (wrap-user)
       (wrap-authentication backend)
       (wrap-authorization backend)

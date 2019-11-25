@@ -37,17 +37,18 @@ def main(args=[]):
     details_writer = csv.writer(details_out, lineterminator='\n', delimiter=',')
     print("\nCreating records for pre-existing purchases in the new purchase db ...")
     summary_writer.writerow(['purchaseid', 'userid', 'user_name', 'user_email', 'charts', 'date',
-                             'subtotal', 'taxrate', 'taxname', 'taxes', 'total', 'watermark'])
+                             'subtotal', 'taxrate', 'taxname', 'taxes', 'total', 'watermark',
+                             'stripe-checkout-session-id', 'payment-completed'])
     details_writer.writerow(['purchaseid', 'chart', 'price', 'composer', 'grade', 'subgenre'])
 
     for entry in data:
       summary_writer.writerow([entry['token'], entry['user'], entry['user_name'],
                                entry['user_email'],
-                               ','.join([cd['filename'] for cd in entry['chart_data']]),
+                               ';'.join([cd['filename'] for cd in entry['chart_data']]),
                                guess_purchase_date(entry['token']), entry['subtotal'],
                                format(int(entry['taxrate'] * 100)) + '%',
                                'No Tax' if not entry['taxname'] else entry['taxname'],
-                               entry['taxes'], entry['total'], entry['watermark']])
+                               entry['taxes'], entry['total'], entry['watermark'], "", "true"])
       for chart in entry['chart_data']:
         details_writer.writerow([entry['token'], chart['name'], '${:.2f}'.format(chart['price']),
                                 chart['composer'], chart['grade'], chart['genre']])

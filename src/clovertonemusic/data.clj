@@ -180,7 +180,6 @@
            (apply str)
            (log/debug)))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to the music catalogue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -317,7 +316,11 @@
          (hash-map (keyword tablename))
          (merge catalogue))
     (catch Exception ex
-      (.printStackTrace ex)
+      (->> (Thread/currentThread)
+           (.getStackTrace)
+           (interpose "\n")
+           (apply str)
+           (log/debug))
       (fail (str "Error while parsing " tablename ": " (.getMessage ex))))))
 
 (def catalogue
@@ -625,7 +628,6 @@
   (future (locking users-and-purchases-xlsx
             (write-atomic-db-to-xlsx users-db users-and-purchases-xlsx "users"))))
 
-
 (defn modify-account-information!
   "Updates the user record in the database which corresponds to the given email with the
   provided information."
@@ -703,14 +705,109 @@
   [userid]
   (->> purchases-db
        (deref)
-       (filter #(= (:userid %) userid))))
+       (filter #(and (->> %
+                          :userid
+                          (= userid))
+                     (->> %
+                          :payment-completed
+                          (string/lower-case)
+                          (= "true"))))))
+
+(defn generate-purchase-pdfs
+  "Given a Stripe Checkout session id, find the purchase corresponding to it, and for each
+  chart purchased, create a PDF with a watermark indicating the purchasing user's band name.
+  Save the PDFs to a unique directory corresponding to the purchase on the server's filesystem."
+  [stripe-checkout-session-id]
+  (let [purchase (->> purchases-db
+                      (deref)
+                      (filter #(= (:stripe-checkout-session-id %) stripe-checkout-session-id))
+                      (first))
+        purchasedir (->> purchase
+                         :purchaseid
+                         (str purchases-data-dir "/"))
+        purchased-charts (-> purchase
+                             :charts
+                             (or "")
+                             (string/split #"\s*;\s*"))]
+
+    (when-not (nil? purchase)
+      ;; Create a new subdirectory in the purchases directory
+      (.mkdir (java.io.File. purchasedir))
+
+      ;; Look up the charts in the catalogue directory, and create stamped copies of them in the
+      ;; new directory:
+      (doseq [chart purchased-charts]
+        ;; Create the watermark file:
+        (try
+          (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode
+                            :color [47 79 79]}}
+                    [:phrase (:watermark purchase)]]
+                   (str purchasedir "/watermark.pdf"))
+          (catch Exception ex
+            (->> (Thread/currentThread)
+                 (.getStackTrace)
+                 (interpose "\n")
+                 (apply str)
+                 (log/debug))
+            (log/error (.getMessage ex))))
+
+        ;; Now call the external program 'pdftk' to add the watermark to the charts' PDFs:
+        (doseq [file-type ["score" "parts"]]
+          (let [exit-status (sh "pdftk" (str chart-template-dir "/" chart "." file-type ".pdf")
+                                "stamp" (str purchasedir "/watermark.pdf")
+                                "output" (str purchasedir "/" chart "." file-type ".pdf"))]
+            (when (not= (:exit exit-status) 0)
+              (log/error "During purchase, stamping of" file-type "for chart" chart "for purchase"
+                         (:purchaseid purchase) "failed:" (:err exit-status)))))))))
+
+(defn mark-as-paid!
+  "Marks the purchase corresponding to the given stripe checkout session id as paid, and then
+  generates the files corresponding to the purchase. If successful, returns true, otherwise
+  returns false."
+  [stripe-checkout-session-id]
+  (let [mark-as-paid (fn [dereferenced-purchases-db]
+                       (let [{matching-purchase-recs true, other-purchase-recs false}
+                             (->> dereferenced-purchases-db
+                                  (group-by #(= (:stripe-checkout-session-id %)
+                                                stripe-checkout-session-id)))
+                             ;; There will always only ever be one matching purchase at most:
+                             potential-new-purchase-rec (merge (first matching-purchase-recs)
+                                                               {:payment-completed "true"})]
+                         ;; Return the database records including the modified record
+                         ;; if it exists:
+                         (if (= (count matching-purchase-recs) 0)
+                           other-purchase-recs
+                           (conj other-purchase-recs potential-new-purchase-rec))))
+        old-db-contents (deref purchases-db)]
+
+    ;; Update the purchases db to mark the purchase as paid:
+    (swap! purchases-db mark-as-paid)
+
+    ;; Create the watermarked charts corresponding to the purchase on the server's filesystem:
+    (generate-purchase-pdfs stripe-checkout-session-id)
+
+    ;; Now compare the old and new db contents. If there are differences, persist the database
+    ;; and return true; otherwise return false. If there is no difference this is because
+    ;; the activation id was not found.
+    (let [differences (diff (sort-by :purchaseid old-db-contents)
+                            (sort-by :purchaseid (deref purchases-db)))]
+      (if (or (first differences) (second differences))
+        (do
+          ;; Note that future blocks don't emit generated exceptions until they are de-referenced.
+          ;; Since we don't care about the result of the block and won't be de-referencing it, it is
+          ;; important to handle all exceptions within the write-atomic-db-to-xlsx function.
+          (future (locking users-and-purchases-xlsx
+                    (write-atomic-db-to-xlsx purchases-db users-and-purchases-xlsx "purchases-summary")))
+          true)
+        false))))
 
 (defn remove-already-owned-charts-from-cart
   "Remove any already-owned items from the given cart of the given user"
   [user {cart :cart, :as session}]
   ;; This function is meant to be a safeguard against allowing the user to purchase charts that she
-  ;; already owns. Ideally, the web page should not allow already owned charts to ever be in the
-  ;; user's cart, but this is a second safety mechanism, just in case.
+  ;; already owns. A user may add already-owned charts to her cart if she is not logged in (since
+  ;; is no way for the server to know which carts she owns if she isn't logged in). So this function
+  ;; should be called after login.
   (let [owned-charts (->> user
                           :userid
                           (get-user-purchases)
@@ -727,10 +824,9 @@
 
 (defn create-purchase!
   "Create a new record in the purchase db for the items in the given cart for the given user"
-  [userid cart subtotal taxrate taxname taxes total watermark]
+  [userid cart subtotal taxrate taxname taxes total watermark stripe-checkout-session-id]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
       [purchaseid (generate-random-id)
-       purchasedir (str purchases-data-dir "/" purchaseid)
        today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
        user (get-user-by-id userid)
        get-chart-data (fn [filename] (->> catalogue
@@ -739,41 +835,19 @@
                                           (map #(select-keys % [:chart-name :price :composer :grade
                                                                 :subgenre]))
                                           (first)))]
-    ;; Update the two purchases databases with the new purchase record. We do this first, since if
-    ;; one of the steps below goes wrong, at least the purchase will have been recorded.
+    ;; Update the two purchases databases with the new purchase record.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
                       :user_email (:email user) :charts (string/join ";" cart)
                       :date today :subtotal subtotal :taxrate taxrate :taxname taxname :taxes taxes
-                      :total total :watermark watermark))
+                      :total total :watermark watermark
+                      :stripe-checkout-session-id stripe-checkout-session-id
+                      :payment-completed "false"))
     (swap! purchases-details-db into
            (for [chart (map get-chart-data cart)]
              (array-map :purchaseid purchaseid :chart (:chart-name chart) :price (:price chart)
                         :composer (:composer chart) :grade (:grade chart)
                         :subgenre (:subgenre chart))))
-
-    ;; Create a new subdirectory in the purchases directory
-    (.mkdir (java.io.File. purchasedir))
-
-    ;; Look up the charts in the catalogue directory, and create stamped copies of them in the
-    ;; new directory:
-    (doseq [item cart]
-      ;; Create the watermark file:
-      (try
-        (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode :color [47 79 79]}}
-                  [:phrase watermark]]
-                 (str purchasedir "/watermark.pdf"))
-        (catch Exception ex
-          (log/error (.getMessage ex) "\n" (.printStackTrace ex))))
-
-      ;; Now call the external program 'pdftk' to add the watermark to the charts' PDFs:
-      (doseq [file-type ["score" "parts"]]
-        (let [exit-status (sh "pdftk" (str chart-template-dir "/" item "." file-type ".pdf")
-                              "stamp" (str purchasedir "/watermark.pdf")
-                              "output" (str purchasedir "/" item "." file-type ".pdf"))]
-          (when (not= (:exit exit-status) 0)
-            (log/error "During purchase, stamping of" file-type "for chart" item "for user" userid
-                       "failed:" (:err exit-status))))))
 
     ;; Persist the purchases databases. Note that future blocks don't emit generated exceptions
     ;; until they are de-referenced. Since we don't care about the result of the block and won't be

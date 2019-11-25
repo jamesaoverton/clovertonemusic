@@ -295,9 +295,9 @@
                            :filename
                            (str "/composers/"))
         chart-is-unowned (or (nil? user)
-                             (nil? (->> data/purchases-db
-                                        (deref)
-                                        (filter #(= (:userid user) (:userid %)))
+                             (nil? (->> user
+                                        :userid
+                                        data/get-user-purchases
                                         (map #(string/split (:charts %) #"\s*;\s*"))
                                         (filter (fn [charts] (some #(= (:filename chart) %) charts)))
                                         (first))))]
@@ -824,8 +824,8 @@
                              [:hr]
                              [:p#returning_user_info
                               [:input#returning_user_radio
-                               {:name "user" :type "radio" :checked true :onclick "toggle_login_form(0)"
-                                :onkeydown (js-suppress-enter)}]
+                               {:name "user" :type "radio" :checked true
+                                :onclick "toggle_login_form(0)" :onkeydown (js-suppress-enter)}]
                               [:label "I am a returning user"]
                               [:label#returning_user_password "&nbsp;and my password is&nbsp;"
                                [:input#returning_user_password_input
@@ -842,12 +842,14 @@
                                  [:p.error "User not yet activated"])
                                (when notfound
                                  [:p.error "User not found"])
-                               ;; If the request contains "wrongpw=true" then the user tried to login
-                               ;; with a recognised email address but with an incorrect password.
+                               ;; If the request contains "wrongpw=true" then the user tried to
+                               ;; login with a recognised email address but with an incorrect
+                               ;; password.
                                (when wrongpw
                                  [:p.error "Incorrect password"])]
                               [:p [:a {:href "/forgotpw/"} "Forgot your password?"]]]]]
-                           [:script (str (js-toggle-login-form) "\n" (js-enable-or-disable-other-field))]]
+                           [:script (str (js-toggle-login-form) "\n"
+                                         (js-enable-or-disable-other-field))]]
                 :user-status (user-status user cart)}))
 
 (defn send-activation-email
@@ -1143,7 +1145,8 @@
                                (for [chart (map get-chart-details charts)]
                                  [:tr
                                   [:td
-                                   [:a {:href (str "/charts/" (:filename chart))} (:chart-name chart)]]
+                                   [:a {:href (str "/charts/" (:filename chart))}
+                                    (:chart-name chart)]]
                                   [:td
                                    [:a {:href (str "/composers/" (:filename (get-composer chart)))}
                                     (:composer chart)]]
@@ -1188,7 +1191,8 @@
                    [:tr
                     [:td]
                     [:td [:input#account_country_other.account_info
-                          (merge {:name "country_other" :type "text" :placeholder "Specify if Other"
+                          (merge {:name "country_other" :type "text"
+                                  :placeholder "Specify if Other"
                                   :onkeydown (js-suppress-enter)
                                   :disabled (some #(= user-country %) countries)}
                                  (when (not-any? #(= user-country %) countries)
@@ -1199,7 +1203,8 @@
                    [:tr
                     [:td]
                     [:td [:input#account_province_other.account_info
-                          (merge {:name "province_other" :type "text" :placeholder "Specify if Other"
+                          (merge {:name "province_other" :type "text"
+                                  :placeholder "Specify if Other"
                                   :onkeydown (js-suppress-enter)
                                   :disabled (some #(= user-province %) provinces)}
                                  (when (not-any? #(= user-province %) provinces)
@@ -1411,7 +1416,8 @@
                                 [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
                                 [:input {:type "hidden" :name "taxname" :value (:name tax)}]
                                 [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
-                                [:input {:type "hidden" :name "total" :value (+ (:amount tax) subtotal)}]
+                                [:input {:type "hidden" :name "total"
+                                         :value (+ (:amount tax) subtotal)}]
                                 [:input {:type "hidden" :name "watermark" :value watermark}]
                                 [:input {:type "submit" :value "Buy now"}]]]
                               [:p [:b "Important! "] "You are purchasing an electronic copy of the "
@@ -1435,6 +1441,7 @@
                                  [:p "Your shopping cart is empty"]))]})))
 
 (defn render-stripe-checkout-error
+  "Render an HTML page indicating that an error occurred while trying to get a checkout session id"
   [{user :user,
     {cart :cart, :as session} :session,
     :as request}]
@@ -1449,29 +1456,56 @@
     :user-status (user-status user cart)}))
 
 (defn complete-purchase
-  "Completes the purchase process if the given checkout-session-id matches the one we were
-  expecting."
+  "Complete the payment process by verifying that the given stripe-checkout-session-id is the right
+  one for the current browser session, and that the purchase corresponding to that stripe session
+  has been paid. If this is all true, the user's browser is redirected to a page displaying a
+  'Thanks' message, otherwise an error is indicated to the user."
   [{user :user,
-    {cart :cart, old-checkout-session-id :checkout-session-id, :as session} :session,
-    {new-checkout-session-id :checkout-session-id, :as params} :params,
+    {cart :cart, old-stripe-checkout-session-id :stripe-checkout-session-id, :as session} :session,
+    {new-stripe-checkout-session-id :stripe-checkout-session-id, :as params} :params,
     :as request}]
-  (if-not (= old-checkout-session-id new-checkout-session-id)
-    ;; If the checkout-session-id is invalid, just redirect to the home page, otherwise
-    ;; complete the purchase.
-    (redirect "/")
-    (let [detailed-cart (get-cart-details cart)
-          subtotal (calculate-subtotal detailed-cart)
-          tax (calculate-tax user subtotal)
-          taxamount (:amount tax)
-          taxname (:name tax)
-          taxrate (:rate tax)
-          total (+ subtotal taxamount)
-          watermark (generate-watermark user)]
-      (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxamount total watermark)
-      (assoc (redirect "/cart/?thanks=true")
-             :session (-> session
-                          (dissoc :cart)
-                          (dissoc :checkout-session-id))))))
+  (if-not (= old-stripe-checkout-session-id new-stripe-checkout-session-id)
+    ;; If the given checkout session id does not match the one we expect, redirect the browser to an
+    ;; error page.
+    (do
+      (log/warn "GET request received for endpoint complete-purchase/ with invalid stripe checkout"
+                "session id:" new-stripe-checkout-session-id "(was expecting:"
+                old-stripe-checkout-session-id ")")
+      (render-html {:title "Invalid Stripe Checkout Session ID - Clovertone Music"
+                    :contents [:div#contents
+                               [:h1 "Invalid Stripe Checkout Session ID"]
+                                [:p (str "The supplied Stripe Checkout Session ID does not "
+                                         "correspond to the one saved in the current session")
+                                 [:p "For assistance, send an email to "
+                                  [:a {:href (str "mailto:" support-email-address)}
+                                   support-email-address]]]]
+                    :user-status (user-status user cart)}))
+    ;; Otherwise check to see if the purchase is marked as paid:
+    (let [paid (->> data/purchases-db
+                    (deref)
+                    (filter #(= (:stripe-checkout-session-id %) new-stripe-checkout-session-id))
+                    (first)
+                    :payment-completed)]
+      ;; If it is, then empty the user's shopping cart and display a "Thanks" message:
+      (if (= (string/lower-case paid) "true")
+        (assoc (redirect "/cart/?thanks=true")
+               :session (-> session
+                            (dissoc :cart)
+                            (dissoc :stripe-checkout-session-id)))
+        ;; Otherwise redirect the browser to an error page:
+        (do
+          (log/warn "In endpoint complete-purchase/, the purchase with id"
+                    new-stripe-checkout-session-id "is not marked as paid")
+          (render-html {:title "Problem Finalizing Purchase - Clovertone Music"
+                        :contents [:div#contents
+                                   [:h1 "Problem Finalizing Purchase"]
+                                    [:p (str "The purchase corresponding to the given Stripe "
+                                             "Checkout Session ID has not been marked as paid in "
+                                             "the Clovertone database")
+                                     [:p "For assistance, send an email to "
+                                      [:a {:href (str "mailto:" support-email-address)}
+                                       support-email-address]]]]
+                        :user-status (user-status user cart)}))))))
 
 (defn get-stripe-keys
   "Returns a map containing the publishable and secret key to use when communicating with the
@@ -1481,10 +1515,10 @@
       :stripe-api-keys
       (get (keyword env))))
 
-(defn create-checkout-payment-session
+(defn create-stripe-checkout-payment-session
   "Given a shopping cart and information about the taxes applicable to the items in it, generate a
   checkout payment session in Stripe, with a line item corresponding to each item in the cart as
-  well as one for the applicable taxes, and return the checkout-session-id."
+  well as one for the applicable taxes, and return the stripe-checkout-session-id."
   [taxes taxname taxrate cart]
   (let [detailed-cart (get-cart-details cart)
         line-items (conj
@@ -1527,6 +1561,16 @@
           (cheshire/parse-string)
           (get "id")))))
 
+(defn post-stripe-checkout-session-completed
+  "Processes the webhook sent from Stripe's backend, marking the purchase corresponding to the
+  given stripe checkout session id as paid."
+  [{{{{id "id" :as object} "object" :as data} "data" :as body} :body :as request}]
+  ;; Mark the purchase corresponding to the checkout session id as paid:
+  (data/mark-as-paid! id)
+  ;; Return an empty page. The default page-status returned by render-html is 200. That is all
+  ;; that needs to be in the response
+  (render-html {}))
+
 (defn post-buy-cart
   "Process the user's request to purchase the items in her cart."
   [{user :user,
@@ -1534,23 +1578,38 @@
     {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
      watermark :watermark, :as params} :params,
     :as request}]
-  (let [checkout-session-id (create-checkout-payment-session taxes taxname taxrate cart)]
-    (if (or (empty? checkout-session-id) (nil? checkout-session-id))
+  (let [stripe-checkout-session-id (create-stripe-checkout-payment-session taxes taxname taxrate cart)
+        detailed-cart (get-cart-details cart)
+        subtotal (calculate-subtotal detailed-cart)
+        tax (calculate-tax user subtotal)
+        taxamount (:amount tax)
+        taxname (:name tax)
+        taxrate (:rate tax)
+        total (+ subtotal taxamount)
+        watermark (generate-watermark user)]
+    (if (or (empty? stripe-checkout-session-id) (nil? stripe-checkout-session-id))
       (redirect "/stripe-checkout-error")
-      (assoc
-       (render-html {:title "Payment Processing - Clovertone Music"
-                     :user-status (user-status user cart)
-                     :contents [:div.window
-                                [:h2 "Redirecting you to Stripe"]
-                                [:script {:type "text/javascript", :src "https://js.stripe.com/v3/"}]
-                                [:script
-                                 (str
-                                  "var stripe = Stripe('" (:publishable (get-stripe-keys)) "');"
-                                  "stripe.redirectToCheckout({"
-                                  "  sessionId: '" checkout-session-id "'"
-                                  "});")]]})
-       ;; Add the checkout-session-id to the browser session:
-       :session (assoc session :checkout-session-id checkout-session-id)))))
+      (do
+        ;; Create a purchase in the database. Note that it will actually be marked as having been
+        ;; paid until the user completes the payment on Stripe's web pages and the webhook indicating
+        ;; the successful payment has been sent back to us.
+        (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxamount total
+                               watermark stripe-checkout-session-id)
+        (assoc
+         (render-html {:title "Payment Processing - Clovertone Music"
+                       :user-status (user-status user cart)
+                       :contents [:div.window
+                                  [:h2 "Redirecting you to Stripe"]
+                                  [:script {:type "text/javascript",
+                                            :src "https://js.stripe.com/v3/"}]
+                                  [:script
+                                   (str
+                                    "var stripe = Stripe('" (:publishable (get-stripe-keys)) "');"
+                                    "stripe.redirectToCheckout({"
+                                    "  sessionId: '" stripe-checkout-session-id "'"
+                                    "});")]]})
+         ;; Add the stripe-checkout-session-id to the browser session:
+         :session (assoc session :stripe-checkout-session-id stripe-checkout-session-id))))))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
