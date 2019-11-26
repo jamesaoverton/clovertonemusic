@@ -338,6 +338,9 @@
 ;; Validate that, for each catalogue entry, there is an mp3 file in the audio directory, a preview
 ;; PDF in the previews directory, and two PDFs for the full score and individual parts,
 ;; respectively, in the chart-pdfs directory
+
+(log/info "Looking for PDFs and MP3s")
+
 (doseq [chart-filename (->> catalogue
                             :charts
                             (map #(:filename %)))]
