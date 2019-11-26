@@ -335,6 +335,39 @@
        (generate-table-from-xlsx "grades")
        (generate-table-from-xlsx "charts")))
 
+;; Validate that, for each catalogue entry, there is an mp3 file in the audio directory, a preview
+;; PDF in the previews directory, and two PDFs for the full score and individual parts,
+;; respectively, in the chart-pdfs directory
+(doseq [chart-filename (->> catalogue
+                            :charts
+                            (map #(:filename %)))]
+
+  (let [parts (-> catalogue-dir
+                  (str "/chart-pdfs/")
+                  (str chart-filename)
+                  (str ".parts.pdf"))]
+    (when-not (.exists (io/as-file parts))
+      (fail (str parts " does not exist"))))
+
+  (let [score (-> catalogue-dir
+                  (str "/chart-pdfs/")
+                  (str chart-filename)
+                  (str ".score.pdf"))]
+    (when-not (.exists (io/as-file score))
+      (fail (str score " does not exist"))))
+
+  (let [preview (-> "resources/public/previews/"
+                    (str chart-filename)
+                    (str ".preview.pdf"))]
+    (when-not (.exists (io/as-file preview))
+      (fail (str preview " does not exist"))))
+
+  (let [audio (-> "resources/public/audio/"
+                  (str chart-filename)
+                  (str ".mp3"))]
+    (when-not (.exists (io/as-file audio))
+      (fail (str audio " does not exist")))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data relating to the users and purchases databases
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

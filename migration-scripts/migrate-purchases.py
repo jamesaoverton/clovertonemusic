@@ -42,6 +42,9 @@ def main(args=[]):
     details_writer.writerow(['purchaseid', 'chart', 'price', 'composer', 'grade', 'subgenre'])
 
     for entry in data:
+      if (not entry['completed'] or entry['completed'].casefold() == "false"):
+        continue
+
       summary_writer.writerow([entry['token'], entry['user'], entry['user_name'],
                                entry['user_email'],
                                ';'.join([cd['filename'] for cd in entry['chart_data']]),
