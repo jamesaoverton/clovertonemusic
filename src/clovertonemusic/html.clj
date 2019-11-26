@@ -854,8 +854,11 @@
 
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
-  [email name http-server activationid]
-  (let [body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
+  [email name activationid]
+  (let [http-server (-> data/config
+                        :http-server
+                        (get (keyword env)))
+        body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
                                                           (str "/activation/")
                                                           (str activationid)))
         send-status (-> (get-smtp-for-env)
@@ -869,8 +872,11 @@
 
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
-  [email is-migration name http-server resetpwid]
-  (let [body (data/get-reset-pwid-email-contents is-migration
+  [email is-migration name resetpwid]
+  (let [http-server (-> data/config
+                        :http-server
+                        (get (keyword env)))
+        body (data/get-reset-pwid-email-contents is-migration
                                                  name
                                                  (-> (get-url-prefix-for-env http-server)
                                                      (str "/resetpw/")
@@ -915,7 +921,6 @@
   process. Note that if the user loses or deletes that email, he should still be able to login
   with the correct password if he remembers it later."
   [{{email :email, is-migration :is-migration, :as params} :params,
-    {host "host", :as headers} :headers
     {cart :cart, :as session} :session,
     session-user :user, :as request}]
   (let [user (data/get-user-by-email email)]
@@ -924,7 +929,7 @@
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
                   (-> email
                       (get-recipient-email-for-env)
-                      (send-reset-pw-email is-migration (:name user) host resetpwid))
+                      (send-reset-pw-email is-migration (:name user) resetpwid))
                   (render-html
                    {:title "Reset Password - Clovertone Music"
                     :contents [:div#contents
@@ -948,7 +953,6 @@
      country "country" country_other "country_other"
      new_password "new_password" retyped_password "retyped_password"
      phone "phone" newsletter "newsletter"} :form-params,
-    {host "host", :as headers} :headers
     {cart :cart, :as session} :session,
     user :user,
     :as request}]
@@ -974,7 +978,7 @@
         (do
           (-> email
               (get-recipient-email-for-env)
-              (send-activation-email name host activationid))
+              (send-activation-email name activationid))
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents
@@ -1019,7 +1023,6 @@
   the user record associated with that id, and finally, presenting the user with a form
   to input her new password."
   [{session-user :user,
-    {host "host", :as headers} :headers
     {cart :cart, :as session} :session,
     {resetpwid :resetpwid, nomatch :nomatch, :as params} :params,
     :as request}]
