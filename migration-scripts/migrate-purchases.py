@@ -15,7 +15,8 @@ def guess_purchase_date(token):
     # Note that on Linux getctime() returns the time of the last metadata change. There is no
     # straightforward way to get the file's birth time on Linux, though, and this will suffice
     # for our purposes.
-    creation_timestamp = os.path.getctime(fulldir)
+    creation_timestamp = os.path.getmtime(fulldir)
+    print(datetime.datetime.fromtimestamp(creation_timestamp).strftime("%Y-%m-%d"))
     return datetime.datetime.fromtimestamp(creation_timestamp).strftime("%Y-%m-%d")
   else:
     print("WARNING: {} does not exist. Using today's date as the purchase date.".format(fulldir))
