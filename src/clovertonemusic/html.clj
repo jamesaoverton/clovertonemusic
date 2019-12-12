@@ -37,18 +37,14 @@
                                (get (keyword env))))
 
 (defn get-recipient-email-for-env
-  "If this is a production environment (prod), then just send back the given email as is, otherwise
-  replace it with an email address that is more appropriate to either development (dev) or test"
+  "Look into the configuration for the current environment. If a recipient email is defined, then
+  return that instead of the one passed into the function. If no recipient email is defined (or if
+  it is set to nil) for the current environment, then just return the email that has been passed"
   [email]
-  (cond
-    (= env "prod") email
-    (or (= env "test") (= env "dev")) (-> data/config
-                                          :recipient-email-address
-                                          (get (keyword env)))
-    :else (do (log/error "Unrecognized environment:" env)
-              (->> data/config
-                   :recipient-email-address
-                   :dev))))
+  (or (-> data/config
+          :recipient-email-address
+          (get (keyword env)))
+      email))
 
 (defn get-smtp-for-env
   "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
