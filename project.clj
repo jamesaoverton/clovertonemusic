@@ -1,8 +1,8 @@
 (defproject clovertonemusic "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
-  :license {:name "TBD"
-            :url "TBD"}
+  :description "Web server for Clovertone Music"
+  :url "https://clovertonemusic.com/"
+  :license {:name "unspecified"
+            :url ""}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/tools.logging "0.4.1"]
