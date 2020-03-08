@@ -4,32 +4,20 @@
             [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as string]
-            [clojure.tools.logging :as log]
             [buddy.hashers :as hashers]
-            [clj-logging-config.log4j :as log-config]
             [clj-pdf.core :as pdf]
             [dk.ative.docjure.spreadsheet :as xlsx]
             [java-time :as jtime]
+            [clovertonemusic.config :refer [config]]
+            [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
-(log-config/set-logger!
- :pattern "%d - %p %m%n"
- :level :info)
 
 (defn fail
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
   (log/fatal errorstr)
   (System/exit 1))
-
-(def config
-  "A map of configuration parameters, loaded from the config file in the data directory"
-  (try
-    (->> "data/config.edn"
-         (slurp)
-         (clojure.edn/read-string))
-    (catch Exception ex
-      (fail "Unable to read configuration file"))))
 
 (defn pull-xlsx-file
   "Given the filename of a file on the remote drive in XLSX format, pull it to the server's

@@ -1,9 +1,7 @@
 (ns clovertonemusic.core
-  (:require [clojure.tools.logging :as log]
-            [buddy.auth.accessrules :refer [restrict]]
+  (:require [buddy.auth.accessrules :refer [restrict]]
             [buddy.auth.backends.session :refer [session-backend]]
             [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
-            [clj-logging-config.log4j :as log-config]
             [compojure.core :refer [defroutes context GET POST]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
@@ -12,11 +10,9 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
             [clovertonemusic.data :as data]
-            [clovertonemusic.html :as html]))
+            [clovertonemusic.html :as html]
+            [clovertonemusic.log :as log]))
 
-(log-config/set-logger!
- :pattern "%d - %p %m%n"
- :level :info)
 
 (defn is-authenticated
   "Determines whether the request is authenticated by checking for the presence of the :identity
