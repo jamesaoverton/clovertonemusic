@@ -107,6 +107,7 @@
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)
   (GET "/forgotpw/" [] html/render-forgotpw)
+  (GET "/renewpw/" [] html/render-renewpw)
   (POST "/login/" [] html/post-login)
   (POST "/signup/" [] html/post-signup)
   (POST "/forgotpw/" [] html/post-forgotpw)

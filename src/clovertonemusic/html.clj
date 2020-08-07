@@ -880,6 +880,25 @@
     (when (not= (:error send-status) :SUCCESS)
       (log/error "Sending of reset password email to" email "did not succeed (" send-status ")"))))
 
+(defn render-renewpw
+  "If the system has deleted the user's password, allow them to reset it."
+  [{{email :email} :params
+    :as request}]
+  (render-html {:title "Reset Password - Clovertone Music"
+                :contents [:div.window
+                           [:h2 "Reset Your Password"]
+                           [:p "The system has been updated since you last logged in. "
+                            "We need to verify the email address '" email "'. "
+                            "Please press the button below, "
+                            "and you will receive a message in the next few minutes with "
+                            "instructions for resetting your password."]
+                           [:form {:action "/forgotpw/" :method "post"}
+                            [:br]
+                            [:div#forgot_pw
+                             [:input {:name "email" :type "hidden" :required true :value email}]
+                             [:input {:type "submit" :value "Reset"}]]
+                            [:br]]]}))
+
 (defn render-forgotpw
   "Implements the form by which a user can request to reset his/her password."
   [{user :user,
@@ -1079,12 +1098,14 @@
   "Handles the posting of data when an existing user attempts to login to the system."
   [{{email "email" password "password"} :form-params
     session :session :as req}]
-  (let [user (data/get-user-by-email-and-password email password)]
+  (let [known-user (data/get-user-by-email email)
+        valid-user (data/get-user-by-email-and-password email password)]
     (cond
-      (nil? user) (redirect "/login/?notfound=true")
-      (= user false) (redirect "/login/?wrongpw=true")
-      (data/user-is-disabled user) (redirect "/login/?user-disabled=true")
-      :else (->> user
+      (nil? known-user) (redirect "/login/?notfound=true")
+      (string/blank? (:password known-user)) (redirect (str "/renewpw/?email=" email))
+      (= valid-user false) (redirect "/login/?wrongpw=true")
+      (data/user-is-disabled valid-user) (redirect "/login/?user-disabled=true")
+      :else (->> valid-user
                  ;; If the credentials are ok, associate a session to the request that
                  ;; incorporates an :identity field associated with the user, and redirect
                  ;; to the home page. The contents of the :identity field are whatever is returned
@@ -1092,7 +1113,7 @@
                  :userid
                  (data/update-user-last-accessed-time!)
                  (assoc session :identity)
-                 (data/remove-already-owned-charts-from-cart user)
+                 (data/remove-already-owned-charts-from-cart valid-user)
                  (assoc (redirect "/") :session)))))
 
 (defn get-logout
