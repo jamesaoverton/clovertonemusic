@@ -359,6 +359,12 @@
     (when-not (.exists (io/as-file audio))
       (fail (str audio " does not exist")))))
 
+(def font-path "resources/Inkpen2Script.ttf")
+
+(when-not (.exists (io/as-file font-path))
+  (fail (str font-path " does not exist")))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data relating to the users and purchases databases
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -763,7 +769,8 @@
       (doseq [chart purchased-charts]
         ;; Create the watermark file:
         (try
-          (pdf/pdf [{:font {:family :times-roman :style :italic :encoding :unicode
+          (pdf/pdf [{:font {:encoding :unicode
+                            :ttf-name font-path
                             :color [47 79 79]}}
                     [:phrase (:watermark purchase)]]
                    (str purchasedir "/watermark.pdf"))
