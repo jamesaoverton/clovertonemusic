@@ -21,6 +21,6 @@
                  [paraman "0.1.2"]
                  [ring/ring-core "1.8.0"]
                  [ring/ring-json "0.5.0"]]
-  :main ^:skip-aot clovertonemusic.core
+  :main clovertonemusic.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

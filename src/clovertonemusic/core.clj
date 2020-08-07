@@ -11,8 +11,8 @@
             [ring.middleware.session :refer [wrap-session]]
             [clovertonemusic.data :as data]
             [clovertonemusic.html :as html]
-            [clovertonemusic.log :as log]))
-
+            [clovertonemusic.log :as log])
+   (:gen-class))
 
 (defn is-authenticated
   "Determines whether the request is authenticated by checking for the presence of the :identity
