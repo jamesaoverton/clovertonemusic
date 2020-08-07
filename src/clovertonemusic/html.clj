@@ -1,8 +1,6 @@
 (ns clovertonemusic.html
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [cheshire.core :as cheshire]
-            [clj-logging-config.log4j :as log-config]
             [hiccup.core :as page]
             [java-time :as jtime]
             [markdown-to-hiccup.core :as m2h]
@@ -11,28 +9,24 @@
             [postal.core :refer [send-message]]
             [ring.util.codec :as codec]
             [ring.util.response :refer [response file-response redirect]]
+            [clovertonemusic.config :refer [config]]
             [clovertonemusic.data :as data]
+            [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
+
 
 (def env
   "The runtime environment (dev, test, or prod), as read from the configuration map"
-  (:env data/config))
-
-;; Logger configuration:
-(log-config/set-logger!
- :pattern "%d - %p %m%n"
- :level (-> data/config
-            :log-level
-            (get (keyword env))))
+  (:env config))
 
 ;; Email addresses to use for various purposes:
-(def activation-email-address (-> data/config
+(def activation-email-address (-> config
                                   :activation-email-address
                                   (get (keyword env))))
-(def info-email-address (-> data/config
+(def info-email-address (-> config
                             :info-email-address
                             (get (keyword env))))
-(def support-email-address (-> data/config
+(def support-email-address (-> config
                                :support-email-address
                                (get (keyword env))))
 
@@ -41,7 +35,7 @@
   return that instead of the one passed into the function. If no recipient email is defined (or if
   it is set to nil) for the current environment, then just return the email that has been passed"
   [email]
-  (or (-> data/config
+  (or (-> config
           :recipient-email-address
           (get (keyword env)))
       email))
@@ -49,7 +43,7 @@
 (defn get-smtp-for-env
   "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
   []
-  (-> data/config
+  (-> config
       :smtp-server
       (get (keyword env))))
 
@@ -57,7 +51,7 @@
   "Return the appropriate URL prefix (http:// or https://) for the current environment
   (prod, test, or dev) and prepend it to the given string"
   [http-server]
-  (-> data/config
+  (-> config
       :http-prefix
       (get (keyword env))
       (str http-server)))
@@ -65,7 +59,7 @@
 (defn get-url-for-env
   "Return the base URL for the server in the current environment"
   []
-  (-> data/config
+  (-> config
       :http-server
       (get (keyword env))
       (get-url-prefix-for-env)))
@@ -851,7 +845,7 @@
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name activationid]
-  (let [http-server (-> data/config
+  (let [http-server (-> config
                         :http-server
                         (get (keyword env)))
         body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
@@ -869,7 +863,7 @@
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
   [email is-migration name resetpwid]
-  (let [http-server (-> data/config
+  (let [http-server (-> config
                         :http-server
                         (get (keyword env)))
         body (data/get-reset-pwid-email-contents is-migration
@@ -1494,7 +1488,8 @@
         ;; Otherwise redirect the browser to an error page:
         (do
           (log/warn "In endpoint complete-purchase/, the purchase with id"
-                    new-stripe-checkout-session-id "is not marked as paid")
+                    new-stripe-checkout-session-id "is not marked as paid. Check that the callback"
+                    "URL is defined correctly in Stripe.")
           (render-html {:title "Problem Finalizing Purchase - Clovertone Music"
                         :contents [:div#contents
                                    [:h1 "Problem Finalizing Purchase"]
@@ -1510,7 +1505,7 @@
   "Returns a map containing the publishable and secret key to use when communicating with the
   Stripe API"
   []
-  (-> data/config
+  (-> config
       :stripe-api-keys
       (get (keyword env))))
 
