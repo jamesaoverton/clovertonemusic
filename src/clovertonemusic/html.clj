@@ -1186,6 +1186,11 @@
     (render-html
      {:title "Account - Clovertone Music"
       :contents [:div#account.window
+                 [(keyword "h2#purchase_history_head") "Purchase History"]
+                 (if (> (utils/parse-as-number (count user-purchases)) 0)
+                   [:table#purchase_history_table (map make-purchase-div user-purchases)]
+                   [:p "You haven't made any purchases yet"])
+                 [:br]
                  [:h2#account_info_head "Account Information"]
                  (when nomatch
                    [:p.error "New and re-typed passwords do not match."])
@@ -1269,10 +1274,6 @@
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
                   [:br][:br]]
-                 [(keyword "h2#purchase_history_head") "Purchase History"]
-                 (if (> (utils/parse-as-number (count user-purchases)) 0)
-                   [:table#purchase_history_table (map make-purchase-div user-purchases)]
-                   [:p "You haven't made any purchases yet"])
                  [:script (js-enable-or-disable-other-field)]]
       :user-status (user-status user cart)})))
 
@@ -1438,21 +1439,26 @@
                                "score and parts to these charts in "
                                [:a {:href "https://get.adobe.com/reader" :target "__blank"}
                                 "Adobe PDF format"]
-                               ". When your purchase is complete your will immediately be emailed "
-                               "a link for downloading your files. Every page will be marked "
+                               ". When your purchase is complete your purchased charts "
+                               "will immediately be available to your Account page. "
+                               "Every page of each chart will be marked "
                                "with your school or band name and address as follows:"]
                               [:p [:b watermark]]])]]
 
     (render-html {:title "Shopping Cart - Clovertone Music"
                   :user-status (user-status user cart)
                   :contents [:div.window
-                             [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
-                             [:br]
-                             (if-not (empty? cart)
-                               shopping-cart-div
-                               (if thanks
-                                 [:p [:h3 "Thanks for your purchase!"]]
-                                 [:p "Your shopping cart is empty"]))]})))
+                             (if thanks
+                               [:div
+                                [:h2 "Thanks for your purchase!"]
+                                [:p "Your charts have been added to your "
+                                 [:a {:href "/account/"} "Account"]
+                                 " page. You can download them now."]]
+                               [:div
+                                [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
+                                (if-not (empty? cart)
+                                 shopping-cart-div
+                                 [:p "Your shopping cart is empty"])])]})))
 
 (defn render-stripe-checkout-error
   "Render an HTML page indicating that an error occurred while trying to get a checkout session id"
