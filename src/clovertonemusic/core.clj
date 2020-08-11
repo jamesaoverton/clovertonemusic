@@ -12,7 +12,7 @@
             [clovertonemusic.data :as data]
             [clovertonemusic.html :as html]
             [clovertonemusic.log :as log])
-   (:gen-class))
+  (:gen-class))
 
 (defn is-authenticated
   "Determines whether the request is authenticated by checking for the presence of the :identity
@@ -73,8 +73,6 @@
   (GET "/" [] html/render-account))
 (defroutes account-change-routes
   (POST "/" [] html/post-account-change))
-(defroutes purchases-routes
-  (GET "/:purchase-dir/:purchase-file" [] html/render-purchase-file))
 (defroutes buy-cart-routes
   (POST "/" [] html/post-buy-cart))
 (defroutes complete-purchase-routes
@@ -92,17 +90,15 @@
 
   ;; Account and purchases pages are protected; only authenticated users may access them:
   (context "/account" []
-           (restrict account-routes {:handler is-authenticated}))
+    (restrict account-routes {:handler is-authenticated}))
   (context "/account-change" []
-           (restrict account-change-routes {:handler is-authenticated}))
-  (context "/purchases" []
-           (restrict purchases-routes {:handler is-authenticated}))
+    (restrict account-change-routes {:handler is-authenticated}))
   (context "/buy-cart" []
-           (restrict buy-cart-routes {:handler is-authenticated}))
+    (restrict buy-cart-routes {:handler is-authenticated}))
   (context "/complete-purchase" []
-           (restrict complete-purchase-routes {:handler is-authenticated}))
+    (restrict complete-purchase-routes {:handler is-authenticated}))
   (context "/stripe-checkout-error" []
-           (restrict stripe-error-routes {:handler is-authenticated}))
+    (restrict stripe-error-routes {:handler is-authenticated}))
 
   (GET "/login/" [] html/render-login)
   (GET "/logout/" [] html/get-logout)
@@ -120,56 +116,60 @@
   ;; This endpoint is hit by a webhook defined in Stripe:
   (POST "/stripe-checkout-session-completed/" [] html/post-stripe-checkout-session-completed)
 
+  ;; Links to purchased PDFs and receipts:
+  (GET "/purchases/:purchase-dir/:purchase-file" [] html/render-purchase-file)
+  (GET "/purchases/:purchase-dir" [] html/render-purchase-receipt)
+
   (GET "/about/:page" [page search]
-       (if search
-         html/render-search
-         html/render-about))
+    (if search
+      html/render-search
+      html/render-about))
 
   (GET "/charts/:page" [page search]
-       (if search
-         html/render-search
-         html/render-charts))
+    (if search
+      html/render-search
+      html/render-charts))
   (GET "/charts/" [search]
-       (if search
-         html/render-search
-         html/render-charts))
+    (if search
+      html/render-search
+      html/render-charts))
 
   (GET "/add-to-cart/:chart" [chart]
-       html/add-to-cart)
+    html/add-to-cart)
 
   (GET "/remove-from-cart/:chart" [chart]
-       html/remove-from-cart)
+    html/remove-from-cart)
 
   (GET "/cart/" [] html/render-shopping-cart)
 
   (GET "/composers/:page" [page search]
-       (if search
-         html/render-search
-         html/render-composers))
+    (if search
+      html/render-search
+      html/render-composers))
   (GET "/composers/" [search]
-       (if search
-         html/render-search
-         html/render-composers))
+    (if search
+      html/render-search
+      html/render-composers))
 
   (GET "/genres/:page" [page search]
-       (if search
-         html/render-search
-         html/render-genres))
+    (if search
+      html/render-search
+      html/render-genres))
 
   (GET "/grades/:page" [page search]
-       (if search
-         html/render-search
-         html/render-grades))
+    (if search
+      html/render-search
+      html/render-grades))
 
   (GET "/:page.html" [page search]
-       (if search
-         html/render-search
-         html/render-root))
+    (if search
+      html/render-search
+      html/render-root))
 
   (GET "/" [search]
-       (if search
-         html/render-search
-         html/render-root))
+    (if search
+      html/render-search
+      html/render-root))
 
   (route/resources "") ; this will grab anything in the public/ directory
 

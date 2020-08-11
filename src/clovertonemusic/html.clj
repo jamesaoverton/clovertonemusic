@@ -14,7 +14,6 @@
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
-
 (def env
   "The runtime environment (dev, test, or prod), as read from the configuration map"
   (:env config))
@@ -1005,9 +1004,9 @@
 (defn process-and-render-activation
   "Processes an activation request, and renders the HTML containing the result."
   [{user :user,
-   {cart :cart, :as session} :session,
-   {activationid :activationid, :as params} :params,
-   :as request}]
+    {cart :cart, :as session} :session,
+    {activationid :activationid, :as params} :params,
+    :as request}]
   (if (data/activate-user! activationid)
     ;; If the activation was successful, direct the user to login:
     (render-html {:title "Activation - Clovertone Music"
@@ -1038,38 +1037,38 @@
   (let [user (data/get-user-by-resetpwid resetpwid)]
     (if-not user
     ;; If there is no user corresponding to the reset password id, inform the user:
-    (render-html {:title "Invalid Reset Password ID - Clovertone Music"
-                  :contents [:div#contents
-                             [:div.window
-                              [:h2 "The submitted reset password ID is invalid."]
-                              [:p "For assistance, send an email to "
-                               [:a {:href (str "mailto:" support-email-address)}
-                                support-email-address]]]]
-                  :page-status 400
-                  :user-status (user-status user cart)})
+      (render-html {:title "Invalid Reset Password ID - Clovertone Music"
+                    :contents [:div#contents
+                               [:div.window
+                                [:h2 "The submitted reset password ID is invalid."]
+                                [:p "For assistance, send an email to "
+                                 [:a {:href (str "mailto:" support-email-address)}
+                                  support-email-address]]]]
+                    :page-status 400
+                    :user-status (user-status user cart)})
     ;; Otherwise, render a password reset form:
-    (render-html {:title "Reset Password - Clovertone Music"
-                  :user-status (user-status session-user cart)
-                  :contents [:div.window
-                             [:h2 "Reset Password for " (:email user)]
-                             [:form {:action "/resetpw/" :method "post"}
-                              [:br]
-                              [:div#reset_pw
-                               (when nomatch
-                                 [:p.error "Passwords do not match"])
-                               [:div
-                                [:label [:b "New password:"]]]
-                               [:div
-                                [:input {:name "password1" :type "password" :required true}]]
-                               [:div
-                                [:label [:b "Retype password:"]]]
-                               [:div
-                                [:input {:name "password2" :type "password" :required true}]]
-                               [:div
-                                [:input {:type "submit" :value "Submit"}]]]
-                              [:input {:name "userid" :type "hidden" :value (:userid user)}]
-                              [:input {:name "resetpwid" :type "hidden" :value resetpwid}]
-                              [:br]]]}))))
+      (render-html {:title "Reset Password - Clovertone Music"
+                    :user-status (user-status session-user cart)
+                    :contents [:div.window
+                               [:h2 "Reset Password for " (:email user)]
+                               [:form {:action "/resetpw/" :method "post"}
+                                [:br]
+                                [:div#reset_pw
+                                 (when nomatch
+                                   [:p.error "Passwords do not match"])
+                                 [:div
+                                  [:label [:b "New password:"]]]
+                                 [:div
+                                  [:input {:name "password1" :type "password" :required true}]]
+                                 [:div
+                                  [:label [:b "Retype password:"]]]
+                                 [:div
+                                  [:input {:name "password2" :type "password" :required true}]]
+                                 [:div
+                                  [:input {:type "submit" :value "Submit"}]]]
+                                [:input {:name "userid" :type "hidden" :value (:userid user)}]
+                                [:input {:name "resetpwid" :type "hidden" :value resetpwid}]
+                                [:br]]]}))))
 
 (defn post-resetpw
   "Resets the user's password to the new one given, after first checking to make sure that the user
@@ -1155,7 +1154,9 @@
                                                    (filter #(= (:grade-number %) (:grade chart)))
                                                    (first)))]
                               [:div
-                               [:tr [:td.purchase_date (:date purchase)]]
+                               [:tr [:td.purchase_date
+                                     [:a {:href (str "/purchases/" (:purchaseid purchase))}
+                                      (:date purchase)]]]
                                (for [chart (map get-chart-details charts)]
                                  [:tr
                                   [:td
@@ -1242,12 +1243,12 @@
                     [:td "School or band name"]
                     [:td [:input#account_band.account_info
                           {:name "band_name" :type "text"
-                           :onkeydown (js-suppress-enter):value (:band user)}]]]
+                           :onkeydown (js-suppress-enter) :value (:band user)}]]]
                    [:tr
                     [:td "Phone number"]
                     [:td [:input#account_phone.account_info
                           {:name "phone" :type "text"
-                           :onkeydown (js-suppress-enter):value (:phone user)}]]]
+                           :onkeydown (js-suppress-enter) :value (:phone user)}]]]
                    [:tr
                     [:td "Current password"]
                     [:td [:input#account_current_password.account_info
@@ -1273,7 +1274,7 @@
                    [:tr [:td] [:td [:br]]]]
                   [:input {:type "submit" :value "Modify account information"}]
                   [:span#login-status.status]
-                  [:br][:br]]
+                  [:br] [:br]]
                  [:script (js-enable-or-disable-other-field)]]
       :user-status (user-status user cart)})))
 
@@ -1440,7 +1441,7 @@
                                [:a {:href "https://get.adobe.com/reader" :target "__blank"}
                                 "Adobe PDF format"]
                                ". When your purchase is complete your purchased charts "
-                               "will immediately be available to your Account page. "
+                               "will immediately be available on your Account page. "
                                "Every page of each chart will be marked "
                                "with your school or band name and address as follows:"]
                               [:p [:b watermark]]])]]
@@ -1457,8 +1458,8 @@
                                [:div
                                 [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
                                 (if-not (empty? cart)
-                                 shopping-cart-div
-                                 [:p "Your shopping cart is empty"])])]})))
+                                  shopping-cart-div
+                                  [:p "Your shopping cart is empty"])])]})))
 
 (defn render-stripe-checkout-error
   "Render an HTML page indicating that an error occurred while trying to get a checkout session id"
@@ -1494,11 +1495,11 @@
       (render-html {:title "Invalid Stripe Checkout Session ID - Clovertone Music"
                     :contents [:div#contents
                                [:h1 "Invalid Stripe Checkout Session ID"]
-                                [:p (str "The supplied Stripe Checkout Session ID does not "
-                                         "correspond to the one saved in the current session")
-                                 [:p "For assistance, send an email to "
-                                  [:a {:href (str "mailto:" support-email-address)}
-                                   support-email-address]]]]
+                               [:p (str "The supplied Stripe Checkout Session ID does not "
+                                        "correspond to the one saved in the current session")
+                                [:p "For assistance, send an email to "
+                                 [:a {:href (str "mailto:" support-email-address)}
+                                  support-email-address]]]]
                     :user-status (user-status user cart)}))
     ;; Otherwise check to see if the purchase is marked as paid:
     (let [paid (->> data/purchases-db
@@ -1520,12 +1521,12 @@
           (render-html {:title "Problem Finalizing Purchase - Clovertone Music"
                         :contents [:div#contents
                                    [:h1 "Problem Finalizing Purchase"]
-                                    [:p (str "The purchase corresponding to the given Stripe "
-                                             "Checkout Session ID has not been marked as paid in "
-                                             "the Clovertone database")
-                                     [:p "For assistance, send an email to "
-                                      [:a {:href (str "mailto:" support-email-address)}
-                                       support-email-address]]]]
+                                   [:p (str "The purchase corresponding to the given Stripe "
+                                            "Checkout Session ID has not been marked as paid in "
+                                            "the Clovertone database")
+                                    [:p "For assistance, send an email to "
+                                     [:a {:href (str "mailto:" support-email-address)}
+                                      support-email-address]]]]
                         :user-status (user-status user cart)}))))))
 
 (defn get-stripe-keys
@@ -1631,6 +1632,65 @@
                                     "});")]]})
          ;; Add the stripe-checkout-session-id to the browser session:
          :session (assoc session :stripe-checkout-session-id stripe-checkout-session-id))))))
+
+(defn render-purchase-receipt
+  "Given a purchase id, and information about the browser session and (if the browser happens to be
+  logged in) the user, render a purchase receipt with the details of the purchase."
+  [{user :user, {cart :cart} :session, {purchaseid :purchase-dir} :params}]
+  (let [{:keys [user_name user_email date subtotal taxrate taxname taxes total watermark]
+         :as purchase-summary} (->> @data/purchases-db (filter #(= (:purchaseid %) purchaseid))
+                                    (first))
+        purchase-details (->> @data/purchases-details-db (filter #(= (:purchaseid %) purchaseid)))
+        ;; Redefine the subtotal, total, and taxes as floating point numbers. They need to be in
+        ;; this form so that we can apply the (format ...) function later:
+        subtotal (utils/parse-as-float subtotal)
+        taxes (utils/parse-as-float taxes)
+        total (utils/parse-as-float total)
+        ;; Given the name of a chart, find its filename in the catalogue:
+        get-filename (fn [chart-name]
+                       (->> data/catalogue
+                            :charts
+                            (filter #(= (:chart-name %) chart-name))
+                            (first)
+                            :filename))]
+
+    (render-html {:title "Your Purchase - Clovertone Music"
+                  :user-status (user-status user cart)
+                  :contents [:div.window
+                             [:div
+                              [:h2 "Your purchase on " date]
+                              [:p "Customer: " user_name " (" user_email ")"]
+                              [:div#shopping_cart
+                               [:table
+                                [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                                (for [{:keys [chart composer grade price] :as purchase-details}
+                                      purchase-details]
+                                  [:tr
+                                   [:td {:data-label "Chart"} chart]
+                                   [:td {:data-label "Composer"} composer]
+                                   [:td {:data-label "Grade"} grade]
+                                   [:td {:data-label "Price"} price]
+                                   [:td.download
+                                    [:a.download
+                                     {:href (str "/purchases/" purchaseid "/"
+                                                 (get-filename chart) ".score.pdf")} "Score"]
+                                    [:a.download
+                                     {:href (str "/purchases/" purchaseid "/"
+                                                 (get-filename chart) ".parts.pdf")} "Parts"]]])
+                                [:tr [:td] [:td] [:td] [:td [:hr]]]
+                                [:tr [:th] [:th] [:th "Subtotal"]
+                                 [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+                                [:div
+                                 [:span
+                                  [:tr [:th] [:th] [:th (str taxname "(" taxrate ")")]
+                                   [:td {:data-label (str taxname "(" taxrate ")")}
+                                    (format "$%.2f" taxes)]]
+                                  [:tr [:th] [:th] [:th "Total"]
+                                   [:td {:data-label "Total"}
+                                    (format "$%.2f" (+ taxes subtotal))]]]]]]
+                              [:div
+                               [:p]
+                               [:p [:b watermark]]]]]})))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
