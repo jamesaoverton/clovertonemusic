@@ -1543,29 +1543,27 @@
   well as one for the applicable taxes, and return the stripe-checkout-session-id."
   [taxes taxname taxrate cart]
   (let [detailed-cart (get-cart-details cart)
-        line-items (conj
-                    ;; Add a line item corresponding to each chart being purchased:
-                    (vec (->> detailed-cart
-                              (map (fn [chart]
-                                     {"name" (:chart-name chart)
-                                      "amount" (->> chart
-                                                    (get-numeric-price)
-                                                    (utils/parse-as-number)
-                                                    (* 100)
-                                                    (int))
-                                      "currency" "cad"
-                                      "quantity" 1}))))
-                    ;; Add a line item for taxes if they are non-zero:
-                    (let [tax-amount (->> taxes
-                                          (utils/parse-as-number)
-                                          (* 100)
-                                          (int))]
-                      (when-not (= 0 tax-amount)
-                        {"name" (->> (str "(" taxrate ")")
-                                     (str taxname " "))
-                         "amount" tax-amount
-                         "currency" "cad"
-                         "quantity" "1"})))
+        line-items (->> detailed-cart
+                        (map (fn [chart]
+                               {"name" (:chart-name chart)
+                                "amount" (->> chart
+                                              (get-numeric-price)
+                                              (utils/parse-as-number)
+                                              (* 100)
+                                              (int))
+                                "currency" "cad"
+                                "quantity" 1}))
+                        (vec)
+                        (#(into % (let [tax-amount (->> taxes
+                                                        (utils/parse-as-number)
+                                                        (* 100)
+                                                        (int))]
+                                    (when-not (= 0 tax-amount)
+                                      [{"name" (->> (str "(" taxrate ")")
+                                                    (str taxname " "))
+                                        "amount" tax-amount
+                                        "currency" "cad"
+                                        "quantity" "1"}])))))
         response (http/post "https://api.stripe.com/v1/checkout/sessions"
                             {:basic-auth [(:secret (get-stripe-keys)) ""]
                              :body (paraman/convert
