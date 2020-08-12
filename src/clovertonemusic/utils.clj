@@ -1,8 +1,10 @@
 (ns clovertonemusic.utils
-  (:require[clojure.string :as string]))
+  (:require [clojure.string :as string]))
 
 (defn parse-as-number
-  "Accepts either a string or a number as input and returns a number"
+  "Accepts either a string or a number as input and returns a number. If the given is a string that
+  does not contain a decimal point, then it will be parsed as an integer. If it does contain a
+  decimal then it will be parsed as a float. If it is already a number it is returned as is."
   [given]
   (try
     ;; First assume that the given is a string and attempt to parse it to int:
@@ -20,6 +22,15 @@
                 (str " cannot be parsed as a number")
                 (Exception.)
                 (throw))))))))
+
+(defn parse-as-float
+  "Accepts either a string or a number as input and returns a floating point number."
+  [given]
+  (try
+    (Float/parseFloat given)
+    (catch Exception e1
+      (try
+        (-> given (str) (Float/parseFloat))))))
 
 (defn parse-as-string
   "Accepts either a string or a number as input and returns a string. If the input is a
