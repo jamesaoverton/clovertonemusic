@@ -12,7 +12,6 @@
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
-
 (defn fail
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
@@ -365,9 +364,10 @@
   (fail (str font-path " does not exist")))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Data relating to the users and purchases databases
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data and private functions relating to the users and purchases databases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (def users-and-purchases-dir "data/users-and-purchases")
 
@@ -406,17 +406,41 @@
                    (apply distinct?))
       (fail "User database contains duplicate emails"))))
 
+(defn- filter-out-empty-purchases
+  "Given a sequence of purchases identified by a `:purchaseid`, remove any purchases from the
+  sequence that do not have corresponding purchase files in the purchases directory."
+  [purchase-seq]
+  (->> purchase-seq
+       (map #(let [path-exists? (->> % :purchaseid (str purchases-data-dir "/")
+                                     (io/as-file) (.exists))]
+               (if path-exists?
+                 %
+                 (log/warn "No files found for purchase:" (:purchaseid %) "; it will be removed the"
+                           "next time the purchases database is written to."))))
+       (remove nil?)))
+
 ;; Initialize the purchases and purchases-details databases using the XLSX workbook. Note that they
 ;; may change while the server is running, so we make them atoms. Updates are handled similarly to
 ;; the users database (see above)
 (def purchases-db (-> users-and-purchases-xlsx
                       :workbook
                       (simple-extract-db-from-xlsx "purchases-summary")
+                      ;; If there are purchases in the spreadsheet that do not have an associated
+                      ;; purchase directory on the server, filter them out. Note that the next time
+                      ;; the purchases spreadsheet is written to, these ones won't be included.
+                      (filter-out-empty-purchases)
+                      (vec)
                       (atom)))
 
 (def purchases-details-db (-> users-and-purchases-xlsx
                               :workbook
                               (simple-extract-db-from-xlsx "purchases-details")
+                              ;; If there are purchases in the spreadsheet that do not have an
+                              ;; associated purchase directory on the server, filter them out. Note
+                              ;; that the next time the purchases spreadsheet is written to, these
+                              ;; ones won't be included.
+                              (filter-out-empty-purchases)
+                              (vec)
                               (atom)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -857,15 +881,15 @@
   "Create a new record in the purchase db for the items in the given cart for the given user"
   [userid cart subtotal taxrate taxname taxes total watermark stripe-checkout-session-id]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
-      [purchaseid (generate-random-id)
-       today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-       user (get-user-by-id userid)
-       get-chart-data (fn [filename] (->> catalogue
-                                          :charts
-                                          (filter #(= filename (:filename %)))
-                                          (map #(select-keys % [:chart-name :price :composer :grade
-                                                                :subgenre]))
-                                          (first)))]
+   [purchaseid (generate-random-id)
+    today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+    user (get-user-by-id userid)
+    get-chart-data (fn [filename] (->> catalogue
+                                       :charts
+                                       (filter #(= filename (:filename %)))
+                                       (map #(select-keys % [:chart-name :price :composer :grade
+                                                             :subgenre]))
+                                       (first)))]
     ;; Update the two purchases databases with the new purchase record.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)

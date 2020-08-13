@@ -1641,9 +1641,9 @@
         purchase-details (->> @data/purchases-details-db (filter #(= (:purchaseid %) purchaseid)))
         ;; Redefine the subtotal, total, and taxes as floating point numbers. They need to be in
         ;; this form so that we can apply the (format ...) function later:
-        subtotal (utils/parse-as-float subtotal)
-        taxes (utils/parse-as-float taxes)
-        total (utils/parse-as-float total)
+        subtotal (when subtotal (utils/parse-as-float subtotal))
+        taxes (when taxes (utils/parse-as-float taxes))
+        total (when total (utils/parse-as-float total))
         ;; Given the name of a chart, find its filename in the catalogue:
         get-filename (fn [chart-name]
                        (->> data/catalogue
@@ -1651,44 +1651,44 @@
                             (filter #(= (:chart-name %) chart-name))
                             (first)
                             :filename))]
-
-    (render-html {:title "Your Purchase - Clovertone Music"
-                  :user-status (user-status user cart)
-                  :contents [:div.window
-                             [:div
-                              [:h2 "Your purchase on " date]
-                              [:p "Customer: " user_name " (" user_email ")"]
-                              [:div#shopping_cart
-                               [:table
-                                [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                                (for [{:keys [chart composer grade price] :as purchase-details}
-                                      purchase-details]
-                                  [:tr
-                                   [:td {:data-label "Chart"} chart]
-                                   [:td {:data-label "Composer"} composer]
-                                   [:td {:data-label "Grade"} grade]
-                                   [:td {:data-label "Price"} price]
-                                   [:td.download
-                                    [:a.download
-                                     {:href (str "/purchases/" purchaseid "/"
-                                                 (get-filename chart) ".score.pdf")} "Score"]
-                                    [:a.download
-                                     {:href (str "/purchases/" purchaseid "/"
-                                                 (get-filename chart) ".parts.pdf")} "Parts"]]])
-                                [:tr [:td] [:td] [:td] [:td [:hr]]]
-                                [:tr [:th] [:th] [:th "Subtotal"]
-                                 [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+    (when (and purchase-summary purchase-details)
+      (render-html {:title "Your Purchase - Clovertone Music"
+                    :user-status (user-status user cart)
+                    :contents [:div.window
+                               [:div
+                                [:h2 "Your purchase on " date]
+                                [:p "Customer: " user_name " (" user_email ")"]
+                                [:div#shopping_cart
+                                 [:table
+                                  [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                                  (for [{:keys [chart composer grade price] :as purchase-details}
+                                        purchase-details]
+                                    [:tr
+                                     [:td {:data-label "Chart"} chart]
+                                     [:td {:data-label "Composer"} composer]
+                                     [:td {:data-label "Grade"} grade]
+                                     [:td {:data-label "Price"} price]
+                                     [:td.download
+                                      [:a.download
+                                       {:href (str "/purchases/" purchaseid "/"
+                                                   (get-filename chart) ".score.pdf")} "Score"]
+                                      [:a.download
+                                       {:href (str "/purchases/" purchaseid "/"
+                                                   (get-filename chart) ".parts.pdf")} "Parts"]]])
+                                  [:tr [:td] [:td] [:td] [:td [:hr]]]
+                                  [:tr [:th] [:th] [:th "Subtotal"]
+                                   [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+                                  [:div
+                                   [:span
+                                    [:tr [:th] [:th] [:th (str taxname "(" taxrate ")")]
+                                     [:td {:data-label (str taxname "(" taxrate ")")}
+                                      (format "$%.2f" taxes)]]
+                                    [:tr [:th] [:th] [:th "Total"]
+                                     [:td {:data-label "Total"}
+                                      (format "$%.2f" (+ taxes subtotal))]]]]]]
                                 [:div
-                                 [:span
-                                  [:tr [:th] [:th] [:th (str taxname "(" taxrate ")")]
-                                   [:td {:data-label (str taxname "(" taxrate ")")}
-                                    (format "$%.2f" taxes)]]
-                                  [:tr [:th] [:th] [:th "Total"]
-                                   [:td {:data-label "Total"}
-                                    (format "$%.2f" (+ taxes subtotal))]]]]]]
-                              [:div
-                               [:p]
-                               [:p [:b watermark]]]]]})))
+                                 [:p]
+                                 [:p [:b watermark]]]]]}))))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
