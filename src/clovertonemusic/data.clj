@@ -406,18 +406,21 @@
                    (apply distinct?))
       (fail "User database contains duplicate emails"))))
 
-(defn- filter-out-empty-purchases
-  "Given a sequence of purchases identified by a `:purchaseid`, remove any purchases from the
-  sequence that do not have corresponding purchase files in the purchases directory."
+(defn- log-missing-purchases
+  "Given a sequence of purchases identified by a `:purchaseid`, check if any of the purchases in the
+  sequence are both marked as completed and missing purchase files, and in that case write a warning
+  about it to the log."
   [purchase-seq]
-  (->> purchase-seq
-       (map #(let [path-exists? (->> % :purchaseid (str purchases-data-dir "/")
-                                     (io/as-file) (.exists))]
-               (if path-exists?
-                 %
-                 (log/warn "No files found for purchase:" (:purchaseid %) "; it will be removed the"
-                           "next time the purchases database is written to."))))
-       (remove nil?)))
+  (doseq [purchase purchase-seq]
+    (let [path-exists? (->> purchase :purchaseid (str purchases-data-dir "/")
+                            (io/as-file) (.exists))
+          payment-completed? (->> purchase :payment-completed
+                                  (#(and (not (nil? %))
+                                         (Boolean/parseBoolean %))))]
+      (when (and payment-completed? (not path-exists?))
+        (log/warn "No files found for completed purchase:" (:purchaseid purchase)))))
+  ;; Return the purchase-seq as is back to the caller.
+  purchase-seq)
 
 ;; Initialize the purchases and purchases-details databases using the XLSX workbook. Note that they
 ;; may change while the server is running, so we make them atoms. Updates are handled similarly to
@@ -425,21 +428,15 @@
 (def purchases-db (-> users-and-purchases-xlsx
                       :workbook
                       (simple-extract-db-from-xlsx "purchases-summary")
-                      ;; If there are purchases in the spreadsheet that do not have an associated
-                      ;; purchase directory on the server, filter them out. Note that the next time
-                      ;; the purchases spreadsheet is written to, these ones won't be included.
-                      (filter-out-empty-purchases)
+                      ;; If there are completed purchases in the spreadsheet that do not have an
+                      ;; associated purchase directory on the server, log a warning:
+                      (log-missing-purchases)
                       (vec)
                       (atom)))
 
 (def purchases-details-db (-> users-and-purchases-xlsx
                               :workbook
                               (simple-extract-db-from-xlsx "purchases-details")
-                              ;; If there are purchases in the spreadsheet that do not have an
-                              ;; associated purchase directory on the server, filter them out. Note
-                              ;; that the next time the purchases spreadsheet is written to, these
-                              ;; ones won't be included.
-                              (filter-out-empty-purchases)
                               (vec)
                               (atom)))
 

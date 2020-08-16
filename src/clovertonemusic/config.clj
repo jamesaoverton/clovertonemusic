@@ -1,5 +1,4 @@
-(ns clovertonemusic.config
-  )
+(ns clovertonemusic.config)
 
 (def config
   "A map of configuration parameters, loaded from the config file in the data directory"
