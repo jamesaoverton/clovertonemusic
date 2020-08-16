@@ -1,22 +1,15 @@
 (ns clovertonemusic.log
   (:require [postal.core :refer [send-message]]
-            [clovertonemusic.config :refer [config]]))
-
-(def env
-  "The runtime environment (dev, test, or prod), as read from the configuration map"
-  (:env config))
+            [clovertonemusic.config :refer [get-config]]))
 
 (def log-levels {:debug 0 :info 1 :warn 2 :warning 2 :error 3 :fatal 4})
 
-(defn screened-out?
-  "Given a keyword representing the log-level, check to see whether the application configuration
+(defn- screened-out?
+  "Given a keword representing the log-level, check to see whether the application configuration
   requires it to be screened out."
   [log-level]
-  (let [env (->> config :env (keyword))
-        config-level (->> config
-                          :log-level
-                          env
-                          (keyword)
+  (let [config-level (->> :log-level
+                          (get-config)
                           (get log-levels))
         given-level (log-level log-levels)]
     (< given-level config-level)))
@@ -34,8 +27,8 @@
 (defn- notify-admin
   "Send an email to the administrator to notify him/her of an event"
   [first-word & other-words]
-  (let [smtp-server (-> config :smtp-server (get (keyword env)))
-        admin-email (-> config :admin-email-address (get (keyword env)))
+  (let [smtp-server (get-config :smtp-server)
+        admin-email (get-config :admin-email-address)
         send-status (send-message smtp-server
                                   {:from "noreply@clovertonemusic.com"
                                    :to [admin-email]

@@ -8,7 +8,7 @@
             [clj-pdf.core :as pdf]
             [dk.ative.docjure.spreadsheet :as xlsx]
             [java-time :as jtime]
-            [clovertonemusic.config :refer [config]]
+            [clovertonemusic.config :refer [get-config]]
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
@@ -23,8 +23,7 @@
   filesystem"
   [remote-filename local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
-                        (-> config
-                            :remote-drive-name
+                        (-> (get-config :remote-drive-name)
                             (str remote-filename))
                         local-path)]
     (when (not= (:exit exit-status) 0)
@@ -37,7 +36,7 @@
   [local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-import-formats" "xlsx"
                         local-path
-                        (:remote-drive-name config))]
+                        (get-config :remote-drive-name))]
     (when (not= (:exit exit-status) 0)
       (log/error "Rclone push failed:" (:err exit-status)))
     ;; Return the exit status from rclone:
@@ -174,7 +173,7 @@
 (def catalogue-dir "data/catalogue")
 
 (def catalogue-xlsx
-  (let [xlsx-name (:catalogue-xlsx-name config)]
+  (let [xlsx-name (get-config :catalogue-xlsx-name)]
     ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name catalogue-dir) 0)
       (fail (str "Error retrieving catalogue file: " xlsx-name)))
@@ -372,7 +371,7 @@
 (def users-and-purchases-dir "data/users-and-purchases")
 
 (def users-and-purchases-xlsx
-  (let [xlsx-name (:users-and-purchases-xlsx-name config)]
+  (let [xlsx-name (get-config :users-and-purchases-xlsx-name)]
     ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name users-and-purchases-dir) 0)
       (fail (str "Error retrieving users-and-purchases file: " xlsx-name)))

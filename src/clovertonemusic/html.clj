@@ -9,59 +9,31 @@
             [postal.core :refer [send-message]]
             [ring.util.codec :as codec]
             [ring.util.response :refer [response file-response redirect]]
-            [clovertonemusic.config :refer [config]]
+            [clovertonemusic.config :refer [get-config]]
             [clovertonemusic.data :as data]
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
-(def env
-  "The runtime environment (dev, test, or prod), as read from the configuration map"
-  (:env config))
-
-;; Email addresses to use for various purposes:
-(def activation-email-address (-> config
-                                  :activation-email-address
-                                  (get (keyword env))))
-(def info-email-address (-> config
-                            :info-email-address
-                            (get (keyword env))))
-(def support-email-address (-> config
-                               :support-email-address
-                               (get (keyword env))))
-
-(defn get-recipient-email-for-env
+(defn get-recipient-email
   "Look into the configuration for the current environment. If a recipient email is defined, then
   return that instead of the one passed into the function. If no recipient email is defined (or if
   it is set to nil) for the current environment, then just return the email that has been passed"
   [email]
-  (or (-> config
-          :recipient-email-address
-          (get (keyword env)))
+  (or (get-config :recipient-email-address)
       email))
 
-(defn get-smtp-for-env
-  "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
-  []
-  (-> config
-      :smtp-server
-      (get (keyword env))))
-
-(defn get-url-prefix-for-env
+(defn add-url-prefix
   "Return the appropriate URL prefix (http:// or https://) for the current environment
   (prod, test, or dev) and prepend it to the given string"
   [http-server]
-  (-> config
-      :http-prefix
-      (get (keyword env))
+  (-> (get-config :http-prefix)
       (str http-server)))
 
-(defn get-url-for-env
+(defn get-server-base-url
   "Return the base URL for the server in the current environment"
   []
-  (-> config
-      :http-server
-      (get (keyword env))
-      (get-url-prefix-for-env)))
+  (-> (get-config :http-server)
+      (add-url-prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to catalogue content
@@ -844,16 +816,14 @@
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name activationid]
-  (let [http-server (-> config
-                        :http-server
-                        (get (keyword env)))
-        body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
+  (let [http-server (get-config :http-server)
+        body (data/get-activation-email-contents name (-> (add-url-prefix http-server)
                                                           (str "/activation/")
                                                           (str activationid)))
-        send-status (-> (get-smtp-for-env)
-                        (send-message {:from activation-email-address
-                                       :to [(get-recipient-email-for-env email)]
-                                       :reply-to support-email-address
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :activation-email-address)
+                                       :to [(get-recipient-email email)]
+                                       :reply-to (get-config :support-email-address)
                                        :subject "Activate your clovertonemusic.com account"
                                        :body body}))]
     (when (not= (:error send-status) :SUCCESS)
@@ -862,18 +832,16 @@
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
   [email is-migration name resetpwid]
-  (let [http-server (-> config
-                        :http-server
-                        (get (keyword env)))
+  (let [http-server (get-config :http-server)
         body (data/get-reset-pwid-email-contents is-migration
                                                  name
-                                                 (-> (get-url-prefix-for-env http-server)
+                                                 (-> (add-url-prefix http-server)
                                                      (str "/resetpw/")
                                                      (str resetpwid)))
-        send-status (-> (get-smtp-for-env)
-                        (send-message {:from support-email-address
-                                       :to [(get-recipient-email-for-env email)]
-                                       :reply-to support-email-address
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :support-email-address)
+                                       :to [(get-recipient-email email)]
+                                       :reply-to (get-config :support-email-address)
                                        :subject "Reset your clovertonemusic.com password"
                                        :body body}))]
     (when (not= (:error send-status) :SUCCESS)
@@ -936,7 +904,7 @@
           (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
                   (-> email
-                      (get-recipient-email-for-env)
+                      (get-recipient-email)
                       (send-reset-pw-email is-migration (:name user) resetpwid))
                   (render-html
                    {:title "Reset Password - Clovertone Music"
@@ -948,8 +916,8 @@
                                  " with a link to reset your password. Note: the email may have "
                                  "gone to your \"junk\" email folder. If you do not receive the "
                                  "email, please contact us at "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :user-status (user-status session-user cart)})))))
 
 (defn post-signup
@@ -985,7 +953,7 @@
         ;; Otherwise, send the activation email and tell the user to look for it:
         (do
           (-> email
-              (get-recipient-email-for-env)
+              (get-recipient-email)
               (send-activation-email name activationid))
           (render-html
            {:title "Activation - Clovertone Music"
@@ -997,8 +965,8 @@
                          " with a link to activate your account. Once activated, you "
                          "will be able to login. Note: the email may have gone to your \"junk\" "
                          "email folder. If you do not receive the email, please contact us at "
-                         [:a {:href (str "mailto:" support-email-address)}
-                          support-email-address]]]]
+                         [:a {:href (str "mailto:" (get-config :support-email-address))}
+                          (get-config :support-email-address)]]]]
             :user-status (user-status user cart)}))))))
 
 (defn process-and-render-activation
@@ -1021,8 +989,8 @@
                              [:div#login.window
                               [:h2 "The submitted activation ID is invalid."]
                               [:p "For assistance, send an email to "
-                               [:a {:href (str "mailto:" support-email-address)}
-                                support-email-address]]]]
+                               [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                (get-config :support-email-address)]]]]
                   :page-status 400
                   :user-status (user-status user cart)})))
 
@@ -1042,8 +1010,8 @@
                                [:div.window
                                 [:h2 "The submitted reset password ID is invalid."]
                                 [:p "For assistance, send an email to "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :page-status 400
                     :user-status (user-status user cart)})
     ;; Otherwise, render a password reset form:
@@ -1472,8 +1440,8 @@
                [:h1 "Stripe Error"]
                [:p "There was an error obtaining a checkout session ID from Stripe."
                 [:p "For assistance, send an email to "
-                 [:a {:href (str "mailto:" support-email-address)}
-                  support-email-address]]]]
+                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                  (get-config :support-email-address)]]]]
     :user-status (user-status user cart)}))
 
 (defn complete-purchase
@@ -1498,8 +1466,8 @@
                                [:p (str "The supplied Stripe Checkout Session ID does not "
                                         "correspond to the one saved in the current session")
                                 [:p "For assistance, send an email to "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :user-status (user-status user cart)}))
     ;; Otherwise check to see if the purchase is marked as paid:
     (let [paid (->> data/purchases-db
@@ -1525,17 +1493,15 @@
                                             "Checkout Session ID has not been marked as paid in "
                                             "the Clovertone database")
                                     [:p "For assistance, send an email to "
-                                     [:a {:href (str "mailto:" support-email-address)}
-                                      support-email-address]]]]
+                                     [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                      (get-config :support-email-address)]]]]
                         :user-status (user-status user cart)}))))))
 
 (defn get-stripe-keys
   "Returns a map containing the publishable and secret key to use when communicating with the
   Stripe API"
   []
-  (-> config
-      :stripe-api-keys
-      (get (keyword env))))
+  (get-config :stripe-api-keys))
 
 (defn create-stripe-checkout-payment-session
   "Given a shopping cart and information about the taxes applicable to the items in it, generate a
@@ -1570,9 +1536,9 @@
                                     {:payment_method_types ["card"]
                                      :mode "payment"
                                      :line_items line-items
-                                     :success_url (str (get-url-for-env)
+                                     :success_url (str (get-server-base-url)
                                                        "/complete-purchase/{CHECKOUT_SESSION_ID}")
-                                     :cancel_url (str (get-url-for-env)
+                                     :cancel_url (str (get-server-base-url)
                                                       "/cart/")})})]
     (if-not (= (:status @response) 200)
       nil
