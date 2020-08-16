@@ -813,6 +813,64 @@
                                          (js-enable-or-disable-other-field))]]
                 :user-status (user-status user cart)}))
 
+(defn send-user-created-email
+  "Send an email to the ops mailing list to notify them that a user with the given information
+  has just been created."
+  [{email "email", name "name", phone "phone"}]
+  (let [message (-> (str "The user '%s' (email: %s, phone: %s) has just been created. You can see "
+                         "further details about this signup at: %s")
+                    (format name email
+                            (if (-> phone (string/trim) (empty?))
+                              "not provided"
+                              phone)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new user has been created"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of user creation email for" email "did not succeed (" send-status ")"))))
+
+(defn send-purchase-started-email
+  "Send an email to the ops mailing list to notify them that a purchase has been initiated."
+  [{:keys [name email] :as user} cart]
+  (let [message (-> (str "The user '%s' (email: %s) has just initiated a purchase of the following "
+                         "charts: %s. For further information, see: %s")
+                    (format name email (string/join ", " cart)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new purchase has been initiated"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of purchase started email did not succeed (" send-status ")"))))
+
+(defn send-purchase-completed-email
+  "Send an email to the ops mailing list to notify them that a purchase has been completed."
+  [{:keys [name email] :as user} cart]
+  (let [message (-> (str "The user '%s' (email: %s) has just finalized a purchase of the following "
+                         "charts: %s. For further information, see: %s")
+                    (format name email (string/join ", " cart)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new purchase has been finalized"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of purchase completed email did not succeed (" send-status ")"))))
+
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name activationid]
@@ -928,7 +986,7 @@
      province "province" province_other "province_other"
      country "country" country_other "country_other"
      new_password "new_password" retyped_password "retyped_password"
-     phone "phone" newsletter "newsletter"} :form-params,
+     phone "phone" newsletter "newsletter", :as signup-form} :form-params,
     {cart :cart, :as session} :session,
     user :user,
     :as request}]
@@ -950,11 +1008,11 @@
         ;; If activation id is blank it is because the email already exists in the db. In this case
         ;; just redirect to the login page:
         (redirect (str "/login/?already-exists=" email))
-        ;; Otherwise, send the activation email and tell the user to look for it:
+        ;; Otherwise, notify the admins that a new user has been created, send the activation email
+        ;; to the user, and tell the user to look for it:
         (do
-          (-> email
-              (get-recipient-email)
-              (send-activation-email name activationid))
+          (-> email (get-recipient-email) (send-activation-email name activationid))
+          (send-user-created-email signup-form)
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents
@@ -1477,10 +1535,13 @@
                     :payment-completed)]
       ;; If it is, then empty the user's shopping cart and display a "Thanks" message:
       (if (= (string/lower-case paid) "true")
-        (assoc (redirect "/cart/?thanks=true")
-               :session (-> session
-                            (dissoc :cart)
-                            (dissoc :stripe-checkout-session-id)))
+        (do
+          ;; Notify the operations team that the purchase has been completed:
+          (send-purchase-completed-email user cart)
+          (assoc (redirect "/cart/?thanks=true")
+                 :session (-> session
+                              (dissoc :cart)
+                              (dissoc :stripe-checkout-session-id))))
         ;; Otherwise redirect the browser to an error page:
         (do
           (log/warn "In endpoint complete-purchase/, the purchase with id"
@@ -1581,6 +1642,9 @@
         ;; the successful payment has been sent back to us.
         (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxamount total
                                watermark stripe-checkout-session-id)
+        ;; Notify the operations team that a purchase has been initiated:
+        (send-purchase-started-email user cart)
+        ;; Render the page that redirects the browser to Stripe:
         (assoc
          (render-html {:title "Payment Processing - Clovertone Music"
                        :user-status (user-status user cart)
