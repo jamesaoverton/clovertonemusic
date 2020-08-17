@@ -21,5 +21,7 @@
                  [ring/ring-core "1.8.1"]
                  [ring/ring-json "0.5.0"]]
   :main clovertonemusic.core
+  :jar-exclusions [#"^public\/"]
+  :uberjar-exclusions [#"^public\/"]
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
