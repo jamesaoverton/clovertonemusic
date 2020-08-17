@@ -16,7 +16,8 @@
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
   (log/fatal errorstr)
-  (System/exit 1))
+  (when (not= :dev (get-config :env))
+    (System/exit 1)))
 
 (defn pull-xlsx-file
   "Given the filename of a file on the remote drive in XLSX format, pull it to the server's
@@ -102,9 +103,14 @@
                        ;; integers:
                        (map #(->> %
                                   (map utils/parse-as-string)
-                                  (vec))))]
+                                  (vec))))
+        row-empty? (fn [row]
+                     (every? (fn [cell]
+                               (-> cell (string/trim) (#(or (empty? %) (= % "null")))))
+                             row))]
     ;; Return all the rows in the sheet (including the header):
     (->> data-rows
+         (remove row-empty?)
          (into [header-row]))))
 
 (defn simple-extract-db-from-xlsx
