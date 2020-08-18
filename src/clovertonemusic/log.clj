@@ -28,7 +28,7 @@
   "Send an email to the administrator to notify him/her of an event"
   [first-word & other-words]
   (let [smtp-server (get-config :smtp-server)
-        admin-email (get-config :admin-email-address)
+        admin-email (get-config :admin-errors-email-address)
         send-status (send-message smtp-server
                                   {:from "noreply@clovertonemusic.com"
                                    :to [admin-email]

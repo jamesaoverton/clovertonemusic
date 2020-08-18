@@ -826,7 +826,7 @@
                             (get-config :users-and-purchases-link)))
         http-server (get-config :http-server)
         send-status (-> (get-config :smtp-server)
-                        (send-message {:from (get-config :noreply-email-address)
+                        (send-message {:from (get-config :noreply-from-email-address)
                                        ;; Note that this is a vector of recipients:
                                        :to (get-config :admin-ops-email-list)
                                        :subject "A new user has been created"
@@ -844,7 +844,7 @@
                             (get-config :users-and-purchases-link)))
         http-server (get-config :http-server)
         send-status (-> (get-config :smtp-server)
-                        (send-message {:from (get-config :noreply-email-address)
+                        (send-message {:from (get-config :noreply-from-email-address)
                                        ;; Note that this is a vector of recipients:
                                        :to (get-config :admin-ops-email-list)
                                        :subject "A new purchase has been initiated"
@@ -862,7 +862,7 @@
                             (get-config :users-and-purchases-link)))
         http-server (get-config :http-server)
         send-status (-> (get-config :smtp-server)
-                        (send-message {:from (get-config :noreply-email-address)
+                        (send-message {:from (get-config :noreply-from-email-address)
                                        ;; Note that this is a vector of recipients:
                                        :to (get-config :admin-ops-email-list)
                                        :subject "A new purchase has been finalized"
@@ -879,7 +879,7 @@
                                                           (str "/activation/")
                                                           (str activationid)))
         send-status (-> (get-config :smtp-server)
-                        (send-message {:from (get-config :activation-email-address)
+                        (send-message {:from (get-config :activation-from-email-address)
                                        :to [(get-recipient-email email)]
                                        :reply-to (get-config :support-email-address)
                                        :subject "Activate your clovertonemusic.com account"
