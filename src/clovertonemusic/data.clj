@@ -770,14 +770,19 @@
                           (= "true"))))))
 
 (defn generate-purchase-pdfs
-  "Given a Stripe Checkout session id, find the purchase corresponding to it, and for each
-  chart purchased, create a PDF with a watermark indicating the purchasing user's band name.
-  Save the PDFs to a unique directory corresponding to the purchase on the server's filesystem."
-  [stripe-checkout-session-id]
-  (let [purchase (->> purchases-db
+  "Given a purchase id or a stripe checkout session id, find the purchase corresponding to it, and
+  for each chart purchased, create a PDF with a watermark indicating the purchasing user's band
+  name. Save the PDFs to a unique directory for the purchase on the server's filesystem."
+  [purchaseid stripe-checkout-session-id]
+  (let [get-purchase (fn [db-deref]
+                       (-> (if stripe-checkout-session-id
+                             (filter #(= (:stripe-checkout-session-id %) stripe-checkout-session-id)
+                                     db-deref)
+                             (filter #(= (:purchaseid %) purchaseid) db-deref))
+                           (first)))
+        purchase (->> purchases-db
                       (deref)
-                      (filter #(= (:stripe-checkout-session-id %) stripe-checkout-session-id))
-                      (first))
+                      (get-purchase))
         purchasedir (->> purchase
                          :purchaseid
                          (str purchases-data-dir "/"))
@@ -818,15 +823,20 @@
                          (:purchaseid purchase) "failed:" (:err exit-status)))))))))
 
 (defn mark-as-paid!
-  "Marks the purchase corresponding to the given stripe checkout session id as paid, and then
-  generates the files corresponding to the purchase. If successful, returns true, otherwise
-  returns false."
-  [stripe-checkout-session-id]
+  "Marks the given purchase as paid, and then generates the watermarked files corresponding to the
+  purchase. If the `stripe-checkout-session-id` is not nil, then it is used to look up the
+  purchase in the database, otherwise `purchaseid` is used instead. If successful, returns true,
+  otherwise returns false."
+  [stripe-checkout-session-id purchaseid]
   (let [mark-as-paid (fn [dereferenced-purchases-db]
                        (let [{matching-purchase-recs true, other-purchase-recs false}
-                             (->> dereferenced-purchases-db
-                                  (group-by #(= (:stripe-checkout-session-id %)
-                                                stripe-checkout-session-id)))
+                             (if stripe-checkout-session-id
+                               (->> dereferenced-purchases-db
+                                    (group-by #(= (:stripe-checkout-session-id %)
+                                                  stripe-checkout-session-id)))
+                               (->> dereferenced-purchases-db
+                                    (group-by #(= (:purchaseid %)
+                                                  purchaseid))))
                              ;; There will always only ever be one matching purchase at most:
                              potential-new-purchase-rec (merge (first matching-purchase-recs)
                                                                {:payment-completed "true"})]
@@ -841,7 +851,7 @@
     (swap! purchases-db mark-as-paid)
 
     ;; Create the watermarked charts corresponding to the purchase on the server's filesystem:
-    (generate-purchase-pdfs stripe-checkout-session-id)
+    (generate-purchase-pdfs purchaseid stripe-checkout-session-id)
 
     ;; Now compare the old and new db contents. If there are differences, persist the database
     ;; and return true; otherwise return false. If there is no difference this is because
@@ -915,7 +925,9 @@
     (future (locking users-and-purchases-xlsx
               (write-atomic-db-to-xlsx purchases-details-db
                                        users-and-purchases-xlsx
-                                       "purchases-details")))))
+                                       "purchases-details")))
+    ;; Return the generated purchaseid
+    purchaseid))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory

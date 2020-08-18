@@ -1406,10 +1406,77 @@
   [user]
   (str "For use by " (:band user) ", " (:city user) ", " (:province user) ", " (:country user) "."))
 
+(defn render-shopping-cart-div
+  "Render a div displaying the contents of the given detailed shopping cart, showing the subtotal,
+  taxes, and the watermark that will be applied to the purchased score and parts PDFs. The shopping
+  cart rendered includes a 'buy now' button which will have a different effect depending on whether
+  this is a normal purchase or a proxy purchase (e.g., when an admin manually enters a purchase for
+  a customer)."
+  [actual-user purchasing-user detailed-cart subtotal tax watermark]
+  [:div#shopping_cart
+   [:table
+    [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+    (for [chart detailed-cart]
+      [:tr
+       [:td {:data-label "Chart"} (:chart-name chart)]
+       [:td {:data-label "Composer"} (:composer chart)]
+       [:td {:data-label "Grade"} (:grade chart)]
+       [:td {:data-label "Price"} (:price chart)]
+       [:td {:data-label ""}
+        [:a {:href (str "/remove-from-cart/" (:filename chart))}
+         "remove"]]])
+    [:tr [:td] [:td] [:td] [:td [:hr]]]
+    [:tr [:th] [:th] [:th "Subtotal"]
+     [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+    (if-not actual-user
+      ;; If the user is not logged in, just tell the user that taxes may
+      ;; be applicable,
+      [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
+      ;; Otherwise determine the tax based on the user's location.
+      [:div
+       [:span
+        [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
+         [:td {:data-label (str (:name tax) "(" (:rate tax) ")")}
+          (format "$%.2f" (:amount tax))]]
+        [:tr [:th] [:th] [:th "Total"]
+         [:td {:data-label "Total"}
+          (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
+   [:br]
+   (if-not actual-user
+     ;; If not logged in, suggest that the user do so:
+     [:p "To continue with your purchase, please "
+      [:a {:href "/login/"} "log in or sign up"] " for an account"]
+     ;; Otherwise show everything below
+     [:div
+      [:div.buy
+       [:form (if (= actual-user purchasing-user)
+                {:action "/buy-cart/" :method "post"}
+                {:action "/buy-cart-for-user/" :method "get"})
+        [:input {:type "hidden" :name "purchaser-email" :value (:email purchasing-user)}]
+        [:input {:type "hidden" :name "subtotal" :value subtotal}]
+        [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
+        [:input {:type "hidden" :name "taxname" :value (:name tax)}]
+        [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
+        [:input {:type "hidden" :name "total"
+                 :value (+ (:amount tax) subtotal)}]
+        [:input {:type "hidden" :name "watermark" :value watermark}]
+        (when (not= actual-user purchasing-user)
+          [:input {:type "hidden" :name "purchase-confirmed" :value "true"}])
+        [:input {:type "submit" :value "Buy now"}]]]
+      [:p [:b "Important! "] "You are purchasing an electronic copy of the "
+       "score and parts to these charts in "
+       [:a {:href "https://get.adobe.com/reader" :target "__blank"}
+        "Adobe PDF format"]
+       ". When your purchase is complete your purchased charts "
+       "will immediately be available on your Account page. "
+       "Every page of each chart will be marked "
+       "with your school or band name and address as follows:"]
+      [:p [:b watermark]]])])
+
 (defn render-shopping-cart
   "Show the user's shopping cart in a HTML page."
   [{user :user,
-    {thanks :thanks, :as params} :params,
+    {thanks :thanks, purchaseid :purchaseid, :as params} :params,
     {cart :cart, :as session} :session,
     :as request}]
   (let [detailed-cart (get-cart-details cart)
@@ -1417,70 +1484,19 @@
         tax (calculate-tax user subtotal)
         watermark (generate-watermark user)
         ;; This is the HTML DIV to display when the shopping cart is not empty:
-        shopping-cart-div [:div#shopping_cart
-                           [:table
-                            [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                            (for [chart detailed-cart]
-                              [:tr
-                               [:td {:data-label "Chart"} (:chart-name chart)]
-                               [:td {:data-label "Composer"} (:composer chart)]
-                               [:td {:data-label "Grade"} (:grade chart)]
-                               [:td {:data-label "Price"} (:price chart)]
-                               [:td {:data-label ""}
-                                [:a {:href (str "/remove-from-cart/" (:filename chart))}
-                                 "remove"]]])
-                            [:tr [:td] [:td] [:td] [:td [:hr]]]
-                            [:tr [:th] [:th] [:th "Subtotal"]
-                             [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
-                            (if-not user
-                              ;; If the user is not logged in, just tell the user that taxes may
-                              ;; be applicable,
-                              [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
-                              ;; Otherwise determine the tax based on the user's location.
-                              [:div
-                               [:span
-                                [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
-                                 [:td {:data-label (str (:name tax) "(" (:rate tax) ")")}
-                                  (format "$%.2f" (:amount tax))]]
-                                [:tr [:th] [:th] [:th "Total"]
-                                 [:td {:data-label "Total"}
-                                  (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
-                           [:br]
-                           (if-not user
-                             ;; If not logged in, suggest that the user do so:
-                             [:p "To continue with your purchase, please "
-                              [:a {:href "/login/"} "log in or sign up"] " for an account"]
-                             ;; Otherwise show everything below
-                             [:div
-                              [:div.buy
-                               [:form {:action "/buy-cart/" :method "post"}
-                                [:input {:type "hidden" :name "subtotal" :value subtotal}]
-                                [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
-                                [:input {:type "hidden" :name "taxname" :value (:name tax)}]
-                                [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
-                                [:input {:type "hidden" :name "total"
-                                         :value (+ (:amount tax) subtotal)}]
-                                [:input {:type "hidden" :name "watermark" :value watermark}]
-                                [:input {:type "submit" :value "Buy now"}]]]
-                              [:p [:b "Important! "] "You are purchasing an electronic copy of the "
-                               "score and parts to these charts in "
-                               [:a {:href "https://get.adobe.com/reader" :target "__blank"}
-                                "Adobe PDF format"]
-                               ". When your purchase is complete your purchased charts "
-                               "will immediately be available on your Account page. "
-                               "Every page of each chart will be marked "
-                               "with your school or band name and address as follows:"]
-                              [:p [:b watermark]]])]]
-
+        shopping-cart-div (render-shopping-cart-div user user detailed-cart subtotal tax watermark)]
     (render-html {:title "Shopping Cart - Clovertone Music"
                   :user-status (user-status user cart)
                   :contents [:div.window
                              (if thanks
                                [:div
                                 [:h2 "Thanks for your purchase!"]
-                                [:p "Your charts have been added to your "
-                                 [:a {:href "/account/"} "Account"]
-                                 " page. You can download them now."]]
+                                (if purchaseid
+                                  [:p "You can access it "
+                                   [:a {:href (str "/purchases/" purchaseid)} "here"]]
+                                  [:p "Your charts have been added to your "
+                                   [:a {:href "/account/"} "Account"]
+                                   " page. You can download them now."])]
                                [:div
                                 [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
                                 (if-not (empty? cart)
@@ -1613,19 +1629,22 @@
   given stripe checkout session id as paid."
   [{{{{id "id" :as object} "object" :as data} "data" :as body} :body :as request}]
   ;; Mark the purchase corresponding to the checkout session id as paid:
-  (data/mark-as-paid! id)
+  (data/mark-as-paid! id nil)
   ;; Return an empty page. The default page-status returned by render-html is 200. That is all
   ;; that needs to be in the response
   (render-html {}))
 
 (defn post-buy-cart
   "Process the user's request to purchase the items in her cart."
-  [{user :user,
+  [{{email :email, :as user} :user,
     {cart :cart, :as session} :session,
     {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
      watermark :watermark, :as params} :params,
     :as request}]
-  (let [stripe-checkout-session-id (create-stripe-checkout-payment-session taxes taxname taxrate cart)
+  (let [site-admin? (->> :site-admins (get-config) (some #(= % email)))
+        stripe-checkout-session-id (when-not site-admin?
+                                     (create-stripe-checkout-payment-session
+                                      taxes taxname taxrate cart))
         detailed-cart (get-cart-details cart)
         subtotal (calculate-subtotal detailed-cart)
         tax (calculate-tax user subtotal)
@@ -1634,8 +1653,14 @@
         taxrate (:rate tax)
         total (+ subtotal taxamount)
         watermark (generate-watermark user)]
-    (if (or (empty? stripe-checkout-session-id) (nil? stripe-checkout-session-id))
+    (cond
+      site-admin?
+      (redirect "/buy-cart-for-user/")
+
+      (or (empty? stripe-checkout-session-id) (nil? stripe-checkout-session-id))
       (redirect "/stripe-checkout-error")
+
+      :else
       (do
         ;; Create a purchase in the database. Note that it will actually be marked as having been
         ;; paid until the user completes the payment on Stripe's web pages and the webhook indicating
@@ -1660,6 +1685,77 @@
                                     "});")]]})
          ;; Add the stripe-checkout-session-id to the browser session:
          :session (assoc session :stripe-checkout-session-id stripe-checkout-session-id))))))
+
+(defn buy-cart-for-user
+  "Render the page for a proxy purchase on behalf of a user by an administrator."
+  [{{email :email, :as actual-user} :user,
+    {purchaser-email :purchaser-email,
+     purchase-confirmed :purchase-confirmed} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [site-admin? (->> :site-admins (get-config) (some #(= % email)))
+        purchaser-email (when-not (empty? purchaser-email) (string/trim purchaser-email))
+        purchasing-user (->> @data/users-db (filter #(= (:email %) purchaser-email)) (first))
+        detailed-cart (when purchasing-user (get-cart-details cart))
+        subtotal (when purchasing-user (calculate-subtotal detailed-cart))
+        tax (when purchasing-user (calculate-tax purchasing-user subtotal))
+        taxamount (when purchasing-user (:amount tax))
+        taxname (when purchasing-user (:name tax))
+        taxrate (when purchasing-user (:rate tax))
+        total (when purchasing-user (+ subtotal taxamount))
+        watermark (when purchasing-user (generate-watermark purchasing-user))
+        page-status (if site-admin? 200 401)]
+
+    (cond
+      (not site-admin?)
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :page-status 401
+                    :contents [:div.window [:h2 "You are not authorized to view this page"]]})
+
+      (not purchasing-user)
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :contents [:div.window
+                               [:br]
+                               [:form {:style "text-align:center" :action "/buy-cart-for-user/"
+                                       :method "get"}
+                                [:div
+                                 [:label {:for "purchaser-email"}
+                                  "Enter the email address of the user that you would like to "
+                                  "fulfil this purchase for:"]]
+                                [:div
+                                 [:input {:id "purchaser-email" :name "purchaser-email" :type "text"
+                                            ;; Use the previous commit message as the default value:
+                                          :onClick "this.select();" :value purchaser-email
+                                          :onkeydown (js-suppress-enter)}]
+                                 [:input {:type "submit" :value "Submit"}]]
+                                  ;; If the purchaser-email is present but there is no purchasing-user, then it
+                                  ;; is because the given purchaser-email doesn't exist in the db:
+                                (when-not (empty? purchaser-email)
+                                  [:div [:p.error "Email address not found"]])]
+                               [:br]]})
+
+      purchase-confirmed
+      (let [pruned-cart (-> (data/remove-already-owned-charts-from-cart purchasing-user session) :cart)
+            purchaseid (data/create-purchase! (:userid purchasing-user) pruned-cart subtotal taxrate
+                                              taxname taxamount total watermark nil)]
+        (data/mark-as-paid! nil purchaseid)
+        (assoc (redirect (str "/cart/?thanks=true&purchaseid=" purchaseid))
+               :session (-> session
+                            (dissoc :cart)
+                            (dissoc :stripe-checkout-session-id))))
+
+      :else
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :contents [:div
+                               [:h2 (format "Manual purchase fulfilment form for %s (%s)"
+                                            (:name purchasing-user) (:email purchasing-user))]
+                               (if-not (empty? cart)
+                                 (render-shopping-cart-div actual-user purchasing-user detailed-cart
+                                                           subtotal tax watermark)
+                                 [:p "Shopping cart is empty"])]}))))
 
 (defn render-purchase-receipt
   "Given a purchase id, and information about the browser session and (if the browser happens to be

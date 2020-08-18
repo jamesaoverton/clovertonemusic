@@ -5,7 +5,8 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
 
 ```
 {
-  ;; Should be one of `:dev`, `:test`, `:prod`. If `:env` is defined as (for example) `:dev`, then the `:dev` key will be used when looking up all of the other configuration parameters.
+  ;; Should be one of `:dev`, `:test`, `:prod`. If `:env` is defined as (for example) `:dev`, then
+  ;; the `:dev` key will be used when looking up all of the other configuration parameters.
   :env :dev
 
   ;; Should be one of :debug, :info, :warn, :error, :fatal
@@ -22,7 +23,8 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
                :test "https://"
                :prod "https://"}
 
- ;; Connection details for the smtp server. When nil, then the local UNIX mail system will be utilised:
+ ;; Connection details for the smtp server. When nil, then the local UNIX mail system will be
+ ;; utilised:
  :smtp-server {:dev nil
                :test {:host "smtp.server.com"
                       :port 999
@@ -37,7 +39,12 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
                       :ssl true
                       :tls true}}
 
- ;; Email address for Clovertonemusic customer support, used in from and to fields in emails and on various pages:
+ ;; The email address of users who are considered to be site administrators. Use one of these
+ ;; logins to perform various administration tasks, such as manually entering purchases for users:
+ :site-admins ["EMAIL_ADDRESS_1" "EMAIL_ADDRESS_2"]
+
+ ;; Email address for Clovertonemusic customer support, used in from and to fields in emails and
+ ;; on various pages:
  :support-email-address {:dev "EMAIL_ADDRESS"
                          :test "EMAIL_ADDRESS"
                          :prod "EMAIL_ADDRESS"}
@@ -58,7 +65,7 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
  ;; List of email addresses that should be notified of significant events:
  :admin-ops-email-list {:dev ["EMAIL_ADDRESS"]
                         :test ["EMAIL_ADDRESS"]
-                        :prod ["EMAIL_ADDRESS" "EMAIL_ADDRESS"]}
+                        :prod ["EMAIL_ADDRESS_1" "EMAIL_ADDRESS_2"]}
 
  ;; If an email address is defined (or not nil) in this map for a given environment, then that
  ;; address will be used as the recipient on outgoing emails in lieu of the actual recipient.
@@ -66,11 +73,11 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
                            :test "EMAIL_ADDRESS"
                            :prod nil}
 
- :stripe-api-keys {:dev {:publishable "SECRET_KEY"
+ :stripe-api-keys {:dev {:publishable "PUBLISHABLE_KEY"
                          :secret "SECRET_KEY"}
-                   :test {:publishable "SECRET_KEY"
+                   :test {:publishable "PUBLISHABLE_KEY"
                           :secret "SECRET_KEY"}
-                   :prod {:publishable "SECRET_KEY"
+                   :prod {:publishable "PUBLISHABLE_KEY"
                           :secret "SECRET_KEY"}}
 
  :remote-drive-name "RCLONE_DRIVE_NAME:"

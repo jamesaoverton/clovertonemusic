@@ -76,6 +76,8 @@
   (POST "/" [] html/post-account-change))
 (defroutes buy-cart-routes
   (POST "/" [] html/post-buy-cart))
+(defroutes buy-cart-for-user-routes
+  (GET "/" [] html/buy-cart-for-user))
 (defroutes complete-purchase-routes
   (GET "/:stripe-checkout-session-id" [] html/complete-purchase))
 (defroutes stripe-error-routes
@@ -96,6 +98,8 @@
     (restrict account-change-routes {:handler is-authenticated}))
   (context "/buy-cart" []
     (restrict buy-cart-routes {:handler is-authenticated}))
+  (context "/buy-cart-for-user" []
+    (restrict buy-cart-for-user-routes {:handler is-authenticated}))
   (context "/complete-purchase" []
     (restrict complete-purchase-routes {:handler is-authenticated}))
   (context "/stripe-checkout-error" []
