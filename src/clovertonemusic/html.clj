@@ -1703,9 +1703,7 @@
         taxname (when purchasing-user (:name tax))
         taxrate (when purchasing-user (:rate tax))
         total (when purchasing-user (+ subtotal taxamount))
-        watermark (when purchasing-user (generate-watermark purchasing-user))
-        page-status (if site-admin? 200 401)]
-
+        watermark (when purchasing-user (generate-watermark purchasing-user))]
     (cond
       (not site-admin?)
       (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
