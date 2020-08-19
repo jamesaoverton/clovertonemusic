@@ -1428,8 +1428,12 @@
     [:tr [:td] [:td] [:td] [:td [:hr]]]
     [:tr [:th] [:th] [:th "Subtotal"]
      [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
-    (if-not actual-user
-      ;; If the user is not logged in, just tell the user that taxes may
+    (if (or (not actual-user)
+            (and (= actual-user purchasing-user)
+                 (->> :site-admins
+                      (get-config)
+                      (some #(= % (:email actual-user))))))
+      ;; If the user is not logged in, or is a site-admin, just tell the user that taxes may
       ;; be applicable,
       [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
       ;; Otherwise determine the tax based on the user's location.
