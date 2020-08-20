@@ -50,3 +50,25 @@
           ;; If that fails, then assume it is already a string; if there are only zeroes after the
           ;; decimal point, remove them before returning the result:
           (string/replace given #"^(-?\d+)\.0+$" "$1"))))))
+
+(defn parse-as-percentage
+  "Accepts either a string or a number as input and returns a string formatted as a percentage with
+  at most two decimal points. If the given can't be parsed, it is assumed to be valid
+  anyway and returned as is."
+  [given]
+  ;; First assume that the given is an integer:
+  (try
+    (->> given (* 100) (format "%d") (#(str % "%")))
+    (catch Exception e1
+      ;; If that fails, try assuming it is a float; keep at most two places after the decimal:
+      (try
+        (-> given (* 100) (#(format "%.2f" %)) (string/replace #"0+$" "") (string/replace #"\.$" "")
+            (str "%"))
+        (catch Exception e2
+          ;; If that fails, try assuming that it is a number formatted as a string, and if that
+          ;; succeeds, pass back the resulting number to ourselves recursively:
+          (try
+            (-> given (parse-as-number) (parse-as-percentage))
+            (catch Exception e3
+              ;; If that fails too, then return the given back as is:
+              given)))))))

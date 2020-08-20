@@ -80,11 +80,11 @@ The Clovertonemusic.com server requires the existence of a file called `config.e
                    :prod {:publishable "PUBLISHABLE_KEY"
                           :secret "SECRET_KEY"}}
 
+ ;; Info required to read the catalogue and users/purchases dbs from the Google Drive:
  :remote-drive-name "RCLONE_DRIVE_NAME:"
-
  :catalogue-xlsx-name "ClovertoneMusicCatalogue.xlsx"
-
  :users-and-purchases-xlsx-name "ClovertoneMusicUsersAndPurchases.xlsx"
 
+ ;; This is used in the body of the emails sent to the operations team:
  :users-and-purchases-link "SHARABLE_LINK_TO_USERS_AND_PURCHASES_EXCEL_FILE_IN_GOOGLE_DRIVE"}
 ```

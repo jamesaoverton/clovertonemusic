@@ -128,13 +128,15 @@
   "Generates the 'user status' links on clovertone pages. If the given user parameter is not nil,
   then links to the user's account, shopping cart, and to the logout route are generated, otherwise
   links to the shopping cart and to the login/signup page are generated."
-  [user cart]
+  [{:keys [email], :as user} cart]
   (let [cart-link-label (cond
                           (empty? cart) "Cart Empty"
                           (= 1 (count cart)) "1 Item in Cart"
                           (< 1 (count cart)) (str (count cart) " Items in cart"))]
     (if user
       [:ul
+       (when (->> :site-admins (get-config) (some #(= % email)))
+         [:li.status "Site administrator"])
        [:li [:a {:href "/cart/"} cart-link-label]]
        [:li [:a {:href "/account/"} "Account"]]
        [:li [:a {:href "/logout/"} "Log Out"]]]
@@ -1772,6 +1774,7 @@
         subtotal (when subtotal (utils/parse-as-float subtotal))
         taxes (when taxes (utils/parse-as-float taxes))
         total (when total (utils/parse-as-float total))
+        taxrate (utils/parse-as-percentage taxrate)
         ;; Given the name of a chart, find its filename in the catalogue:
         get-filename (fn [chart-name]
                        (->> data/catalogue
@@ -1808,8 +1811,8 @@
                                    [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
                                   [:div
                                    [:span
-                                    [:tr [:th] [:th] [:th (str taxname "(" taxrate ")")]
-                                     [:td {:data-label (str taxname "(" taxrate ")")}
+                                    [:tr [:th] [:th] [:th (str taxname " (" taxrate ")")]
+                                     [:td {:data-label (str taxname " (" taxrate ")")}
                                       (format "$%.2f" taxes)]]
                                     [:tr [:th] [:th] [:th "Total"]
                                      [:td {:data-label "Total"}
