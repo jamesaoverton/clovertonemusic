@@ -9,6 +9,7 @@
             [ring.middleware.json :refer [wrap-json-body]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
+            [clovertonemusic.config :refer [get-config]]
             [clovertonemusic.data :as data]
             [clovertonemusic.html :as html]
             [clovertonemusic.log :as log])
@@ -47,8 +48,8 @@
                        [:p "The server encountered an error while processing your request:"]
                        [:p [:code error-summary]]
                        [:p "For assistance, send an email to "
-                        [:a {:href (str "mailto:" html/support-email-address)}
-                         html/support-email-address]]]
+                        [:a {:href (str "mailto:" (get-config :support-email-address))}
+                         (get-config :support-email-address)]]]
             :user-status (html/user-status user cart)
             :page-status 500}))))))
 
@@ -63,8 +64,8 @@
                [:h1 "Unauthorized"]
                [:p "You are not authorized to access the required resource. (You may not be logged in.)"]
                [:p "For assistance, send an email to "
-                [:a {:href (str "mailto:" html/support-email-address)}
-                 html/support-email-address]]]
+                [:a {:href (str "mailto:" (get-config :support-email-address))}
+                 (get-config :support-email-address)]]]
     :user-status (html/user-status user cart)
     :page-status 401}))
 
@@ -75,6 +76,8 @@
   (POST "/" [] html/post-account-change))
 (defroutes buy-cart-routes
   (POST "/" [] html/post-buy-cart))
+(defroutes buy-cart-for-user-routes
+  (GET "/" [] html/buy-cart-for-user))
 (defroutes complete-purchase-routes
   (GET "/:stripe-checkout-session-id" [] html/complete-purchase))
 (defroutes stripe-error-routes
@@ -95,6 +98,8 @@
     (restrict account-change-routes {:handler is-authenticated}))
   (context "/buy-cart" []
     (restrict buy-cart-routes {:handler is-authenticated}))
+  (context "/buy-cart-for-user" []
+    (restrict buy-cart-for-user-routes {:handler is-authenticated}))
   (context "/complete-purchase" []
     (restrict complete-purchase-routes {:handler is-authenticated}))
   (context "/stripe-checkout-error" []
@@ -180,8 +185,8 @@
                                 [:h1 "Page Not Found"]
                                 [:p "The requested resource could not be found."]
                                 [:p "For assistance, send an email to "
-                                 [:a {:href (str "mailto:" html/support-email-address)}
-                                  html/support-email-address]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]
                      :page-status 404})))
 
 (def backend (session-backend {:unauthorized-handler unauthorized-handler}))

@@ -8,24 +8,23 @@
             [clj-pdf.core :as pdf]
             [dk.ative.docjure.spreadsheet :as xlsx]
             [java-time :as jtime]
-            [clovertonemusic.config :refer [config]]
+            [clovertonemusic.config :refer [get-config]]
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
-
 
 (defn fail
   "Logs a fatal error and then exits with a failure status"
   [errorstr]
   (log/fatal errorstr)
-  (System/exit 1))
+  (when (not= :dev (get-config :env))
+    (System/exit 1)))
 
 (defn pull-xlsx-file
   "Given the filename of a file on the remote drive in XLSX format, pull it to the server's
   filesystem"
   [remote-filename local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-export-formats" "xlsx"
-                        (-> config
-                            :remote-drive-name
+                        (-> (get-config :remote-drive-name)
                             (str remote-filename))
                         local-path)]
     (when (not= (:exit exit-status) 0)
@@ -38,7 +37,7 @@
   [local-path]
   (let [exit-status (sh "rclone" "copy" "--drive-import-formats" "xlsx"
                         local-path
-                        (:remote-drive-name config))]
+                        (get-config :remote-drive-name))]
     (when (not= (:exit exit-status) 0)
       (log/error "Rclone push failed:" (:err exit-status)))
     ;; Return the exit status from rclone:
@@ -104,9 +103,14 @@
                        ;; integers:
                        (map #(->> %
                                   (map utils/parse-as-string)
-                                  (vec))))]
+                                  (vec))))
+        row-empty? (fn [row]
+                     (every? (fn [cell]
+                               (-> cell (string/trim) (#(or (empty? %) (= % "null")))))
+                             row))]
     ;; Return all the rows in the sheet (including the header):
     (->> data-rows
+         (remove row-empty?)
          (into [header-row]))))
 
 (defn simple-extract-db-from-xlsx
@@ -175,7 +179,7 @@
 (def catalogue-dir "data/catalogue")
 
 (def catalogue-xlsx
-  (let [xlsx-name (:catalogue-xlsx-name config)]
+  (let [xlsx-name (get-config :catalogue-xlsx-name)]
     ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name catalogue-dir) 0)
       (fail (str "Error retrieving catalogue file: " xlsx-name)))
@@ -365,14 +369,15 @@
   (fail (str font-path " does not exist")))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Data relating to the users and purchases databases
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data and private functions relating to the users and purchases databases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (def users-and-purchases-dir "data/users-and-purchases")
 
 (def users-and-purchases-xlsx
-  (let [xlsx-name (:users-and-purchases-xlsx-name config)]
+  (let [xlsx-name (get-config :users-and-purchases-xlsx-name)]
     ;; Try to get the file from the remote drive and fail if we cannot:
     (when-not (= (pull-xlsx-file xlsx-name users-and-purchases-dir) 0)
       (fail (str "Error retrieving users-and-purchases file: " xlsx-name)))
@@ -406,17 +411,38 @@
                    (apply distinct?))
       (fail "User database contains duplicate emails"))))
 
+(defn- log-missing-purchases
+  "Given a sequence of purchases identified by a `:purchaseid`, check if any of the purchases in the
+  sequence are both marked as completed and missing purchase files, and in that case write a warning
+  about it to the log."
+  [purchase-seq]
+  (doseq [purchase purchase-seq]
+    (let [path-exists? (->> purchase :purchaseid (str purchases-data-dir "/")
+                            (io/as-file) (.exists))
+          payment-completed? (->> purchase :payment-completed
+                                  (#(and (not (nil? %))
+                                         (Boolean/parseBoolean %))))]
+      (when (and payment-completed? (not path-exists?))
+        (log/warn "No files found for completed purchase:" (:purchaseid purchase)))))
+  ;; Return the purchase-seq as is back to the caller.
+  purchase-seq)
+
 ;; Initialize the purchases and purchases-details databases using the XLSX workbook. Note that they
 ;; may change while the server is running, so we make them atoms. Updates are handled similarly to
 ;; the users database (see above)
 (def purchases-db (-> users-and-purchases-xlsx
                       :workbook
                       (simple-extract-db-from-xlsx "purchases-summary")
+                      ;; If there are completed purchases in the spreadsheet that do not have an
+                      ;; associated purchase directory on the server, log a warning:
+                      (log-missing-purchases)
+                      (vec)
                       (atom)))
 
 (def purchases-details-db (-> users-and-purchases-xlsx
                               :workbook
                               (simple-extract-db-from-xlsx "purchases-details")
+                              (vec)
                               (atom)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -744,14 +770,19 @@
                           (= "true"))))))
 
 (defn generate-purchase-pdfs
-  "Given a Stripe Checkout session id, find the purchase corresponding to it, and for each
-  chart purchased, create a PDF with a watermark indicating the purchasing user's band name.
-  Save the PDFs to a unique directory corresponding to the purchase on the server's filesystem."
-  [stripe-checkout-session-id]
-  (let [purchase (->> purchases-db
+  "Given a purchase id or a stripe checkout session id, find the purchase corresponding to it, and
+  for each chart purchased, create a PDF with a watermark indicating the purchasing user's band
+  name. Save the PDFs to a unique directory for the purchase on the server's filesystem."
+  [purchaseid stripe-checkout-session-id]
+  (let [get-purchase (fn [db-deref]
+                       (-> (if stripe-checkout-session-id
+                             (filter #(= (:stripe-checkout-session-id %) stripe-checkout-session-id)
+                                     db-deref)
+                             (filter #(= (:purchaseid %) purchaseid) db-deref))
+                           (first)))
+        purchase (->> purchases-db
                       (deref)
-                      (filter #(= (:stripe-checkout-session-id %) stripe-checkout-session-id))
-                      (first))
+                      (get-purchase))
         purchasedir (->> purchase
                          :purchaseid
                          (str purchases-data-dir "/"))
@@ -792,15 +823,20 @@
                          (:purchaseid purchase) "failed:" (:err exit-status)))))))))
 
 (defn mark-as-paid!
-  "Marks the purchase corresponding to the given stripe checkout session id as paid, and then
-  generates the files corresponding to the purchase. If successful, returns true, otherwise
-  returns false."
-  [stripe-checkout-session-id]
+  "Marks the given purchase as paid, and then generates the watermarked files corresponding to the
+  purchase. If the `stripe-checkout-session-id` is not nil, then it is used to look up the
+  purchase in the database, otherwise `purchaseid` is used instead. If successful, returns true,
+  otherwise returns false."
+  [stripe-checkout-session-id purchaseid]
   (let [mark-as-paid (fn [dereferenced-purchases-db]
                        (let [{matching-purchase-recs true, other-purchase-recs false}
-                             (->> dereferenced-purchases-db
-                                  (group-by #(= (:stripe-checkout-session-id %)
-                                                stripe-checkout-session-id)))
+                             (if stripe-checkout-session-id
+                               (->> dereferenced-purchases-db
+                                    (group-by #(= (:stripe-checkout-session-id %)
+                                                  stripe-checkout-session-id)))
+                               (->> dereferenced-purchases-db
+                                    (group-by #(= (:purchaseid %)
+                                                  purchaseid))))
                              ;; There will always only ever be one matching purchase at most:
                              potential-new-purchase-rec (merge (first matching-purchase-recs)
                                                                {:payment-completed "true"})]
@@ -815,7 +851,7 @@
     (swap! purchases-db mark-as-paid)
 
     ;; Create the watermarked charts corresponding to the purchase on the server's filesystem:
-    (generate-purchase-pdfs stripe-checkout-session-id)
+    (generate-purchase-pdfs purchaseid stripe-checkout-session-id)
 
     ;; Now compare the old and new db contents. If there are differences, persist the database
     ;; and return true; otherwise return false. If there is no difference this is because
@@ -857,15 +893,15 @@
   "Create a new record in the purchase db for the items in the given cart for the given user"
   [userid cart subtotal taxrate taxname taxes total watermark stripe-checkout-session-id]
   (let ;; Purchase id is composed of a randomly generated UUID prepended to the epoch time in ms:
-      [purchaseid (generate-random-id)
-       today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
-       user (get-user-by-id userid)
-       get-chart-data (fn [filename] (->> catalogue
-                                          :charts
-                                          (filter #(= filename (:filename %)))
-                                          (map #(select-keys % [:chart-name :price :composer :grade
-                                                                :subgenre]))
-                                          (first)))]
+   [purchaseid (generate-random-id)
+    today (->> (jtime/local-date) (jtime/format "yyyy-MM-dd"))
+    user (get-user-by-id userid)
+    get-chart-data (fn [filename] (->> catalogue
+                                       :charts
+                                       (filter #(= filename (:filename %)))
+                                       (map #(select-keys % [:chart-name :price :composer :grade
+                                                             :subgenre]))
+                                       (first)))]
     ;; Update the two purchases databases with the new purchase record.
     (swap! purchases-db conj
            (array-map :purchaseid purchaseid :userid userid  :user_name (:name user)
@@ -889,7 +925,9 @@
     (future (locking users-and-purchases-xlsx
               (write-atomic-db-to-xlsx purchases-details-db
                                        users-and-purchases-xlsx
-                                       "purchases-details")))))
+                                       "purchases-details")))
+    ;; Return the generated purchaseid
+    purchaseid))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to other data in the data directory

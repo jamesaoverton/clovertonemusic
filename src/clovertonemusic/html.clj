@@ -9,59 +9,31 @@
             [postal.core :refer [send-message]]
             [ring.util.codec :as codec]
             [ring.util.response :refer [response file-response redirect]]
-            [clovertonemusic.config :refer [config]]
+            [clovertonemusic.config :refer [get-config]]
             [clovertonemusic.data :as data]
             [clovertonemusic.log :as log]
             [clovertonemusic.utils :as utils]))
 
-(def env
-  "The runtime environment (dev, test, or prod), as read from the configuration map"
-  (:env config))
-
-;; Email addresses to use for various purposes:
-(def activation-email-address (-> config
-                                  :activation-email-address
-                                  (get (keyword env))))
-(def info-email-address (-> config
-                            :info-email-address
-                            (get (keyword env))))
-(def support-email-address (-> config
-                               :support-email-address
-                               (get (keyword env))))
-
-(defn get-recipient-email-for-env
+(defn get-recipient-email
   "Look into the configuration for the current environment. If a recipient email is defined, then
   return that instead of the one passed into the function. If no recipient email is defined (or if
   it is set to nil) for the current environment, then just return the email that has been passed"
   [email]
-  (or (-> config
-          :recipient-email-address
-          (get (keyword env)))
+  (or (get-config :recipient-email-address)
       email))
 
-(defn get-smtp-for-env
-  "Return the appropriate SMTP server for the current environment (prod, test, or dev)"
-  []
-  (-> config
-      :smtp-server
-      (get (keyword env))))
-
-(defn get-url-prefix-for-env
+(defn add-url-prefix
   "Return the appropriate URL prefix (http:// or https://) for the current environment
   (prod, test, or dev) and prepend it to the given string"
   [http-server]
-  (-> config
-      :http-prefix
-      (get (keyword env))
+  (-> (get-config :http-prefix)
       (str http-server)))
 
-(defn get-url-for-env
+(defn get-server-base-url
   "Return the base URL for the server in the current environment"
   []
-  (-> config
-      :http-server
-      (get (keyword env))
-      (get-url-prefix-for-env)))
+  (-> (get-config :http-server)
+      (add-url-prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions and Vars relating to catalogue content
@@ -156,13 +128,15 @@
   "Generates the 'user status' links on clovertone pages. If the given user parameter is not nil,
   then links to the user's account, shopping cart, and to the logout route are generated, otherwise
   links to the shopping cart and to the login/signup page are generated."
-  [user cart]
+  [{:keys [email], :as user} cart]
   (let [cart-link-label (cond
                           (empty? cart) "Cart Empty"
                           (= 1 (count cart)) "1 Item in Cart"
                           (< 1 (count cart)) (str (count cart) " Items in cart"))]
     (if user
       [:ul
+       (when (->> :site-admins (get-config) (some #(= % email)))
+         [:li.status "Site administrator"])
        [:li [:a {:href "/cart/"} cart-link-label]]
        [:li [:a {:href "/account/"} "Account"]]
        [:li [:a {:href "/logout/"} "Log Out"]]]
@@ -841,19 +815,75 @@
                                          (js-enable-or-disable-other-field))]]
                 :user-status (user-status user cart)}))
 
+(defn send-user-created-email
+  "Send an email to the ops mailing list to notify them that a user with the given information
+  has just been created."
+  [{email "email", name "name", phone "phone"}]
+  (let [message (-> (str "The user '%s' (email: %s, phone: %s) has just been created. You can see "
+                         "further details about this signup at: %s")
+                    (format name email
+                            (if (-> phone (string/trim) (empty?))
+                              "not provided"
+                              phone)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-from-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new user has been created"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of user creation email for" email "did not succeed (" send-status ")"))))
+
+(defn send-purchase-started-email
+  "Send an email to the ops mailing list to notify them that a purchase has been initiated."
+  [{:keys [name email] :as user} cart]
+  (let [message (-> (str "The user '%s' (email: %s) has just initiated a purchase of the following "
+                         "charts: %s. For further information, see: %s")
+                    (format name email (string/join ", " cart)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-from-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new purchase has been initiated"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of purchase started email did not succeed (" send-status ")"))))
+
+(defn send-purchase-completed-email
+  "Send an email to the ops mailing list to notify them that a purchase has been completed."
+  [{:keys [name email] :as user} cart]
+  (let [message (-> (str "The user '%s' (email: %s) has just finalized a purchase of the following "
+                         "charts: %s. For further information, see: %s")
+                    (format name email (string/join ", " cart)
+                            (get-config :users-and-purchases-link)))
+        http-server (get-config :http-server)
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :noreply-from-email-address)
+                                       ;; Note that this is a vector of recipients:
+                                       :to (get-config :admin-ops-email-list)
+                                       :subject "A new purchase has been finalized"
+                                       :body message}))]
+    (log/info "Sent email to operations team:" message)
+    (when (not= (:error send-status) :SUCCESS)
+      (log/error "Sending of purchase completed email did not succeed (" send-status ")"))))
+
 (defn send-activation-email
   "Sends an activation email to the user with the given activation id, using the given SMTP server"
   [email name activationid]
-  (let [http-server (-> config
-                        :http-server
-                        (get (keyword env)))
-        body (data/get-activation-email-contents name (-> (get-url-prefix-for-env http-server)
+  (let [http-server (get-config :http-server)
+        body (data/get-activation-email-contents name (-> (add-url-prefix http-server)
                                                           (str "/activation/")
                                                           (str activationid)))
-        send-status (-> (get-smtp-for-env)
-                        (send-message {:from activation-email-address
-                                       :to [(get-recipient-email-for-env email)]
-                                       :reply-to support-email-address
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :activation-from-email-address)
+                                       :to [(get-recipient-email email)]
+                                       :reply-to (get-config :support-email-address)
                                        :subject "Activate your clovertonemusic.com account"
                                        :body body}))]
     (when (not= (:error send-status) :SUCCESS)
@@ -862,18 +892,16 @@
 (defn send-reset-pw-email
   "Sends an email with a link to reset the user's password, generated using the given parameters"
   [email is-migration name resetpwid]
-  (let [http-server (-> config
-                        :http-server
-                        (get (keyword env)))
+  (let [http-server (get-config :http-server)
         body (data/get-reset-pwid-email-contents is-migration
                                                  name
-                                                 (-> (get-url-prefix-for-env http-server)
+                                                 (-> (add-url-prefix http-server)
                                                      (str "/resetpw/")
                                                      (str resetpwid)))
-        send-status (-> (get-smtp-for-env)
-                        (send-message {:from support-email-address
-                                       :to [(get-recipient-email-for-env email)]
-                                       :reply-to support-email-address
+        send-status (-> (get-config :smtp-server)
+                        (send-message {:from (get-config :support-email-address)
+                                       :to [(get-recipient-email email)]
+                                       :reply-to (get-config :support-email-address)
                                        :subject "Reset your clovertonemusic.com password"
                                        :body body}))]
     (when (not= (:error send-status) :SUCCESS)
@@ -936,7 +964,7 @@
           (data/user-is-disabled user) (redirect "/forgotpw/?user-disabled=true")
           :else (let [resetpwid (data/add-reset-password-id-to-user! (:userid user))]
                   (-> email
-                      (get-recipient-email-for-env)
+                      (get-recipient-email)
                       (send-reset-pw-email is-migration (:name user) resetpwid))
                   (render-html
                    {:title "Reset Password - Clovertone Music"
@@ -948,8 +976,8 @@
                                  " with a link to reset your password. Note: the email may have "
                                  "gone to your \"junk\" email folder. If you do not receive the "
                                  "email, please contact us at "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :user-status (user-status session-user cart)})))))
 
 (defn post-signup
@@ -960,7 +988,7 @@
      province "province" province_other "province_other"
      country "country" country_other "country_other"
      new_password "new_password" retyped_password "retyped_password"
-     phone "phone" newsletter "newsletter"} :form-params,
+     phone "phone" newsletter "newsletter", :as signup-form} :form-params,
     {cart :cart, :as session} :session,
     user :user,
     :as request}]
@@ -982,11 +1010,11 @@
         ;; If activation id is blank it is because the email already exists in the db. In this case
         ;; just redirect to the login page:
         (redirect (str "/login/?already-exists=" email))
-        ;; Otherwise, send the activation email and tell the user to look for it:
+        ;; Otherwise, notify the admins that a new user has been created, send the activation email
+        ;; to the user, and tell the user to look for it:
         (do
-          (-> email
-              (get-recipient-email-for-env)
-              (send-activation-email name activationid))
+          (-> email (get-recipient-email) (send-activation-email name activationid))
+          (send-user-created-email signup-form)
           (render-html
            {:title "Activation - Clovertone Music"
             :contents [:div#contents
@@ -997,8 +1025,8 @@
                          " with a link to activate your account. Once activated, you "
                          "will be able to login. Note: the email may have gone to your \"junk\" "
                          "email folder. If you do not receive the email, please contact us at "
-                         [:a {:href (str "mailto:" support-email-address)}
-                          support-email-address]]]]
+                         [:a {:href (str "mailto:" (get-config :support-email-address))}
+                          (get-config :support-email-address)]]]]
             :user-status (user-status user cart)}))))))
 
 (defn process-and-render-activation
@@ -1021,8 +1049,8 @@
                              [:div#login.window
                               [:h2 "The submitted activation ID is invalid."]
                               [:p "For assistance, send an email to "
-                               [:a {:href (str "mailto:" support-email-address)}
-                                support-email-address]]]]
+                               [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                (get-config :support-email-address)]]]]
                   :page-status 400
                   :user-status (user-status user cart)})))
 
@@ -1042,8 +1070,8 @@
                                [:div.window
                                 [:h2 "The submitted reset password ID is invalid."]
                                 [:p "For assistance, send an email to "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :page-status 400
                     :user-status (user-status user cart)})
     ;; Otherwise, render a password reset form:
@@ -1380,10 +1408,81 @@
   [user]
   (str "For use by " (:band user) ", " (:city user) ", " (:province user) ", " (:country user) "."))
 
+(defn render-shopping-cart-div
+  "Render a div displaying the contents of the given detailed shopping cart, showing the subtotal,
+  taxes, and the watermark that will be applied to the purchased score and parts PDFs. The shopping
+  cart rendered includes a 'buy now' button which will have a different effect depending on whether
+  this is a normal purchase or a proxy purchase (e.g., when an admin manually enters a purchase for
+  a customer)."
+  [actual-user purchasing-user detailed-cart subtotal tax watermark]
+  [:div#shopping_cart
+   [:table
+    [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+    (for [chart detailed-cart]
+      [:tr
+       [:td {:data-label "Chart"} (:chart-name chart)]
+       [:td {:data-label "Composer"} (:composer chart)]
+       [:td {:data-label "Grade"} (:grade chart)]
+       [:td {:data-label "Price"} (:price chart)]
+       [:td {:data-label ""}
+        [:a {:href (str "/remove-from-cart/" (:filename chart))}
+         "remove"]]])
+    [:tr [:td] [:td] [:td] [:td [:hr]]]
+    [:tr [:th] [:th] [:th "Subtotal"]
+     [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+    (if (or (not actual-user)
+            (and (= actual-user purchasing-user)
+                 (->> :site-admins
+                      (get-config)
+                      (some #(= % (:email actual-user))))))
+      ;; If the user is not logged in, or is a site-admin, just tell the user that taxes may
+      ;; be applicable,
+      [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
+      ;; Otherwise determine the tax based on the user's location.
+      [:div
+       [:span
+        [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
+         [:td {:data-label (str (:name tax) "(" (:rate tax) ")")}
+          (format "$%.2f" (:amount tax))]]
+        [:tr [:th] [:th] [:th "Total"]
+         [:td {:data-label "Total"}
+          (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
+   [:br]
+   (if-not actual-user
+     ;; If not logged in, suggest that the user do so:
+     [:p "To continue with your purchase, please "
+      [:a {:href "/login/"} "log in or sign up"] " for an account"]
+     ;; Otherwise show everything below
+     [:div
+      [:div.buy
+       [:form (if (= actual-user purchasing-user)
+                {:action "/buy-cart/" :method "post"}
+                {:action "/buy-cart-for-user/" :method "get"})
+        [:input {:type "hidden" :name "purchaser-email" :value (:email purchasing-user)}]
+        [:input {:type "hidden" :name "subtotal" :value subtotal}]
+        [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
+        [:input {:type "hidden" :name "taxname" :value (:name tax)}]
+        [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
+        [:input {:type "hidden" :name "total"
+                 :value (+ (:amount tax) subtotal)}]
+        [:input {:type "hidden" :name "watermark" :value watermark}]
+        (when (not= actual-user purchasing-user)
+          [:input {:type "hidden" :name "purchase-confirmed" :value "true"}])
+        [:input {:type "submit" :value "Buy now"}]]]
+      [:p [:b "Important! "] "You are purchasing an electronic copy of the "
+       "score and parts to these charts in "
+       [:a {:href "https://get.adobe.com/reader" :target "__blank"}
+        "Adobe PDF format"]
+       ". When your purchase is complete your purchased charts "
+       "will immediately be available on your Account page. "
+       "Every page of each chart will be marked "
+       "with your school or band name and address as follows:"]
+      [:p [:b watermark]]])])
+
 (defn render-shopping-cart
   "Show the user's shopping cart in a HTML page."
   [{user :user,
-    {thanks :thanks, :as params} :params,
+    {thanks :thanks, purchaseid :purchaseid, :as params} :params,
     {cart :cart, :as session} :session,
     :as request}]
   (let [detailed-cart (get-cart-details cart)
@@ -1391,70 +1490,19 @@
         tax (calculate-tax user subtotal)
         watermark (generate-watermark user)
         ;; This is the HTML DIV to display when the shopping cart is not empty:
-        shopping-cart-div [:div#shopping_cart
-                           [:table
-                            [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                            (for [chart detailed-cart]
-                              [:tr
-                               [:td {:data-label "Chart"} (:chart-name chart)]
-                               [:td {:data-label "Composer"} (:composer chart)]
-                               [:td {:data-label "Grade"} (:grade chart)]
-                               [:td {:data-label "Price"} (:price chart)]
-                               [:td {:data-label ""}
-                                [:a {:href (str "/remove-from-cart/" (:filename chart))}
-                                 "remove"]]])
-                            [:tr [:td] [:td] [:td] [:td [:hr]]]
-                            [:tr [:th] [:th] [:th "Subtotal"]
-                             [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
-                            (if-not user
-                              ;; If the user is not logged in, just tell the user that taxes may
-                              ;; be applicable,
-                              [:div [:tr [:th] [:th] [:td "Plus applicable taxes"]]]
-                              ;; Otherwise determine the tax based on the user's location.
-                              [:div
-                               [:span
-                                [:tr [:th] [:th] [:th (str (:name tax) "(" (:rate tax) ")")]
-                                 [:td {:data-label (str (:name tax) "(" (:rate tax) ")")}
-                                  (format "$%.2f" (:amount tax))]]
-                                [:tr [:th] [:th] [:th "Total"]
-                                 [:td {:data-label "Total"}
-                                  (format "$%.2f" (+ (:amount tax) subtotal))]]]])]
-                           [:br]
-                           (if-not user
-                             ;; If not logged in, suggest that the user do so:
-                             [:p "To continue with your purchase, please "
-                              [:a {:href "/login/"} "log in or sign up"] " for an account"]
-                             ;; Otherwise show everything below
-                             [:div
-                              [:div.buy
-                               [:form {:action "/buy-cart/" :method "post"}
-                                [:input {:type "hidden" :name "subtotal" :value subtotal}]
-                                [:input {:type "hidden" :name "taxrate" :value (:rate tax)}]
-                                [:input {:type "hidden" :name "taxname" :value (:name tax)}]
-                                [:input {:type "hidden" :name "taxes" :value (:amount tax)}]
-                                [:input {:type "hidden" :name "total"
-                                         :value (+ (:amount tax) subtotal)}]
-                                [:input {:type "hidden" :name "watermark" :value watermark}]
-                                [:input {:type "submit" :value "Buy now"}]]]
-                              [:p [:b "Important! "] "You are purchasing an electronic copy of the "
-                               "score and parts to these charts in "
-                               [:a {:href "https://get.adobe.com/reader" :target "__blank"}
-                                "Adobe PDF format"]
-                               ". When your purchase is complete your purchased charts "
-                               "will immediately be available on your Account page. "
-                               "Every page of each chart will be marked "
-                               "with your school or band name and address as follows:"]
-                              [:p [:b watermark]]])]]
-
+        shopping-cart-div (render-shopping-cart-div user user detailed-cart subtotal tax watermark)]
     (render-html {:title "Shopping Cart - Clovertone Music"
                   :user-status (user-status user cart)
                   :contents [:div.window
                              (if thanks
                                [:div
                                 [:h2 "Thanks for your purchase!"]
-                                [:p "Your charts have been added to your "
-                                 [:a {:href "/account/"} "Account"]
-                                 " page. You can download them now."]]
+                                (if purchaseid
+                                  [:p "You can access it "
+                                   [:a {:href (str "/purchases/" purchaseid)} "here"]]
+                                  [:p "Your charts have been added to your "
+                                   [:a {:href "/account/"} "Account"]
+                                   " page. You can download them now."])]
                                [:div
                                 [:h2 (str "Shopping cart" (when user (str " for " (:name user))))]
                                 (if-not (empty? cart)
@@ -1472,8 +1520,8 @@
                [:h1 "Stripe Error"]
                [:p "There was an error obtaining a checkout session ID from Stripe."
                 [:p "For assistance, send an email to "
-                 [:a {:href (str "mailto:" support-email-address)}
-                  support-email-address]]]]
+                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                  (get-config :support-email-address)]]]]
     :user-status (user-status user cart)}))
 
 (defn complete-purchase
@@ -1498,8 +1546,8 @@
                                [:p (str "The supplied Stripe Checkout Session ID does not "
                                         "correspond to the one saved in the current session")
                                 [:p "For assistance, send an email to "
-                                 [:a {:href (str "mailto:" support-email-address)}
-                                  support-email-address]]]]
+                                 [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                  (get-config :support-email-address)]]]]
                     :user-status (user-status user cart)}))
     ;; Otherwise check to see if the purchase is marked as paid:
     (let [paid (->> data/purchases-db
@@ -1509,10 +1557,13 @@
                     :payment-completed)]
       ;; If it is, then empty the user's shopping cart and display a "Thanks" message:
       (if (= (string/lower-case paid) "true")
-        (assoc (redirect "/cart/?thanks=true")
-               :session (-> session
-                            (dissoc :cart)
-                            (dissoc :stripe-checkout-session-id)))
+        (do
+          ;; Notify the operations team that the purchase has been completed:
+          (send-purchase-completed-email user cart)
+          (assoc (redirect "/cart/?thanks=true")
+                 :session (-> session
+                              (dissoc :cart)
+                              (dissoc :stripe-checkout-session-id))))
         ;; Otherwise redirect the browser to an error page:
         (do
           (log/warn "In endpoint complete-purchase/, the purchase with id"
@@ -1525,17 +1576,15 @@
                                             "Checkout Session ID has not been marked as paid in "
                                             "the Clovertone database")
                                     [:p "For assistance, send an email to "
-                                     [:a {:href (str "mailto:" support-email-address)}
-                                      support-email-address]]]]
+                                     [:a {:href (str "mailto:" (get-config :support-email-address))}
+                                      (get-config :support-email-address)]]]]
                         :user-status (user-status user cart)}))))))
 
 (defn get-stripe-keys
   "Returns a map containing the publishable and secret key to use when communicating with the
   Stripe API"
   []
-  (-> config
-      :stripe-api-keys
-      (get (keyword env))))
+  (get-config :stripe-api-keys))
 
 (defn create-stripe-checkout-payment-session
   "Given a shopping cart and information about the taxes applicable to the items in it, generate a
@@ -1570,9 +1619,9 @@
                                     {:payment_method_types ["card"]
                                      :mode "payment"
                                      :line_items line-items
-                                     :success_url (str (get-url-for-env)
+                                     :success_url (str (get-server-base-url)
                                                        "/complete-purchase/{CHECKOUT_SESSION_ID}")
-                                     :cancel_url (str (get-url-for-env)
+                                     :cancel_url (str (get-server-base-url)
                                                       "/cart/")})})]
     (if-not (= (:status @response) 200)
       nil
@@ -1586,19 +1635,22 @@
   given stripe checkout session id as paid."
   [{{{{id "id" :as object} "object" :as data} "data" :as body} :body :as request}]
   ;; Mark the purchase corresponding to the checkout session id as paid:
-  (data/mark-as-paid! id)
+  (data/mark-as-paid! id nil)
   ;; Return an empty page. The default page-status returned by render-html is 200. That is all
   ;; that needs to be in the response
   (render-html {}))
 
 (defn post-buy-cart
   "Process the user's request to purchase the items in her cart."
-  [{user :user,
+  [{{email :email, :as user} :user,
     {cart :cart, :as session} :session,
     {subtotal :subtotal, taxrate :taxrate, taxname :taxname, taxes :taxes, total :total,
      watermark :watermark, :as params} :params,
     :as request}]
-  (let [stripe-checkout-session-id (create-stripe-checkout-payment-session taxes taxname taxrate cart)
+  (let [site-admin? (->> :site-admins (get-config) (some #(= % email)))
+        stripe-checkout-session-id (when-not site-admin?
+                                     (create-stripe-checkout-payment-session
+                                      taxes taxname taxrate cart))
         detailed-cart (get-cart-details cart)
         subtotal (calculate-subtotal detailed-cart)
         tax (calculate-tax user subtotal)
@@ -1607,14 +1659,23 @@
         taxrate (:rate tax)
         total (+ subtotal taxamount)
         watermark (generate-watermark user)]
-    (if (or (empty? stripe-checkout-session-id) (nil? stripe-checkout-session-id))
+    (cond
+      site-admin?
+      (redirect "/buy-cart-for-user/")
+
+      (or (empty? stripe-checkout-session-id) (nil? stripe-checkout-session-id))
       (redirect "/stripe-checkout-error")
+
+      :else
       (do
         ;; Create a purchase in the database. Note that it will actually be marked as having been
         ;; paid until the user completes the payment on Stripe's web pages and the webhook indicating
         ;; the successful payment has been sent back to us.
         (data/create-purchase! (:userid user) cart subtotal taxrate taxname taxamount total
                                watermark stripe-checkout-session-id)
+        ;; Notify the operations team that a purchase has been initiated:
+        (send-purchase-started-email user cart)
+        ;; Render the page that redirects the browser to Stripe:
         (assoc
          (render-html {:title "Payment Processing - Clovertone Music"
                        :user-status (user-status user cart)
@@ -1631,6 +1692,75 @@
          ;; Add the stripe-checkout-session-id to the browser session:
          :session (assoc session :stripe-checkout-session-id stripe-checkout-session-id))))))
 
+(defn buy-cart-for-user
+  "Render the page for a proxy purchase on behalf of a user by an administrator."
+  [{{email :email, :as actual-user} :user,
+    {purchaser-email :purchaser-email,
+     purchase-confirmed :purchase-confirmed} :params,
+    {cart :cart, :as session} :session,
+    :as request}]
+  (let [site-admin? (->> :site-admins (get-config) (some #(= % email)))
+        purchaser-email (when-not (empty? purchaser-email) (string/trim purchaser-email))
+        purchasing-user (->> @data/users-db (filter #(= (:email %) purchaser-email)) (first))
+        detailed-cart (when purchasing-user (get-cart-details cart))
+        subtotal (when purchasing-user (calculate-subtotal detailed-cart))
+        tax (when purchasing-user (calculate-tax purchasing-user subtotal))
+        taxamount (when purchasing-user (:amount tax))
+        taxname (when purchasing-user (:name tax))
+        taxrate (when purchasing-user (:rate tax))
+        total (when purchasing-user (+ subtotal taxamount))
+        watermark (when purchasing-user (generate-watermark purchasing-user))]
+    (cond
+      (not site-admin?)
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :page-status 401
+                    :contents [:div.window [:h2 "You are not authorized to view this page"]]})
+
+      (not purchasing-user)
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :contents [:div.window
+                               [:br]
+                               [:form {:style "text-align:center" :action "/buy-cart-for-user/"
+                                       :method "get"}
+                                [:div
+                                 [:label {:for "purchaser-email"}
+                                  "Enter the email address of the user that you would like to "
+                                  "fulfil this purchase for:"]]
+                                [:div
+                                 [:input {:id "purchaser-email" :name "purchaser-email" :type "text"
+                                            ;; Use the previous commit message as the default value:
+                                          :onClick "this.select();" :value purchaser-email
+                                          :onkeydown (js-suppress-enter)}]
+                                 [:input {:type "submit" :value "Submit"}]]
+                                  ;; If the purchaser-email is present but there is no purchasing-user, then it
+                                  ;; is because the given purchaser-email doesn't exist in the db:
+                                (when-not (empty? purchaser-email)
+                                  [:div [:p.error "Email address not found"]])]
+                               [:br]]})
+
+      purchase-confirmed
+      (let [pruned-cart (-> (data/remove-already-owned-charts-from-cart purchasing-user session) :cart)
+            purchaseid (data/create-purchase! (:userid purchasing-user) pruned-cart subtotal taxrate
+                                              taxname taxamount total watermark nil)]
+        (data/mark-as-paid! nil purchaseid)
+        (assoc (redirect (str "/cart/?thanks=true&purchaseid=" purchaseid))
+               :session (-> session
+                            (dissoc :cart)
+                            (dissoc :stripe-checkout-session-id))))
+
+      :else
+      (render-html {:title "Shopping Cart (site administrator) - Clovertone Music"
+                    :user-status (user-status actual-user cart)
+                    :contents [:div
+                               [:h2 (format "Manual purchase fulfilment form for %s (%s)"
+                                            (:name purchasing-user) (:email purchasing-user))]
+                               (if-not (empty? cart)
+                                 (render-shopping-cart-div actual-user purchasing-user detailed-cart
+                                                           subtotal tax watermark)
+                                 [:p "Shopping cart is empty"])]}))))
+
 (defn render-purchase-receipt
   "Given a purchase id, and information about the browser session and (if the browser happens to be
   logged in) the user, render a purchase receipt with the details of the purchase."
@@ -1641,9 +1771,10 @@
         purchase-details (->> @data/purchases-details-db (filter #(= (:purchaseid %) purchaseid)))
         ;; Redefine the subtotal, total, and taxes as floating point numbers. They need to be in
         ;; this form so that we can apply the (format ...) function later:
-        subtotal (utils/parse-as-float subtotal)
-        taxes (utils/parse-as-float taxes)
-        total (utils/parse-as-float total)
+        subtotal (when subtotal (utils/parse-as-float subtotal))
+        taxes (when taxes (utils/parse-as-float taxes))
+        total (when total (utils/parse-as-float total))
+        taxrate (utils/parse-as-percentage taxrate)
         ;; Given the name of a chart, find its filename in the catalogue:
         get-filename (fn [chart-name]
                        (->> data/catalogue
@@ -1651,44 +1782,44 @@
                             (filter #(= (:chart-name %) chart-name))
                             (first)
                             :filename))]
-
-    (render-html {:title "Your Purchase - Clovertone Music"
-                  :user-status (user-status user cart)
-                  :contents [:div.window
-                             [:div
-                              [:h2 "Your purchase on " date]
-                              [:p "Customer: " user_name " (" user_email ")"]
-                              [:div#shopping_cart
-                               [:table
-                                [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
-                                (for [{:keys [chart composer grade price] :as purchase-details}
-                                      purchase-details]
-                                  [:tr
-                                   [:td {:data-label "Chart"} chart]
-                                   [:td {:data-label "Composer"} composer]
-                                   [:td {:data-label "Grade"} grade]
-                                   [:td {:data-label "Price"} price]
-                                   [:td.download
-                                    [:a.download
-                                     {:href (str "/purchases/" purchaseid "/"
-                                                 (get-filename chart) ".score.pdf")} "Score"]
-                                    [:a.download
-                                     {:href (str "/purchases/" purchaseid "/"
-                                                 (get-filename chart) ".parts.pdf")} "Parts"]]])
-                                [:tr [:td] [:td] [:td] [:td [:hr]]]
-                                [:tr [:th] [:th] [:th "Subtotal"]
-                                 [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+    (when (and purchase-summary purchase-details)
+      (render-html {:title "Your Purchase - Clovertone Music"
+                    :user-status (user-status user cart)
+                    :contents [:div.window
+                               [:div
+                                [:h2 "Your purchase on " date]
+                                [:p "Customer: " user_name " (" user_email ")"]
+                                [:div#shopping_cart
+                                 [:table
+                                  [:tr [:th "Chart"] [:th "Composer"] [:th "Grade"] [:th "Price"]]
+                                  (for [{:keys [chart composer grade price] :as purchase-details}
+                                        purchase-details]
+                                    [:tr
+                                     [:td {:data-label "Chart"} chart]
+                                     [:td {:data-label "Composer"} composer]
+                                     [:td {:data-label "Grade"} grade]
+                                     [:td {:data-label "Price"} price]
+                                     [:td.download
+                                      [:a.download
+                                       {:href (str "/purchases/" purchaseid "/"
+                                                   (get-filename chart) ".score.pdf")} "Score"]
+                                      [:a.download
+                                       {:href (str "/purchases/" purchaseid "/"
+                                                   (get-filename chart) ".parts.pdf")} "Parts"]]])
+                                  [:tr [:td] [:td] [:td] [:td [:hr]]]
+                                  [:tr [:th] [:th] [:th "Subtotal"]
+                                   [:td {:data-label "Subtotal"} (format "$%.2f" subtotal)]]
+                                  [:div
+                                   [:span
+                                    [:tr [:th] [:th] [:th (str taxname " (" taxrate ")")]
+                                     [:td {:data-label (str taxname " (" taxrate ")")}
+                                      (format "$%.2f" taxes)]]
+                                    [:tr [:th] [:th] [:th "Total"]
+                                     [:td {:data-label "Total"}
+                                      (format "$%.2f" (+ taxes subtotal))]]]]]]
                                 [:div
-                                 [:span
-                                  [:tr [:th] [:th] [:th (str taxname "(" taxrate ")")]
-                                   [:td {:data-label (str taxname "(" taxrate ")")}
-                                    (format "$%.2f" taxes)]]
-                                  [:tr [:th] [:th] [:th "Total"]
-                                   [:td {:data-label "Total"}
-                                    (format "$%.2f" (+ taxes subtotal))]]]]]]
-                              [:div
-                               [:p]
-                               [:p [:b watermark]]]]]})))
+                                 [:p]
+                                 [:p [:b watermark]]]]]}))))
 
 (defn render-purchase-file
   "Render the requested purchase file (a non-HTML resource) if it exists."
