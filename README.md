@@ -1,5 +1,7 @@
 # Configuration file
 
+We synchronize data to Google Drive using [`rclone`](https://rclone.org). `rclone` has to be set up in advance, before running the server. Authorization requires a browser, but `rclone` has a [remote setup](https://rclone.org/remote_setup/) system, so that the browser does not have to be running on the same machine as the server.
+
 The Clovertonemusic.com server requires the existence of a file called `config.edn` in the `data/` directory (relative to the server root directory). Here is an example file:
 
 
